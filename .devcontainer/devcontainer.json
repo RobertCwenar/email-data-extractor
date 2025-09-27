@@ -1,7 +1,7 @@
 {
   "name": "Project_Analysie",
   "image": "mcr.microsoft.com/devcontainers/python:3.11",
-  "postCreateCommand": "pip install pandas matplotlib numpy jupyter",
+  "postCreateCommand": "pip install -r requirements.txt",
   "customizations": {
     "vscode": {
       "extensions": [
