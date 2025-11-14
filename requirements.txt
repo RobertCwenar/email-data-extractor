@@ -21,7 +21,6 @@ pip
 pyparsing
 python-dateutil
 pytz
-pywin32
 requests
 setuptools
 six
