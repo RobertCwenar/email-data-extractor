@@ -35,7 +35,7 @@ def create_results(group):
     mask_ral = group["Opis"].astype(str).str.contains("Special Painting", na=False)
     RalKod = group.loc[mask_ral, "KOLOR RAL"].iloc[0] if mask_ral.any() else ""
     
-    results = f"{Nr }+T{IdentNum}+{ral}" 
+    results = f"{"Nr Zamówienia"}+T{IdentNum}+{ral}" 
     return results
 
 df["P"] = df.groupby("Nr zamówienia").apply(create_results).reindex(df.index)
