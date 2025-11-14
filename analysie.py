@@ -26,8 +26,8 @@ def create_results(group):
     bucketNum = group.loc[group["D"].str.contains("BUCKET|GP", na=False), "EdgeNum"].iloc[0]
     ral = group["Ral"].iloc[0]
     
-    wynik = f"{nrZam}+T{identNum}+{ral}"  # tu dodajesz logikę dokładnie jak w VBA
-    return wynik
+    results = f"{nrZam}+T{identNum}+{ral}"  # tu dodajesz logikę dokładnie jak w VBA
+    return results
 
 df["P"] = df.groupby("A").apply(create_results).reindex(df.index)
 
