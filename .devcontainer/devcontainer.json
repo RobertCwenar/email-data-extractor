@@ -9,7 +9,7 @@
         "ms-toolsai.jupyter"
       ], 
       "settings": {
-        "python.defaultInterpreterPath": ".venv/bin/python"
+          "python.defaultInterpreterPath": "/workspaces/Project_Analysie/.venv/bin/python"
       }
     }
   }
