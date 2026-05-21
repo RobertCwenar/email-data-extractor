@@ -342,7 +342,9 @@ for job in clean_jobs:
 
 # Usunięcie duplikatów po tytule
 #clean_jobs_filtered = list({j["title"]: j for j in clean_jobs_filtered}.values())
-# Tworzymy DataFrame z nowych ofert
+
+
+# Create new dataframe with new offerts
 new_df = pd.DataFrame(clean_jobs_filtered)
 
 path = "new_offerts.xlsx"
