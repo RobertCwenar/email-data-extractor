@@ -33,13 +33,11 @@ data = []
 def get_html(msg):
     if msg.is_multipart():
         for part in msg.walk():
-            content_type = part.get_content_type()
-            content_disposition = str(part.get("Content-Disposition"))
-            if content_type == "text/html" and "attachment" not in content_disposition:
-                return part.get_payload(decode=True)
+            if part.get_content_type() == "text/html":
+                return part.get_payload(decode=True).decode(errors="ignore")
     else:
         if msg.get_content_type() == "text/html":
-            return msg.get_payload(decode=True)
+            return msg.get_payload(decode=True).decode(errors="ignore")
     return None
 
 def clean_text(block):
