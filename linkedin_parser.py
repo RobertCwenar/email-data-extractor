@@ -10,7 +10,9 @@ from dotenv import load_dotenv
 import re
 import email.utils
 
-load_dotenv
+
+#Load environment variables from .env file
+load_dotenv()
 
 #Login to wp.pl
 mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
@@ -20,7 +22,7 @@ print("Logging in: ", bool (login_email))
 print("Password loaded:", bool(my_password))
 
 mail.login(login_email, my_password)
-mail.select("inbox") # Change to the desired mailbox (e.g., "inbox")!!!!
+mail.select("Link") # Change to the desired mailbox (e.g., "inbox")!!!!
 status, messages = mail.search(None, "ALL")
 mail_ids = messages[0].split()
 
@@ -310,7 +312,7 @@ for job in clean_jobs:
     if is_valid_job(job):
         clean_jobs_filtered.append(job)
 
-
+# Add new jobs offerts to excel file
 new_df = pd.DataFrame(clean_jobs_filtered)
 
 path = "new_offerts.xlsx"
@@ -321,7 +323,7 @@ if not new_df.empty:
     # Date as string to avoid any weird issues with Excel and sorting
     new_df['date'] = new_df['date'].astype(str)
     
-   if os.path.exists(path):
+if os.path.exists(path):
         try:
             old_df = pd.read_excel(path, sheet_name=sheet_name)
             old_df['date'] = old_df['date'].astype(str)
