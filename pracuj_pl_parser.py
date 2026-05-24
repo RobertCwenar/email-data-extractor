@@ -37,6 +37,8 @@ print("Ilosc maili:", len(mail_ids))
 jobs = []
 
 def get_html(msg):
+    if msg is None:
+        return None
     if msg.is_multipart():
         for part in msg.walk():
             if part.get_content_type() == "text/html":
@@ -85,6 +87,9 @@ bad_titles = [
 ]
 
 def looks_like_job(title):
+    if not title or not isinstance(title, str):
+        return False
+
     title = title.lower()
 
     keywords = [
@@ -114,8 +119,7 @@ def looks_like_job(title):
         "biurowy", 
         "fakturowania", 
         "spedytor", 
-        "menedżer", 
-        "manager", 
+        "menedżer",  
         "logist", 
         "supply"
     ]
@@ -228,8 +232,12 @@ else:
 for i in mail_ids:
     print("Przetwarzam mail: ", i)
     status, msg_data = mail.fetch(i, "(RFC822)")
-    raw_email = msg_data[0][1]
-    msg = email.message_from_bytes(raw_email)
+    if status == 'OK' and msg_data and isinstance(msg_data[0], tuple) and len(msg_data[0]) > 1:
+        raw_email = msg_data[0][1]
+        if not isinstance(raw_email, bytes):
+            print(f"Nie można przetworzyć maila {i}: nie jest typu bytes.")
+            continue
+        msg = email.message_from_bytes(raw_email)
     # Take date from email header and convert it to datetime object, then format it as "dd.mm.yyyy"
     date_str = msg.get("Date")
     if date_str:
