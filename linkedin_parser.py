@@ -9,7 +9,7 @@ import os
 from dotenv import load_dotenv
 import re
 import email.utils
-
+from openpyxl import load_workbook
 
 #Load environment variables from .env file
 load_dotenv()
@@ -313,23 +313,28 @@ for job in clean_jobs:
         clean_jobs_filtered.append(job)
 
 # Add new jobs offerts to excel file
+
+file_path = "new_offerts.xlsx"
+sheet_name = "LinkeIn"
+
 new_df = pd.DataFrame(clean_jobs_filtered)
 
-path = "new_offerts.xlsx"
+#path = load_workbook("new_offerts.xlsx")
 
-sheet_name = "LinkeIn"
+#path.create_sheet = ("LinkeIn")
+
 
 if not new_df.empty:
     # Date as string to avoid any weird issues with Excel and sorting
     new_df['date'] = new_df['date'].astype(str)
     
-if os.path.exists(path):
+if os.path.exists(file_path):
         try:
-            old_df = pd.read_excel(path, sheet_name=sheet_name)
+            old_df = pd.read_excel(file_path, sheet_name=sheet_name)
             old_df['date'] = old_df['date'].astype(str)
-        except ValueError:
-            df_final = new_df
-        else:
+       
+            df_final = df_final = pd.concat([old_df, new_df], ignore_index= True)
+        except ValueError:    
             df_final = new_df
   
 
