@@ -313,14 +313,14 @@ for job in clean_jobs:
     if is_valid_job(job):
         clean_jobs_filtered.append(job)
 
-# Add new jobs offerts to excel file
+# Add new jobs offers to excel file
 
-file_path = "new_offerts.xlsx"
+file_path = "new_offers.xlsx"
 sheet_name = "LinkeIn"
 
 new_df = pd.DataFrame(clean_jobs_filtered)
 
-#path = load_workbook("new_offerts.xlsx")
+#path = load_workbook("new_offers.xlsx")
 
 #path.create_sheet = ("LinkeIn")
 
