@@ -29,7 +29,7 @@ status, messages = mail.search(None, "ALL")
 mail_ids = messages[0].split()
 
 
-print("Ilosc maili:", len(mail_ids))
+print("Number of emails:", len(mail_ids))
 
 
 # load data
@@ -224,9 +224,9 @@ status, response = mail.search(None, 'ALL')
 mail_ids = response[0].split()
 
 if not mail_ids:
-        print("Brak nowych ofert w mailu.")
+        print("No new job offers found.")
 else:
-        print(f"Znaleziono {len(mail_ids)} nowych maili.")
+        print(f"Found {len(mail_ids)} new emails.")
 
 # Main processing loop
 for i in mail_ids:
@@ -352,10 +352,10 @@ for job in clean_jobs:
 #clean_jobs_filtered = list({j["title"]: j for j in clean_jobs_filtered}.values())
 
 
-# Create new dataframe with new offerts
+# Create new dataframe with new offers
 new_df = pd.DataFrame(clean_jobs_filtered)
 
-path = "new_offerts.xlsx"
+path = "new_offers.xlsx"
 
 if not new_df.empty:
     # Date as string to avoid any weird issues with Excel and sorting
@@ -377,9 +377,9 @@ if not new_df.empty:
     df_final.to_excel(path, index=False)
     print(f"Saved! Check file {path}")
 else:
-    print("Pusta lista nowych ofert.")
+    print("Empty list of new job offers.")
 
-print("\nZakończono pomyślnie!")
+print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
 print("TOTAL JOBS found:", len(clean_jobs))
 print("FILTERED JOBS:", len(clean_jobs_filtered))
