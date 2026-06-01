@@ -1,5 +1,6 @@
 # Library
 
+from hashlib import new
 import imaplib
 from bs4 import BeautifulSoup
 from email import message_from_bytes
@@ -325,17 +326,34 @@ new_df = pd.DataFrame(clean_jobs_filtered)
 
 
 if not new_df.empty:
-    # Date as string to avoid any weird issues with Excel and sorting
+    # Convert date to string
     new_df['date'] = new_df['date'].astype(str)
     
-if os.path.exists(file_path):
+    # 2. If file exists, try to merge it
+    if os.path.exists(file_path):
         try:
-            old_df = pd.read_excel(file_path, sheet_name=sheet_name)
-            old_df['date'] = old_df['date'].astype(str)
-       
-            df_final = df_final = pd.concat([old_df, new_df], ignore_index= True)
-        except ValueError:    
-            df_final = new_df
+            # Use ExcelWriter to avoid erasing other sheets in the file
+            with pd.ExcelWriter(file_path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
+                try:
+                    old_df = pd.read_excel(file_path, sheet_name=sheet_name)
+                    old_df['date'] = old_df['date'].astype(str)
+                    df_final = pd.concat([old_df, new_df], ignore_index=True)
+                except ValueError:    
+                    # Sheet didn't exist inside the file, so final data is just the new data
+                    df_final = new_df
+                
+                # Save the merged data back to the sheet
+                df_final.to_excel(writer, sheet_name=sheet_name, index=False)
+                print("Merged new job offers with existing data.")
+        except Exception as e:
+            print("Error occurred while processing Excel file:", e)
+    else:
+        # 3. If file doesn't exist at all, create it fresh
+        new_df.to_excel(file_path, sheet_name=sheet_name, index=False)
+        print("Created new Excel file and saved jobs.")
+        
+else:
+    print("No new job offers found in the emails.")
   
 
 print("\nZakończono pomyślnie!")
