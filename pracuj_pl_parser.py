@@ -228,21 +228,41 @@ if not mail_ids:
 else:
         print(f"Found {len(mail_ids)} new emails.")
 
+Cache_file = "processed_mails.txt"
+if os .path.exists(Cache_file):
+    with open(Cache_file, "r") as f:
+        processed_ids = set(line.strip() for line in f)
+else:
+    processed_ids = set()
+
+
+
 # Main processing loop
+
 for i in mail_ids:
-    print("Przetwarzam mail: ", i)
+    mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
+
+    if mail_id_str in processed_ids:
+        continue
+    print("Processing mail: ", mail_id_str)
     status, msg_data = mail.fetch(i, "(RFC822)")
     if status == 'OK' and msg_data and isinstance(msg_data[0], tuple) and len(msg_data[0]) > 1:
         raw_email = msg_data[0][1]
         if not isinstance(raw_email, bytes):
-            print(f"Nie można przetworzyć maila {i}: nie jest typu bytes.")
+            print(f"Cannot process mail {mail_id_str}: not bytes.")
             continue
         msg = email.message_from_bytes(raw_email)
-    # Take date from email header and convert it to datetime object, then format it as "dd.mm.yyyy"
+    
+    current_date = "Brak daty" 
     date_str = msg.get("Date")
     if date_str:
-        parsed_date = email.utils.parsedate_to_datetime(date_str)
-        current_date = parsed_date.strftime("%d.%m.%Y")
+        try:
+            parsed_date = email.utils.parsedate_to_datetime(date_str)
+            current_date = parsed_date.strftime("%d.%m.%Y")
+        except Exception as e:
+            print(f"Error parsing date for mail {mail_id_str}: {e}")
+            current_date = "Nieznana data"
+
    
     print(f"Data maila: {current_date}")
 
@@ -255,6 +275,9 @@ for i in mail_ids:
 
     current_job = None
 
+    with open(Cache_file, "a") as f:
+        f.write(mail_id_str + "\n")
+    processed_ids.add(mail_id_str)
 
     for line in lines:
         line = line.strip()
