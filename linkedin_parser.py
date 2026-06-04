@@ -316,7 +316,7 @@ for job in clean_jobs:
 # Add new jobs offers to excel file
 
 file_path = "new_offers.xlsx"
-sheet_name = "LinkeIn"
+sheet_name = "LinkedIn"
 
 new_df = pd.DataFrame(clean_jobs_filtered)
 
