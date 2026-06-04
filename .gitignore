@@ -6,3 +6,4 @@ __pycache__/
 venv/
 *.xlsx
 processed_mails.txt
+processed_linkedin_mails.txt
