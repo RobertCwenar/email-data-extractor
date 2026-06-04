@@ -212,18 +212,39 @@ if not mail_ids:
 else:
         print(f"Znaleziono {len(mail_ids)} nowych maili.")
 
+Cache_file_path = "processed_linkedin_mails.txt"
+if os.path.exists(Cache_file_path):
+    with open(Cache_file_path, "r") as f:
+        processed_mail_ids = set(line.strip() for line in f)
+else:
+    processed_mail_ids = set()
+
 # Main processing loop
+
 for i in mail_ids:
-    print("Przetwarzam mail: ", i)
+    mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
+
+    if mail_id_str in processed_mail_ids:
+        continue
+    print(f"Processing mail ID: {mail_id_str}")
     status, msg_data = mail.fetch(i, "(RFC822)")
-    raw_email = msg_data[0][1]
-    msg = email.message_from_bytes(raw_email)
-    # Take date from email header and convert it to datetime object, then format it as "dd.mm.yyyy"
+    if status == 'OK' and msg_data and isinstance(msg_data[0], tuple) and len(msg_data[0]) > 1:
+        raw_email = msg_data[0][1]
+        if not isinstance(raw_email, bytes):
+            print(f"Cannot process mail {mail_id_str}: not bytes.")
+            continue
+        msg = email.message_from_bytes(raw_email)
+
+    current_date = "None date"
     date_str = msg.get("Date")
     if date_str:
-        parsed_date = email.utils.parsedate_to_datetime(date_str)
-        current_date = parsed_date.strftime("%d.%m.%Y")
-   
+        try:
+            parsed_date = email.utils.parsedate_to_datetime(date_str)
+            current_date = parsed_date.strftime("%d-%m-%Y")
+        except Exception as e:
+            print(f"Error parsing date for mail {mail_id_str}: {e}")
+            current_date = date_str
+
     print(f"Data maila: {current_date}")
 
     html = get_html(msg)
@@ -356,7 +377,7 @@ else:
     print("No new job offers found in the emails.")
   
 
-print("\nZakończono pomyślnie!")
+print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
 print("TOTAL JOBS found:", len(clean_jobs))
 print("FILTERED JOBS:", len(clean_jobs_filtered))
