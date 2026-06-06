@@ -1,10 +1,8 @@
 # Library
 
-from hashlib import new
 import imaplib
 from bs4 import BeautifulSoup
 from email import message_from_bytes
-import email 
 import pandas as pd
 import os
 from dotenv import load_dotenv
@@ -43,43 +41,132 @@ def get_html(msg):
             return msg.get_payload(decode=True).decode(errors="ignore")
     return None
 
-def clean_text(block):
-    cleaned= []
+def process_linkedin_block(block, current_date):
+    full_text = " ".join([line.strip() for line in block.split("\n") if line.strip()])
 
-    for line in block:
-        l = line.lower()
+    split_pattern = r'(\d+\s+absolwentów\s+uczelni|\d+\s+absolwent\s+uczelni|Aktywnie\s+rekrutuje)'
+    pieces = re.split(split_pattern, full_text)
 
-        if l in ["!", "nowość!", "nowość", "hit!", "śpiesz się!"]:
+    current_offer = ""
+
+    for piece in pieces:
+        piece = piece.strip()
+        if not piece:
             continue
 
-        if "z " in l and "." in l:
-            continue
+        # Check if the piece matches the split pattern, which indicates the end of a job offer block
+        if re.match(split_pattern, piece):
+            if "·" in current_offer:
+                parts = current_offer.split("·")
+                location = parts[-1].strip() if len(parts) > 1 else ""
+                pos_and_company = parts[0].strip()
+                # Clean up the position and company string
+                pos_and_company = pos_and_company.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
+                pos_and_company = re.sub(r'[\u200b\u200c\u200d\u2060\ufeff\xa0\u034f]+', ' ', pos_and_company)
+                pos_and_company = re.sub(r'\s*Lokalizacja:\s*[^A-Z]*', ' ', pos_and_company).strip()
+                
+                pos_and_company = re.sub(r'\s*Najlepsze oferty pracy dla Ciebie\s*', ' ', pos_and_company).strip()
+                pos_and_company = re.sub(r'\s*Aplikuj\s+', ' ', pos_and_company, flags=re.IGNORECASE).strip()
+                pos_and_company = re.sub(r'([a-z])([A-Z])', r'\1 \2', pos_and_company)
+                pos_and_company = re.sub(r'\s+', ' ', pos_and_company).strip()
 
-        cleaned.append(line)
+                pos_lower = pos_and_company.lower()
 
-    return cleaned
+                keywords = ["młodszy",
+                            "młodsza",
+                            "junior",
+                            "intern",
+                            "stażysta",
+                            "analityk",
+                            "analityczka",
+                            "analyst",
+                            "data",
+                            "specjalista",
+                            "specjalistka",
+                            "developer",
+                            "engineer"]
+                
+ 
+                first_match_idx = -1
+                for kw in keywords:
+                    idx = pos_lower.find(kw)
+                    if idx != -1:
+                        if first_match_idx == -1 or idx < first_match_idx:
+                            first_match_idx = idx
 
-skip = skip = [
-    "logo", "więcej", "ciepłe", "najlepiej dopasowana", 
-    "nowość", "hit", "śpiesz się",
-    "krajowego rejestru", "krs", "nip", "regon", 
-    "kapitału zakładowego", "wpłacony w całości", "ul. prosta", 
-    "wyprzedź innych kandydatów", "Zobacz oferty, które mogły Ci umknąć", "bądź na bieżąco z nowymi ofertami pracy", 
-    "zobacz wszystkie oferty pracy", 
-    "zobacz wszystkie oferty", "zobacz więcej ofert", "zobacz więcej", "zobacz inne oferty", "zobacz inne", 
-    "zobacz podobne oferty", "zobacz podobne", "sprawdź inne oferty", 
-    "sprawdź inne", 
-    "sprawdź podobne oferty", 
-    "sprawdź podobne",
-]
+                if first_match_idx != -1:
+                    pos_and_company = pos_and_company[first_match_idx:].strip()
 
-bad_titles = [
-    "najlepiej dopasowana",
-    "nowość",
-    "hit",
-]
+                # Extract title and company from the position and company string
+                if any(s in pos_and_company.lower() for s in skip):
+                    current_offer = ""
+                    continue 
+                title = pos_and_company
+                company = "None"
+                found_companies = False
 
-def looks_like_job_offer(title):
+                known_companies = [
+                    "Santander Consumer Bank", "NG Engineering Group", "NG Engineering", "KPMG", "Deloitte", "EY Polska", "EY", "PwC Polska", "PwC",
+                    "Poczta Polska", "Alior Leasing", "Erste Bank Polska", "Erste Bank", "Elenger", "In Post", "In Post", "Inpost", "LPP", "Grupa LPP", "Grupa Żywiec", "Żywiec Group", "Żywiec",
+                    "SGS GBS Europe", "TIAS Accounting and Legal", "Wrocławski Park Technologiczny", "Polkomtel", "Polkomtel Sp. z o.o.", "Polkomtel S.A.", "Polkomtel Group", "Polkomtel IT", "Polkomtel Sp. z o.o.", "Polkomtel S.A.", "Polkomtel Group", "Polkomtel IT",
+                    "Wyższa Szkoła Kształcenia Zawodowego", "Olympus Corporation", "Olympus Polska", "Olympus", "Grupa Żywiec", "Żywiec Group", "Żywiec", "ZF Group", "ZF", "Grupa Żywiec", "Żywiec Group", "Żywiec", "Grupa Żywiec", "Żywiec Group", "Żywiec", "Hineken"
+                ]
+
+                found_companies = False
+                for kc in known_companies:
+                    if kc.lower() in pos_and_company.lower():
+                        start_idx = pos_and_company.lower().find(kc.lower())
+                        title = pos_and_company[:start_idx].strip()
+                        company = kc
+                        found_companies = True
+                        break
+                
+                if not found_companies:
+                    legal_match = re.search(r'\b([^,.]+?)\s*(?:Sp\s*z\s*o\s*\.\s*o\s*|S\s*\.?\s*A\s*\.?|Group|Group\s+IT)\b', pos_and_company, flags=re.IGNORECASE)
+                    if legal_match:
+                        full_company_match = legal_match.group(0)
+                        start_idx = pos_and_company.find(full_company_match)
+                        if start_idx != -1:
+                            title = pos_and_company[:start_idx].strip()
+                        company = full_company_match
+                        found_companies = True
+
+                if not found_companies and " " in pos_and_company:
+                    title = pos_and_company.rsplit(" ", 1)[0].strip()
+                    company = pos_and_company.rsplit(" ", 1)[1].strip()
+
+                data.append({
+                    "date": current_date,
+                    "title": title,
+                    "company": company,
+                    "location": location,
+                    "salary": None,
+                })
+                    
+            current_offer = ""
+            
+        else:
+            current_offer = piece
+
+# Define functions to analyze job offers and companies
+bad_titles = ["Zobacz oferty", 
+              "absolwentów uczelni",
+                "absolwent uczelni",
+                "aktywnie rekrutuje",
+                "zobacz oferty",
+                "zobacz więcej",
+                "zobacz wszystkie"]
+
+skip = ["zobacz oferty",
+        "absolwentów uczelni",
+        "absolwent uczelni",
+        "aktywnie rekrutuje",
+        "zobacz więcej",
+        "zobacz wszystkie",
+        "właścicielem marki"]
+
+# Define functions to analyze job offers and companies
+def looks_like_job(title):
     title = title.lower()
 
     words = [
@@ -114,8 +201,6 @@ def looks_like_job_offer(title):
         "s.a.", 
         "sa ", 
         " sp. z", 
-        "bank", 
-        "polska"
     ]
 
     if any (w in title for w in words):
@@ -123,94 +208,11 @@ def looks_like_job_offer(title):
                 return True
     return False
 
-def job_trigger (line):
-    words = [
-    "analityk",
-    "analyst",
-    "specjalista",
-    "specjalistka",
-    "developer",
-    "engineer",
-    "konsultant",
-    "staż",
-    "intern",
-    "kontroler",
-    "finansowy",
-    "it",
-    "data",
-    "business"
-    ]
-    return any(k in line.lower() for k in words)
-
-def Companies(company):
-    known_companies = [
-        "recruitment",
-        "allegro",
-        "ing",
-        "pkobp",
-        "mbank",
-        "orange",
-        "play",
-        "deloitte",
-        "ey",
-        "pwc",
-        "qiagen wrocław",
-        "capgemini",
-        "ppg",
-        "euvic it",
-        "wrocławski park technologiczny",
-        "kaufland",
-        "adsystem",
-        "ppg global business services", 
-        "wyższa szkoła kształcenia zawodowego", 
-        "kpmg", 
-        "aurora logistics spółka z ograniczoną odpowiedzialnością", 
-        "qiagen",
-        "ey (dawniej ernst & young)", 
-        "upvanta spółka z ograniczoną odpowiedzialnością"
-    ]
-
-    company = company.lower().strip()
-
-    company = (
-        company.replace(" sp. z o.o.", "")
-        .replace(" sp. z o.o", "")
-        .replace(".", "")
-        .replace(",", "")
-        .replace("sa ", "sa")
-    )
-
-    company = re.sub(r'\s+', ' ', company)
-    company = re.sub(r'\s*-\s*', ' ', company)
-
-    return any( k_c in company for k_c in known_companies)
-
-
-def is_valid_job(job):
-    title = job["title"].lower()
-
-
-    if any(b in title for b in bad_titles):
-        return False
-
-    # It should be like a job title, not just a single word
-    if len(title.split()) < 2:
-        return False
-
-    # company not offering jobs
-    if "sp. z o.o" in title.lower():
-        return False
-
-    return True
-
-clean_jobs = []
-status, response = mail.search(None, 'ALL')
-mail_ids = response[0].split()
 
 if not mail_ids:
-        print("Brak nowych ofert w mailu.")
+        print("None new offers found.")
 else:
-        print(f"Znaleziono {len(mail_ids)} nowych maili.")
+        print(f"Found {len(mail_ids)} new emails.")
 
 Cache_file_path = "processed_linkedin_mails.txt"
 if os.path.exists(Cache_file_path):
@@ -240,117 +242,38 @@ for i in mail_ids:
     if date_str:
         try:
             parsed_date = email.utils.parsedate_to_datetime(date_str)
-            current_date = parsed_date.strftime("%d-%m-%Y")
+            current_date = parsed_date.strftime("%d.%m.%Y")
         except Exception as e:
             print(f"Error parsing date for mail {mail_id_str}: {e}")
             current_date = date_str
 
-    print(f"Data maila: {current_date}")
+    print(f"Mail date: {current_date}")
+
+
 
     html = get_html(msg)
     if not html:
         continue
 
-    text = BeautifulSoup(html, "html.parser").get_text("\n")
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
+    text = BeautifulSoup(html, "html.parser").get_text(separator="\n")
 
-    current_job = None
-
-
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-
-        l = line.lower()
-        if any(s in l for s in skip):
-            continue
-
-        if "nowe oferty" in l or "właścicielem marki" in l:
-            continue
-        
-    
-
-        # If the line looks like a job title, we start a new job entry
-        if looks_like_job_offer(line):
-            if current_job and current_job["title"]:
-                clean_jobs.append(current_job)
-
-            current_job = {
-                "title": line,
-                "company": None,
-                "location": None,
-                "salary": None,
-                "date": current_date
-            }
-            continue
-
-        if not current_job:
-            continue
-
-        # Filling in data for the currently found job
-        if "zł" in l or "mies. " in l:
-            current_job["salary"] = line
-            continue
-        found_city = None
-        for city in ["Wrocław", "Warszawa", "Kraków", "Pietrzykowice", "Wróblowice", "Kobierzyce", "Łódź", "Poznań", "Gdańsk", "Jelcz-Laskowice", "Oleśnica", "Magnice",
-                     "Krzyżanowice", "Trzebnica", "Oława", "Szczecin", "Bielany Wrocławskie", "Święte", "Długołęka", "Siechnice", "Opole", "Katowice", "Gliwice", "Rzeszów", "Brzeg Dolny"]:
-            if city in line:
-                found_city = city
-                break
-        
-        if found_city:
-            if any(corp in l for corp in ["sp. z o.o", " s.a", "sa ", "hays", "recruitment"]):
-                    parts = line.split(found_city)
-                    current_job["company"] = parts[0].strip(", ").strip()
-                    current_job["location"] = found_city + parts[1]
-            else:
-                    current_job["location"]= line
-            continue
-        
-        if current_job and current_job["company"] is None:
-            is_probably_company = any(e in l for e in ["s.a.", "sa.", "S.A.", "SA", "s a", "s-a", "sp. z o.o.", "sp z o.o", "sp z oo", "sp zoo", "sp. z oo", "sp z o. o.", 
-                                    "sp. z o. o", "sp. zoo", "sp zoo.", "spółka z o.o.", "spolka z o.o.", "sp. z o o", "bank", "Bank", "BANK", "bank.", "spółka akcyjna", "spółka z ograniczoną odpowiedzialnością"])
-            is_definitely_company = is_probably_company or Companies(line)
-            if is_definitely_company:
-                current_job["company"] = line
-            elif not found_city and "zł" not in l:
-                if len(current_job["title"]) < 20:
-                    current_job["title"] += " " + line
-                else:
-                    current_job["company"] = line
-            else:
-                pass
-
-    # Add the last job offer from the current email (if it existed)
-    if current_job:
-        clean_jobs.append(current_job)
-  
-
-
-clean_jobs_filtered = []
-
-for job in clean_jobs:
-    if is_valid_job(job):
-        clean_jobs_filtered.append(job)
+    process_linkedin_block(text, current_date)
+    with open(Cache_file_path, "a") as f:
+        f.write(mail_id_str + "\n")
+        processed_mail_ids.add(mail_id_str)
 
 # Add new jobs offers to excel file
 
 file_path = "new_offers.xlsx"
 sheet_name = "LinkedIn"
 
-new_df = pd.DataFrame(clean_jobs_filtered)
-
-#path = load_workbook("new_offers.xlsx")
-
-#path.create_sheet = ("LinkeIn")
-
+new_df = pd.DataFrame(data)
 
 if not new_df.empty:
     # Convert date to string
     new_df['date'] = new_df['date'].astype(str)
     
-    # 2. If file exists, try to merge it
+    # If file exists, try to merge it
     if os.path.exists(file_path):
         try:
             # Use ExcelWriter to avoid erasing other sheets in the file
@@ -375,9 +298,7 @@ if not new_df.empty:
         
 else:
     print("No new job offers found in the emails.")
-  
 
 print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
-print("TOTAL JOBS found:", len(clean_jobs))
-print("FILTERED JOBS:", len(clean_jobs_filtered))
+print("TOTAL JOBS found:", len(data))
