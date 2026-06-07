@@ -1,14 +1,19 @@
 # Library
-
+import asyncio
+from ollama import AsyncClient
 import imaplib
+import json
 from bs4 import BeautifulSoup
 from email import message_from_bytes
+import ollama
 import pandas as pd
 import os
 from dotenv import load_dotenv
 import re
 import email.utils
 from openpyxl import load_workbook
+import google.generativeai as genai
+import time
 
 #Load environment variables from .env file
 load_dotenv()
@@ -28,126 +33,89 @@ mail_ids = messages[0].split()
 print("Number of mails:", len(mail_ids))
 
 # Create empty list to store data
+Cache_file_path = "processed_linkedin_mails.txt"
+processed_mail_ids = set()
+data = [] 
+async_client = AsyncClient()
 
-data = []
-
-def get_html(msg):
+def get_html(msg): 
     if msg.is_multipart():
         for part in msg.walk():
+            # Looking for a part of email with html
             if part.get_content_type() == "text/html":
-                return part.get_payload(decode=True).decode(errors="ignore")
-    else:
-        if msg.get_content_type() == "text/html":
-            return msg.get_payload(decode=True).decode(errors="ignore")
-    return None
+                charset = part.get_content_charset() or 'utf-8'
+                return part.get_payload(decode=True).decode(charset, errors='ignore')
+    elif msg.get_content_type() == "text/html":
+        charset = msg.get_content_charset() or 'utf-8'
+        return msg.get_payload(decode=True).decode(charset, errors='ignore')
+    return ""
 
-def process_linkedin_block(block, current_date):
-    full_text = " ".join([line.strip() for line in block.split("\n") if line.strip()])
+def is_valid_offer(offer):
+    pos = offer.get('position', '').strip()
+    comp = offer.get('company', '').strip()
 
-    split_pattern = r'(\d+\s+absolwentów\s+uczelni|\d+\s+absolwent\s+uczelni|Aktywnie\s+rekrutuje)'
-    pieces = re.split(split_pattern, full_text)
+    
+    if len(pos) < 3 or len(comp) < 2 or pos.lower() == "null" or comp.lower() == "null":
+        return False
+    
+    # Rubbish
+    bad_markers = ["zobacz", "rekrutuje", "więcej", "wszystkie", "ofert"]
+    if any(marker in pos.lower() for marker in bad_markers):
+        return False
+    return True
 
-    current_offer = ""
+# Load API
+api_key = os.getenv("KEY_API")
+if api_key:
+    key_api= api_key.strip().replace(",", "")
+    genai.configure(api_key=key_api)
+else:
+    print("None")
 
-    for piece in pieces:
-        piece = piece.strip()
-        if not piece:
-            continue
+async def parse_all_offers_from_mail(text):
+    model = genai.GenerativeModel('models/gemini-3.5-flash')
+    
+    prompt = (
+    "Jesteś precyzyjnym systemem ekstrakcji danych. Przeanalizuj poniższy tekst i wyciągnij WSZYSTKIE oferty pracy.\n"
+        "Zwróć wynik jako czysty JSON w formacie listy obiektów: [{'position': '...', 'company': '...', 'location': '...'}, ...].\n"
+        "Jeśli w tekście jest 12 ofert, lista musi mieć 12 elementów. NIE dodawaj żadnego tekstu przed ani po JSON-ie.\n"
+        f"TEKST DO ANALIZY:\n{text}"
+    )
+    
+    response = model.generate_content(prompt)
 
-        # Check if the piece matches the split pattern, which indicates the end of a job offer block
-        if re.match(split_pattern, piece):
-            if "·" in current_offer:
-                parts = current_offer.split("·")
-                location = parts[-1].strip() if len(parts) > 1 else ""
-                pos_and_company = parts[0].strip()
-                # Clean up the position and company string
-                pos_and_company = pos_and_company.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ')
-                pos_and_company = re.sub(r'[\u200b\u200c\u200d\u2060\ufeff\xa0\u034f]+', ' ', pos_and_company)
-                pos_and_company = re.sub(r'\s*Lokalizacja:\s*[^A-Z]*', ' ', pos_and_company).strip()
-                
-                pos_and_company = re.sub(r'\s*Najlepsze oferty pracy dla Ciebie\s*', ' ', pos_and_company).strip()
-                pos_and_company = re.sub(r'\s*Aplikuj\s+', ' ', pos_and_company, flags=re.IGNORECASE).strip()
-                pos_and_company = re.sub(r'([a-z])([A-Z])', r'\1 \2', pos_and_company)
-                pos_and_company = re.sub(r'\s+', ' ', pos_and_company).strip()
+    # Clean response
+    cleaned = response.text.replace('```json', '').replace('```', '').strip()
+    try:
+        # Parse the response as a list
+        return json.loads(cleaned)
+    except Exception as e:
+        print(f"JSON parsing error: {e}")
+        return []
 
-                pos_lower = pos_and_company.lower()
-
-                keywords = ["młodszy",
-                            "młodsza",
-                            "junior",
-                            "intern",
-                            "stażysta",
-                            "analityk",
-                            "analityczka",
-                            "analyst",
-                            "data",
-                            "specjalista",
-                            "specjalistka",
-                            "developer",
-                            "engineer"]
-                
- 
-                first_match_idx = -1
-                for kw in keywords:
-                    idx = pos_lower.find(kw)
-                    if idx != -1:
-                        if first_match_idx == -1 or idx < first_match_idx:
-                            first_match_idx = idx
-
-                if first_match_idx != -1:
-                    pos_and_company = pos_and_company[first_match_idx:].strip()
-
-                # Extract title and company from the position and company string
-                if any(s in pos_and_company.lower() for s in skip):
-                    current_offer = ""
-                    continue 
-                title = pos_and_company
-                company = "None"
-                found_companies = False
-
-                known_companies = [
-                    "Santander Consumer Bank", "NG Engineering Group", "NG Engineering", "KPMG", "Deloitte", "EY Polska", "EY", "PwC Polska", "PwC",
-                    "Poczta Polska", "Alior Leasing", "Erste Bank Polska", "Erste Bank", "Elenger", "In Post", "In Post", "Inpost", "LPP", "Grupa LPP", "Grupa Żywiec", "Żywiec Group", "Żywiec",
-                    "SGS GBS Europe", "TIAS Accounting and Legal", "Wrocławski Park Technologiczny", "Polkomtel", "Polkomtel Sp. z o.o.", "Polkomtel S.A.", "Polkomtel Group", "Polkomtel IT", "Polkomtel Sp. z o.o.", "Polkomtel S.A.", "Polkomtel Group", "Polkomtel IT",
-                    "Wyższa Szkoła Kształcenia Zawodowego", "Olympus Corporation", "Olympus Polska", "Olympus", "Grupa Żywiec", "Żywiec Group", "Żywiec", "ZF Group", "ZF", "Grupa Żywiec", "Żywiec Group", "Żywiec", "Grupa Żywiec", "Żywiec Group", "Żywiec", "Hineken"
-                ]
-
-                found_companies = False
-                for kc in known_companies:
-                    if kc.lower() in pos_and_company.lower():
-                        start_idx = pos_and_company.lower().find(kc.lower())
-                        title = pos_and_company[:start_idx].strip()
-                        company = kc
-                        found_companies = True
-                        break
-                
-                if not found_companies:
-                    legal_match = re.search(r'\b([^,.]+?)\s*(?:Sp\s*z\s*o\s*\.\s*o\s*|S\s*\.?\s*A\s*\.?|Group|Group\s+IT)\b', pos_and_company, flags=re.IGNORECASE)
-                    if legal_match:
-                        full_company_match = legal_match.group(0)
-                        start_idx = pos_and_company.find(full_company_match)
-                        if start_idx != -1:
-                            title = pos_and_company[:start_idx].strip()
-                        company = full_company_match
-                        found_companies = True
-
-                if not found_companies and " " in pos_and_company:
-                    title = pos_and_company.rsplit(" ", 1)[0].strip()
-                    company = pos_and_company.rsplit(" ", 1)[1].strip()
-
-                data.append({
-                    "date": current_date,
-                    "title": title,
-                    "company": company,
-                    "location": location,
-                    "salary": None,
-                })
-                    
-            current_offer = ""
-            
+async def process_linkedin_block(text, current_date, data):
+    # text is already plain text (we cleaned it in main)
+    offers = await parse_all_offers_from_mail(text)
+    
+    count = 0
+    # Iterate once over each offer
+    for offer in offers:
+        is_valid = is_valid_offer(offer)
+        is_job = looks_like_job(offer.get('position', ''))
+        
+        if is_valid and is_job:
+            # Add the offer
+            data.append({
+                "date": current_date,
+                "title": offer.get('position', 'N/A'),
+                "company": offer.get('company', 'N/A'),
+                "location": offer.get('location', 'N/A')
+            })
+            count += 1
         else:
-            current_offer = piece
-
+            print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
+    
+    print(f" [SUKCES] Wyciągnięto {count} poprawnych ofert.")
 # Define functions to analyze job offers and companies
 bad_titles = ["Zobacz oferty", 
               "absolwentów uczelni",
@@ -167,35 +135,32 @@ skip = ["zobacz oferty",
 
 # Define functions to analyze job offers and companies
 def looks_like_job(title):
-    title = title.lower()
+    clean_title = title.lower()
 
-    words = [
-        "księgowy",
-        "staż", 
-        "młodszy", 
-        "data", 
-        "it", 
-        "danych",
-        'business', 
-        'controlling', 
-        'finanse', 
-        'finance', 
-        'planowania', 
-        'planowanie', 
-        'kontroler',
-        'kontroler finansowy',
-        'raportowanie',
-        'raporty',
-        'raportowania', 
-        "archiwum", 
-        "biurowy", 
-        "fakturowania", 
-        "spedytor", 
-        "menedżer", 
-        "manager", 
-        "logist", 
-        "supply"
+    junk_phrases = [
+        "aktywnie rekrutuje", "bądź pierwszym", "spośród", "kandydatów", 
+        "1 kontakt", "absolwentów uczelni", "absolwent uczelni", "zobacz oferty"
     ]
+    
+    for junk in junk_phrases:
+        clean_title = clean_title.replace(junk.lower(), "")
+
+    words = {
+    "analityk", "analityczka", "analiz", "data", "bi", "business intelligence", 
+    "raport", "raportowanie", "danych", "science", "sql", "dwh", "etl", 
+    "power bi", "dashboard", "wizualizacja", "biznesowy", "business", 
+    "finans", "finance", "controlling", "kontroler", "ksiegow", "accounting", 
+    "audyt", "audit", "compliance", "ryzyko", "kredyt", "planowanie", 
+    "planowania", "zakup", "sourcing", "procurement", "it", "developer", 
+    "administrator", "support", "helpdesk", "systemow", "siec", "cyber", 
+    "security", "crm", "sap", "erp", "webcon", "logist", "spedyt", "transport", 
+    "magazyn", "supply", "chain", "operac", "dystrybucja", "produkcja", 
+    "realizacji", "zamówień", "konsultant", "rpa", "automatyz", "specjalista", 
+    "rozliczeń", "staż", "praktyk", "controller", "asystent", "biurow", 
+    "administrac", "hr", "kadr", "plac", "office", "rekrut"
+}
+    is_match = any(w in clean_title for w in words)
+    
     exclude = [
         "sp. z o.o", 
         "s.a.", 
@@ -203,11 +168,13 @@ def looks_like_job(title):
         " sp. z", 
     ]
 
-    if any (w in title for w in words):
-        if not any (e in title for e in exclude):
-                return True
+    is_excluded = any(e in clean_title for e in exclude)
+    
+    # Logic: must match words AND must not match exclusions
+    if is_match and not is_excluded:
+        return True
+    print(f" [DEBUG] Rejected: '{title}' | Match: {is_match} | Excluded: {is_excluded}")
     return False
-
 
 if not mail_ids:
         print("None new offers found.")
@@ -221,84 +188,70 @@ if os.path.exists(Cache_file_path):
 else:
     processed_mail_ids = set()
 
-# Main processing loop
+# Main Loop
+async def main(mail, mail_ids):
+    if os.path.exists(Cache_file_path):
+        with open(Cache_file_path, "r") as f:
+            processed_mail_ids.update(line.strip() for line in f)
 
-for i in mail_ids:
-    mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
-
-    if mail_id_str in processed_mail_ids:
-        continue
-    print(f"Processing mail ID: {mail_id_str}")
-    status, msg_data = mail.fetch(i, "(RFC822)")
-    if status == 'OK' and msg_data and isinstance(msg_data[0], tuple) and len(msg_data[0]) > 1:
-        raw_email = msg_data[0][1]
-        if not isinstance(raw_email, bytes):
-            print(f"Cannot process mail {mail_id_str}: not bytes.")
+    for i in mail_ids:
+        mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
+        if mail_id_str in processed_mail_ids:
             continue
-        msg = email.message_from_bytes(raw_email)
 
-    current_date = "None date"
-    date_str = msg.get("Date")
-    if date_str:
-        try:
-            parsed_date = email.utils.parsedate_to_datetime(date_str)
-            current_date = parsed_date.strftime("%d.%m.%Y")
-        except Exception as e:
-            print(f"Error parsing date for mail {mail_id_str}: {e}")
-            current_date = date_str
+        status, msg_data = mail.fetch(i, "(RFC822)")
+        if status != 'OK': continue
+        
+        msg = email.message_from_bytes(msg_data[0][1])
+        current_date = email.utils.parsedate_to_datetime(msg.get("Date")).strftime("%d.%m.%Y") if msg.get("Date") else "N/A"
+        
+        html = get_html(msg)
+        if not html: continue
 
-    print(f"Mail date: {current_date}")
+        soup = BeautifulSoup(html, "html.parser")
+        text_block = soup.get_text(separator=" ", strip=True)[:2000]
+        
+        if len(text_block) > 50:
+            await process_linkedin_block(text_block, current_date, data)
+            print("Czekam 15 sekund")
+            await asyncio.sleep(15)
 
+            with open(Cache_file_path, "a") as f:
+                f.write(mail_id_str + "\n")
+            processed_mail_ids.add(mail_id_str)
 
-
-    html = get_html(msg)
-    if not html:
-        continue
-
-    text = BeautifulSoup(html, "html.parser").get_text(separator="\n")
-
-    process_linkedin_block(text, current_date)
-    with open(Cache_file_path, "a") as f:
-        f.write(mail_id_str + "\n")
-        processed_mail_ids.add(mail_id_str)
+# Entry point: Initialize the asyncio event loop and execute the main processing function
+if __name__ == "__main__":
+    asyncio.run(main(mail, mail_ids))
 
 # Add new jobs offers to excel file
 
 file_path = "new_offers.xlsx"
 sheet_name = "LinkedIn"
 
-new_df = pd.DataFrame(data)
-
-if not new_df.empty:
-    # Convert date to string
-    new_df['date'] = new_df['date'].astype(str)
+def append_to_excel(data, file_path="new_offers.xlsx"):
+    if not data: return
+    df = pd.DataFrame(data)
     
-    # If file exists, try to merge it
-    if os.path.exists(file_path):
-        try:
-            # Use ExcelWriter to avoid erasing other sheets in the file
-            with pd.ExcelWriter(file_path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                try:
-                    old_df = pd.read_excel(file_path, sheet_name=sheet_name)
-                    old_df['date'] = old_df['date'].astype(str)
-                    df_final = pd.concat([old_df, new_df], ignore_index=True)
-                except ValueError:    
-                    # Sheet didn't exist inside the file, so final data is just the new data
-                    df_final = new_df
-                
-                # Save the merged data back to the sheet
-                df_final.to_excel(writer, sheet_name=sheet_name, index=False)
-                print("Merged new job offers with existing data.")
-        except Exception as e:
-            print("Error occurred while processing Excel file:", e)
+    if not os.path.exists(file_path):
+        df.to_excel(file_path, index=False, sheet_name="LinkedIn")
     else:
-        # 3. If file doesn't exist at all, create it fresh
-        new_df.to_excel(file_path, sheet_name=sheet_name, index=False)
-        print("Created new Excel file and saved jobs.")
-        
-else:
-    print("No new job offers found in the emails.")
-
+        with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
+            try:
+                # Wczytaj by znaleźć ostatni wiersz
+                old_df = pd.read_excel(file_path, sheet_name="LinkedIn")
+                start_row = len(old_df) + 1
+                df.to_excel(writer, index=False, header=False, startrow=start_row, sheet_name="LinkedIn")
+            except Exception:
+                df.to_excel(writer, index=False, sheet_name="LinkedIn")
+    
+    
+    print(f"Zapisano {len(data)} ofert do pliku {file_path}.")
 print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
 print("TOTAL JOBS found:", len(data))
+
+if data:
+    append_to_excel(data, file_path="new_offers.xlsx")
+else:
+    print("Brak danych do zapisania w Excelu.")
