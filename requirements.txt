@@ -33,3 +33,4 @@ urllib3
 zope.interface
 zxcvbn
 dotenv
+ollamna
