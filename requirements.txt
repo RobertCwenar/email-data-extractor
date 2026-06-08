@@ -34,3 +34,4 @@ zope.interface
 zxcvbn
 dotenv
 google.generativeai
+google-genai
