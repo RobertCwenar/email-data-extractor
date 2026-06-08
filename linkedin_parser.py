@@ -1,11 +1,9 @@
 # Library
 import asyncio
-from ollama import AsyncClient
 import imaplib
 import json
 from bs4 import BeautifulSoup
 from email import message_from_bytes
-import ollama
 import pandas as pd
 import os
 from dotenv import load_dotenv
@@ -36,7 +34,6 @@ print("Number of mails:", len(mail_ids))
 Cache_file_path = "processed_linkedin_mails.txt"
 processed_mail_ids = set()
 data = [] 
-async_client = AsyncClient()
 
 def get_html(msg): 
     if msg.is_multipart():
