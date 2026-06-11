@@ -1,5 +1,5 @@
 # Library
-
+import asyncio
 import imaplib
 from bs4 import BeautifulSoup
 from email import message_from_bytes
@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 import re
 import email.utils
+import google.generativeai as genai
 
 # Load environment variables
 load_dotenv()
@@ -47,6 +48,25 @@ def get_html(msg):
         if msg.get_content_type() == "text/html":
             return msg.get_payload(decode=True).decode(errors="ignore")
     return None
+
+api_key = os.getenv("KEY_API")
+if api_key:
+    key_api = api_key.strip().replace(",", "")
+    genai.configure(api_key=key_api)
+else:
+    print("None")
+
+async def parse_offers_API(text):
+    model = genai.GenerativeModel('models/gemini-3.5-flash')
+
+    prompt = (
+    "Jesteś precyzyjnym systemem ekstrakcji danych. Przeanalizuj poniższy tekst i wyciągnij WSZYSTKIE oferty pracy.\n"
+        "Zwróć wynik jako czysty JSON w formacie listy obiektów: [{'position': '...', 'company': '...', 'location': '...'}, ...].\n"
+        "Jeśli w tekście jest 12 ofert, lista musi mieć 12 elementów. NIE dodawaj żadnego tekstu przed ani po JSON-ie.\n"
+        f"TEKST DO ANALIZY:\n{text}"
+    )
+    
+    response = model.generate_content(prompt)
 
 
 def clean_block(block):
@@ -136,7 +156,6 @@ def looks_like_job(title):
         if not any(e in title for e in exclude):
             return True
     return False
-
 
 def is_job_trigger(line):
     keywords = [
@@ -608,12 +627,10 @@ def Knows_Companies(company):
 
     company = re.sub(r'\s+', ' ', company)
     company = re.sub(r'\s*-\s*', ' ', company)
-
     return any(kc in company for kc in known_companies)
 
 def is_valid_job(job):
     title = job["title"].lower()
-
 
     if any(b in title for b in bad_titles):
         return False
@@ -644,8 +661,6 @@ if os .path.exists(Cache_file):
 else:
     processed_ids = set()
 
-
-
 # Main processing loop
 
 for i in mail_ids:
@@ -671,7 +686,6 @@ for i in mail_ids:
         except Exception as e:
             print(f"Error parsing date for mail {mail_id_str}: {e}")
             current_date = "Nieznana data"
-
    
     print(f"Data maila: {current_date}")
 
@@ -699,8 +713,6 @@ for i in mail_ids:
 
         if "nowe oferty" in l or "właścicielem marki" in l:
             continue
-        
-    
 
         # If the line looks like a job title, we start a new job entry
         if looks_like_job(line):
@@ -738,22 +750,7 @@ for i in mail_ids:
             else:
                     current_job["location"]= line
             continue
-        '''# 4. Assuming the company name 
-        if current_job and current_job["company"] is None:
-            # Jeśli linia zawiera "S.A." lub "Bank", to na 100% firma, a nie dalszy ciąg tytułu
-            if any(e in l for e in ["s.a.", "sa.", "S.A.", "SA", "s a", "s-a", "sp. z o.o.", "sp z o.o", "sp z oo", "sp zoo", "sp. z oo", "sp z o. o.", 
-                                    "sp. z o. o", "sp. zoo", "sp zoo.", "spółka z o.o.", "spolka z o.o.", "sp. z o o", "bank", "Bank", "BANK", "bank."]):
-                current_job["company"] = line
-            elif Knows_Companies(line):
-                current_job["company"] = line
-            # If the line doesn't contain "zł" and the title is very short, it's likely a continuation of the title, not the company name
-            elif not found_city and "zł" not in l:
-                if len(current_job["title"]) < 30:
-                    current_job["title"] += " " + line
-                else:
-                    current_job["company"] = line'''
-        
-
+      
         if current_job and current_job["company"] is None:
             is_probably_company = any(e in l for e in ["s.a.", "sa.", "S.A.", "SA", "s a", "s-a", "sp. z o.o.", "sp z o.o", "sp z oo", "sp zoo", "sp. z oo", "sp z o. o.", 
                                     "sp. z o. o", "sp. zoo", "sp zoo.", "spółka z o.o.", "spolka z o.o.", "sp. z o o", "bank", "Bank", "BANK", "bank.", "spółka akcyjna", "spółka z ograniczoną odpowiedzialnością"])
@@ -771,18 +768,12 @@ for i in mail_ids:
     # Add the last job offer from the current email (if it existed)
     if current_job:
         clean_jobs.append(current_job)
-  
-
 
 clean_jobs_filtered = []
 
 for job in clean_jobs:
     if is_valid_job(job):
         clean_jobs_filtered.append(job)
-
-# Usunięcie duplikatów po tytule
-#clean_jobs_filtered = list({j["title"]: j for j in clean_jobs_filtered}.values())
-
 
 # Create new dataframe with new offers
 new_df = pd.DataFrame(clean_jobs_filtered)
