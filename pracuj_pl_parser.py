@@ -220,6 +220,7 @@ def looks_like_job(title):
         " sp. z", 
         "bank", 
         "polska"
+        "SPOLKA Z OGRANICZONA ODPOWIEDZIALNOSCIA"
     ]
 
     if any (k in title for k in keywords):

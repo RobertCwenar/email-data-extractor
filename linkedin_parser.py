@@ -136,7 +136,7 @@ def looks_like_job(title):
 
     junk_phrases = [
         "aktywnie rekrutuje", "bądź pierwszym", "spośród", "kandydatów", 
-        "1 kontakt", "absolwentów uczelni", "absolwent uczelni", "zobacz oferty"
+        "1 kontakt", "absolwentów uczelni", "absolwent uczelni", "zobacz oferty", 
     ]
     
     for junk in junk_phrases:
