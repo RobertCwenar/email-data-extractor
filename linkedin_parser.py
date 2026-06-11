@@ -25,7 +25,7 @@ print("Password loaded:", bool(my_password))
 
 mail.login(login_email, my_password)
 mail.select("Link") # Change to the desired mailbox (e.g., "inbox")!!!!
-status, messages = mail.search(None, "ALL")
+status, messages = mail.search(None, "UNSEEN")
 mail_ids = messages[0].split()
 
 print("Number of mails:", len(mail_ids))
