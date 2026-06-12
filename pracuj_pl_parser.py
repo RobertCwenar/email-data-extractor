@@ -71,13 +71,13 @@ else:
     print("None")
 
 async def parser_offers_API(text):
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-3.5-flash')
     
     # Bardzo prosty prompt, żeby wykluczyć błędy interpretacji
     prompt = (
         "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
         "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-        "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\"}]\n"
+        "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
         "Jeśli nie ma żadnej oferty, zwróć: []\n"
         "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
         f"TEKST MAIL:\n{text}"
@@ -151,7 +151,7 @@ async def process_pracuj_block(text, current_date, data):
                 "title": offer.get('position', 'N/A'),
                 "company": offer.get('company', 'N/A'),
                 "location": offer.get('location', 'N/A'),
-                "salary": offer.get('location' 'N\A')
+                "salary": offer.get('salary', 'N/A')
             })
             count += 1
         else:
