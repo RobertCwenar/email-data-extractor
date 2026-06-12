@@ -9,8 +9,10 @@ import os
 from dotenv import load_dotenv
 import re
 import email.utils
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
+import time
 
 # Load environment variables
 load_dotenv()
@@ -66,36 +68,46 @@ def is_valid_offer(offer):
 api_key = os.getenv("KEY_API")
 if api_key:
     key_api = api_key.strip().replace(",", "")
-    genai.configure(api_key=key_api)
+    client = genai.Client(api_key=key_api)
 else:
     print("None")
 
-async def parser_offers_API(text):
-    model = genai.GenerativeModel('models/gemini-3.5-flash')
-    
-    # Bardzo prosty prompt, żeby wykluczyć błędy interpretacji
-    prompt = (
-        "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
-        "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-        "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
-        "Jeśli nie ma żadnej oferty, zwróć: []\n"
-        "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
-        f"TEKST MAIL:\n{text}"
-    )
-    
-    try:
-        response = await model.generate_content_async(prompt)
-        # TUTAJ DODAJEMY PODGLĄD
-        raw_output = response.text
-        print(f"DEBUG: Surowa odpowiedź AI: {raw_output[:500]}") 
+async def parser_offers_API(text, retries=3):
+    for attempt in range(retries):    
+        # Very simple prompt to extract json
+        models=["gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-flash"]
         
-        # Próba parsowania
-        clean_json = raw_output.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
-        
-    except Exception as e:
-        print(f"BŁĄD PARSOWANIA: {e}")
-        return []
+        model_name = models[attempt] if attempt < len (models) else models[-1]
+        prompt = (
+            "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
+            "Zwróć wynik TYLKO jako czystą tablicę JSON: "
+            "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
+            "Jeśli nie ma żadnej oferty, zwróć: []\n"
+            "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
+            f"TEKST MAIL:\n{text}"
+        )
+    
+        try:
+            response = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                )
+            )
+            raw_output=response.text
+            print(f"DEBUG: Answer AI: {raw_output[:500]}") 
+            clean_json = raw_output.replace("```json", "").replace("```", "").strip()
+            return json.loads(clean_json)
+            
+        except Exception as e:
+            if "503" in str(e):
+                print(f"PARSER ERROR: {e}")
+                time.sleep(3)
+            else:
+                print(f"Error: {e}")
+                break
+    return []
     
 def clean_block(block):
     cleaned = []
