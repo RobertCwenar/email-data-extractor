@@ -35,3 +35,4 @@ zxcvbn
 dotenv
 google.generativeai
 google-genai
+sqlite3
