@@ -11,6 +11,7 @@ import re
 import email.utils
 import google.generativeai as genai
 import json
+import sqlite3
 
 # Load environment variables
 load_dotenv()
@@ -71,7 +72,7 @@ else:
     print("None")
 
 async def parser_offers_API(text):
-    model = genai.GenerativeModel('models/gemini-1.5-flash')
+    model = genai.GenerativeModel('models/gemini-3.5-flash')
     
     # Bardzo prosty prompt, żeby wykluczyć błędy interpretacji
     prompt = (
@@ -151,7 +152,7 @@ async def process_pracuj_block(text, current_date, data):
                 "title": offer.get('position', 'N/A'),
                 "company": offer.get('company', 'N/A'),
                 "location": offer.get('location', 'N/A'),
-                "salary": offer.get('location' 'N\A')
+                "salary": offer.get('salary', 'N/A')
             })
             count += 1
         else:
@@ -293,6 +294,8 @@ if os .path.exists(Cache_file):
 else:
     processed_ids = set()
 
+
+# Main loop
 async def main(mail, mail_ids, clean_jobs):
     if os.path.exists(Cache_file):
         with open(Cache_file, "r") as f:
@@ -316,6 +319,17 @@ async def main(mail, mail_ids, clean_jobs):
         
         # Procesowanie (używamy tej samej struktury co w Twoim przykładzie)
         await process_pracuj_block(text, current_date, clean_jobs)
+
+    for job in clean_jobs:
+        save_offers(
+                title=job.get('title', 'N/A'),
+                company=job.get('company', 'N/A'),
+                location=job.get('location', 'N/A'),
+                salary=job.get('salary', 'N/A'),
+                date=job.get('date', 'N/A'),
+                source='pracuj.pl'
+        )
+        clean_jobs.clear()
         
         print(f"Przetworzono mail: {mail_id_str}, czekam 15 sekund...")
         await asyncio.sleep(25)
@@ -324,62 +338,43 @@ async def main(mail, mail_ids, clean_jobs):
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
 
-for job in clean_jobs:
-    if is_valid_job(job):
-        clean_jobs.append(job)
+# Create new dataframe with new offers
+def init_db():
+    conn = sqlite3.connect('new_offers.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS Offers(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT,
+            company TEXT,
+            location TEXT,
+            salary TEXT,
+            date TEXT,
+            source TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
+
+
+def save_offers(title, company, location, salary, date, source):
+    conn = sqlite3.connect('new_offers.db')
+    cursor =conn.cursor()
+    cursor.execute('''
+            INSERT INTO Offers (title, company, location, salary, date, source)
+                   VALUES (?, ?, ?, ?, ?, ?)
+        ''', (title, company, location, salary, date, source))
+
+    conn.commit()
+    conn.close()
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
 if __name__ == "__main__":
+    init_db()
     clean_jobs = []
     asyncio.run(main(mail, mail_ids, clean_jobs))
     clean_jobs_filtered = [job for job in clean_jobs if is_valid_job(job)]
     
-# Create new dataframe with new offers
-new_df = pd.DataFrame(clean_jobs_filtered)
-
-path = "new_offers.xlsx"
-sheet_name = "Pracuj.pl"
-
-jobs_saved = 0
-
-if not new_df.empty:
-    # Date as string to avoid any weird issues with Excel and sorting
-    new_df['date'] = new_df['date'].astype(str)
-    
-    if os.path.exists(path):
-        try:
-            with pd.ExcelWriter(path, mode='a', engine='openpyxl', if_sheet_exists='replace') as writer:
-                try:
-                    old_df = pd.read_excel(path, sheet_name=sheet_name)
-                    old_df['date'] = old_df['date'].astype(str)
-                    
-                    df_final = pd.concat([old_df, new_df], ignore_index=True)
-                except ValueError:
-                    
-                    df_final = new_df
-                jobs_added = len(new_df)
-                
-                df_final['temp_date'] = pd.to_datetime(df_final['date'], format='%d.%m.%Y', errors='coerce')
-                df_final = df_final.sort_values(by='temp_date', ascending=False).drop(columns=['temp_date'])
-         
-                df_final.to_excel(writer, sheet_name=sheet_name, index=False)
-                print(f"Merged new job offers with existing data in sheet: {sheet_name}")
-                
-        except Exception as e:
-            print("Error occurred while processing Excel file:", e)
-    else:
-        df_final = new_df.copy()
-  
-        df_final['temp_date'] = pd.to_datetime(df_final['date'], format='%d.%m.%Y', errors='coerce')
-        df_final = df_final.sort_values(by='temp_date', ascending=False).drop(columns=['temp_date'])
-        
-        df_final.to_excel(path, sheet_name=sheet_name, index=False)
-        jobs_added = len(df_final)
-        print(f"Created new Excel file with sheet: {sheet_name}")
-else:
-    print("Empty list of new job offers.")
-
-print(f"\nSaved! New unique jobs added to {sheet_name}: {jobs_added}")
 print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
 print("TOTAL JOBS found:", len(clean_jobs))
