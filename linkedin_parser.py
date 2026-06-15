@@ -12,6 +12,7 @@ import email.utils
 from openpyxl import load_workbook
 import google.generativeai as genai
 import time
+import sqlite3
 
 #Load environment variables from .env file
 load_dotenv()
@@ -33,7 +34,7 @@ print("Number of mails:", len(mail_ids))
 # Create empty list to store data
 Cache_file_path = "processed_linkedin_mails.txt"
 processed_mail_ids = set()
-data = [] 
+clean_jobs = [] 
 
 def get_html(msg): 
     if msg.is_multipart():
@@ -70,14 +71,16 @@ else:
     print("None")
 
 async def parse_all_offers_from_mail(text):
-    model = genai.GenerativeModel('models/gemini-3.5-flash')
+    model = genai.GenerativeModel('models/gemini-3.1-flash-lite')
     
     prompt = (
-    "Jesteś precyzyjnym systemem ekstrakcji danych. Przeanalizuj poniższy tekst i wyciągnij WSZYSTKIE oferty pracy.\n"
-        "Zwróć wynik jako czysty JSON w formacie listy obiektów: [{'position': '...', 'company': '...', 'location': '...'}, ...].\n"
-        "Jeśli w tekście jest 12 ofert, lista musi mieć 12 elementów. NIE dodawaj żadnego tekstu przed ani po JSON-ie.\n"
-        f"TEKST DO ANALIZY:\n{text}"
-    )
+     "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
+            "Zwróć wynik TYLKO jako czystą tablicę JSON: "
+            "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
+            "Jeśli nie ma żadnej oferty, zwróć: []\n"
+            "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
+            f"TEKST MAIL:\n{text}"
+        )
     
     response = model.generate_content(prompt)
 
@@ -90,8 +93,9 @@ async def parse_all_offers_from_mail(text):
         print(f"JSON parsing error: {e}")
         return []
 
-async def process_linkedin_block(text, current_date, data):
+async def process_linkedin_block(soup, current_date, data):
     # text is already plain text (we cleaned it in main)
+    text = soup.get_text("\n")
     offers = await parse_all_offers_from_mail(text)
     
     count = 0
@@ -106,13 +110,15 @@ async def process_linkedin_block(text, current_date, data):
                 "date": current_date,
                 "title": offer.get('position', 'N/A'),
                 "company": offer.get('company', 'N/A'),
-                "location": offer.get('location', 'N/A')
+                "location": offer.get('location', 'N/A'),
+                "salary": offer.get('salary', 'N/A')
             })
             count += 1
+            
         else:
             print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
     
-    print(f" [SUKCES] Wyciągnięto {count} poprawnych ofert.")
+    print(f" [SUCCESS] {count} valid offers retrieved.")
 # Define functions to analyze job offers and companies
 bad_titles = ["Zobacz oferty", 
               "absolwentów uczelni",
@@ -186,11 +192,12 @@ else:
     processed_mail_ids = set()
 
 # Main Loop
-async def main(mail, mail_ids):
+async def main(mail, mail_ids, clean_jobs):
+    total_added = 0 
     if os.path.exists(Cache_file_path):
         with open(Cache_file_path, "r") as f:
             processed_mail_ids.update(line.strip() for line in f)
-
+    print(f"DEBUG: Reload ID w cache: {processed_mail_ids}")
     for i in mail_ids:
         mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
         if mail_id_str in processed_mail_ids:
@@ -206,49 +213,48 @@ async def main(mail, mail_ids):
         if not html: continue
 
         soup = BeautifulSoup(html, "html.parser")
-        text_block = soup.get_text(separator=" ", strip=True)[:2000]
-        
-        if len(text_block) > 50:
-            await process_linkedin_block(text_block, current_date, data)
-            print("Czekam 15 sekund")
-            await asyncio.sleep(15)
 
-            with open(Cache_file_path, "a") as f:
-                f.write(mail_id_str + "\n")
-            processed_mail_ids.add(mail_id_str)
+        await process_linkedin_block(soup, current_date, clean_jobs)
+
+        for job in clean_jobs:
+            save_offers(
+                title=job.get('title', 'N/A'),
+                company=job.get('company', 'N/A'),
+                location=job.get('location', 'N/A'),
+                salary=job.get('salary', 'N/A'),
+                date=job.get('date', 'N/A'),
+                source='pracuj.pl'
+            )
+            total_added += 1
+        
+        clean_jobs.clear()
+      
+        with open(Cache_file_path, "a") as f:
+            f.write(mail_id_str + "\n")
+        await asyncio.sleep(25)
+        processed_mail_ids.add(mail_id_str)
+        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
+               
+        
+    return total_added
+
+# Add new jobs offers to database file
+def save_offers(title, company, location, salary, date, source):
+    conn = sqlite3.connect('new_offers.db')
+    cursor =conn.cursor()
+    cursor.execute('''
+            INSERT INTO Offers (title, company, location, salary, date, source)
+                   VALUES (?, ?, ?, ?, ?, ?)
+        ''', (title, company, location, salary, date, source))
+
+    conn.commit()
+    conn.close()
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
 if __name__ == "__main__":
-    asyncio.run(main(mail, mail_ids))
+    clean_jobs = []
+    total_jobs_found = asyncio.run(main(mail, mail_ids, clean_jobs))
 
-# Add new jobs offers to excel file
-
-file_path = "new_offers.xlsx"
-sheet_name = "LinkedIn"
-
-def append_to_excel(data, file_path="new_offers.xlsx"):
-    if not data: return
-    df = pd.DataFrame(data)
-    
-    if not os.path.exists(file_path):
-        df.to_excel(file_path, index=False, sheet_name="LinkedIn")
-    else:
-        with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-            try:
-                # Wczytaj by znaleźć ostatni wiersz
-                old_df = pd.read_excel(file_path, sheet_name="LinkedIn")
-                start_row = len(old_df) + 1
-                df.to_excel(writer, index=False, header=False, startrow=start_row, sheet_name="LinkedIn")
-            except Exception:
-                df.to_excel(writer, index=False, sheet_name="LinkedIn")
-    
-    
-    print(f"Zapisano {len(data)} ofert do pliku {file_path}.")
-print("\nFinished!")
-print("MAILS processed:", len(mail_ids))
-print("TOTAL JOBS found:", len(data))
-
-if data:
-    append_to_excel(data, file_path="new_offers.xlsx")
-else:
-    print("Brak danych do zapisania w Excelu.")
+print ("\nFinished")
+print("Mails processed:", len(mail_ids))
+print("Total jobs found:", total_jobs_found)

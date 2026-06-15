@@ -74,28 +74,28 @@ else:
 async def parser_offers_API(text):
     model = genai.GenerativeModel('models/gemini-3.5-flash')
     
-    # Bardzo prosty prompt, żeby wykluczyć błędy interpretacji
+    # A very simple prompt to exclude interpretation errors
     prompt = (
-        "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
-        "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-        "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\"}]\n"
-        "Jeśli nie ma żadnej oferty, zwróć: []\n"
-        "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
-        f"TEKST MAIL:\n{text}"
-    )
+         "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
+            "Zwróć wynik TYLKO jako czystą tablicę JSON: "
+            "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
+            "Jeśli nie ma żadnej oferty, zwróć: []\n"
+            "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
+            f"TEKST MAIL:\n{text}"
+        )
     
     try:
         response = await model.generate_content_async(prompt)
-        # TUTAJ DODAJEMY PODGLĄD
+        
         raw_output = response.text
-        print(f"DEBUG: Surowa odpowiedź AI: {raw_output[:500]}") 
+        print(f"DEBUG: Raw AI response: {raw_output[:500]}") 
         
         # Próba parsowania
         clean_json = raw_output.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
         
     except Exception as e:
-        print(f"BŁĄD PARSOWANIA: {e}")
+        print(f"Parser Error: {e}")
         return []
     
 def clean_block(block):
@@ -158,7 +158,7 @@ async def process_pracuj_block(text, current_date, data):
         else:
             print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
     
-    print(f" [SUKCES] Wyciągnięto {count} poprawnych ofert.")
+    print(f" [SUCCESS] {count} valid offers retrieved.")
 # Define functions to analyze job offers and companies
 bad_titles = ["Zobacz oferty", 
               "absolwentów uczelni",
@@ -252,7 +252,7 @@ def Knows_Companies(company):
         
     company = company.lower().strip()
     
-    # Używamy pre-procesingu jak w Twoim kodzie
+    # 
     clean_name = (
         company.replace(" sp. z o.o.", "")
         .replace(" sp. z o.o", "")
@@ -294,7 +294,6 @@ if os .path.exists(Cache_file):
 else:
     processed_ids = set()
 
-
 # Main loop
 async def main(mail, mail_ids, clean_jobs):
     if os.path.exists(Cache_file):
@@ -317,10 +316,10 @@ async def main(mail, mail_ids, clean_jobs):
 
         text = BeautifulSoup(html, "html.parser").get_text("\n")
         
-        # Procesowanie (używamy tej samej struktury co w Twoim przykładzie)
         await process_pracuj_block(text, current_date, clean_jobs)
 
     for job in clean_jobs:
+        print(f"Debug: Test save offers: {job.get('title')}")
         save_offers(
                 title=job.get('title', 'N/A'),
                 company=job.get('company', 'N/A'),
@@ -329,14 +328,14 @@ async def main(mail, mail_ids, clean_jobs):
                 date=job.get('date', 'N/A'),
                 source='pracuj.pl'
         )
-        clean_jobs.clear()
-        
-        print(f"Przetworzono mail: {mail_id_str}, czekam 15 sekund...")
-        await asyncio.sleep(25)
-
-        with open(Cache_file, "a") as f:
-            f.write(mail_id_str + "\n")
-        processed_ids.add(mail_id_str)
+    
+    clean_jobs.clear()
+    print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
+    
+    with open(Cache_file, "a") as f:
+        f.write(mail_id_str + "\n")
+    await asyncio.sleep(25)
+    processed_ids.add(mail_id_str)
 
 # Create new dataframe with new offers
 def init_db():
@@ -356,7 +355,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 def save_offers(title, company, location, salary, date, source):
     conn = sqlite3.connect('new_offers.db')
     cursor =conn.cursor()
@@ -373,9 +371,7 @@ if __name__ == "__main__":
     init_db()
     clean_jobs = []
     asyncio.run(main(mail, mail_ids, clean_jobs))
-    clean_jobs_filtered = [job for job in clean_jobs if is_valid_job(job)]
-    
+  
 print("\nFinished!")
 print("MAILS processed:", len(mail_ids))
 print("TOTAL JOBS found:", len(clean_jobs))
-print("FILTERED JOBS:", len(clean_jobs_filtered))
