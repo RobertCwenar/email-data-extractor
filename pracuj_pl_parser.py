@@ -113,7 +113,6 @@ def clean_block(block):
 
     return cleaned
 
-
 skip = skip = [
     "logo", "więcej", "ciepłe", "najlepiej dopasowana", 
     "nowość", "hit", "śpiesz się",
