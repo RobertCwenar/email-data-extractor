@@ -29,8 +29,7 @@ status, messages = mail.search(None, "UNSEEN")
 mail_ids = messages[0].split()
 print("Number of emails:", len(mail_ids))
 
-# load data
-
+# Load data
 Cache_file = "processed_mails.txt"
 jobs = []
 
@@ -90,7 +89,7 @@ async def parser_offers_API(text):
         raw_output = response.text
         print(f"DEBUG: Raw AI response: {raw_output[:500]}") 
         
-        # Próba parsowania
+        # Parser
         clean_json = raw_output.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
         
@@ -159,22 +158,27 @@ async def process_pracuj_block(text, current_date, data):
             print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
     
     print(f" [SUCCESS] {count} valid offers retrieved.")
-# Define functions to analyze job offers and companies
-bad_titles = ["Zobacz oferty", 
-              "absolwentów uczelni",
-                "absolwent uczelni",
-                "aktywnie rekrutuje",
-                "zobacz oferty",
-                "zobacz więcej",
-                "zobacz wszystkie"]
 
-skip = ["zobacz oferty",
+# Define functions to analyze job offers and companies
+bad_titles = [
+        "Zobacz oferty", 
+        "absolwentów uczelni",
+        "absolwent uczelni",
+        "aktywnie rekrutuje",
+        "zobacz oferty",
+        "zobacz więcej",
+        "zobacz wszystkie"
+    ]
+
+skip = [
+        "zobacz oferty",
         "absolwentów uczelni",
         "absolwent uczelni",
         "aktywnie rekrutuje",
         "zobacz więcej",
         "zobacz wszystkie",
-        "właścicielem marki"]
+        "właścicielem marki"
+    ]
 
 
 def looks_like_job(title):
@@ -240,10 +244,10 @@ def known_companies(filename="known_companies.txt"):
     if not os.path.exists(filename):
         return []
     with open(filename, "r", encoding="utf-8") as f:
-        # Wczytujemy linie, czyścimy z białych znaków i zamieniamy na małe litery
+        # 
         return [line.strip().lower() for line in f if line.strip()]
 
-# Wczytujemy firmy raz na początku
+# Load known companies
 KNOWN_COMPANIES_LIST = known_companies()
 
 def Knows_Companies(company):
@@ -252,7 +256,7 @@ def Knows_Companies(company):
         
     company = company.lower().strip()
     
-    # 
+    # Normalization for company names in search script
     clean_name = (
         company.replace(" sp. z o.o.", "")
         .replace(" sp. z o.o", "")
@@ -263,7 +267,7 @@ def Knows_Companies(company):
     clean_name = re.sub(r'\s+', ' ', clean_name)
     clean_name = re.sub(r'\s*-\s*', ' ', clean_name)
     
-    # Sprawdzamy czy któraś firma z pliku jest w nazwie
+    # Check company from file
     return any(kc in clean_name for kc in KNOWN_COMPANIES_LIST)
 
 
@@ -277,7 +281,7 @@ def is_valid_job(job):
     if len(title.split()) < 2:
         return False
 
-    # company not offering jobs
+    # Company not offering jobs
     if "sp. z o.o" in title.lower():
         return False
 

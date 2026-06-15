@@ -120,21 +120,25 @@ async def process_linkedin_block(soup, current_date, data):
     
     print(f" [SUCCESS] {count} valid offers retrieved.")
 # Define functions to analyze job offers and companies
-bad_titles = ["Zobacz oferty", 
-              "absolwentów uczelni",
-                "absolwent uczelni",
-                "aktywnie rekrutuje",
-                "zobacz oferty",
-                "zobacz więcej",
-                "zobacz wszystkie"]
-
-skip = ["zobacz oferty",
+bad_titles = [
+        "Zobacz oferty", 
         "absolwentów uczelni",
         "absolwent uczelni",
         "aktywnie rekrutuje",
+        "zobacz oferty",
         "zobacz więcej",
-        "zobacz wszystkie",
-        "właścicielem marki"]
+        "zobacz wszystkie"
+    ]
+
+skip = [
+    "zobacz oferty",
+    "absolwentów uczelni",
+    "absolwent uczelni",
+    "aktywnie rekrutuje",
+    "zobacz więcej",
+    "zobacz wszystkie",
+    "właścicielem marki"
+]
 
 # Define functions to analyze job offers and companies
 def looks_like_job(title):
