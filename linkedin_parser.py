@@ -227,7 +227,7 @@ async def main(mail, mail_ids, clean_jobs):
                 location=job.get('location', 'N/A'),
                 salary=job.get('salary', 'N/A'),
                 date=job.get('date', 'N/A'),
-                source='pracuj.pl'
+                source='Linkedin'
             )
             total_added += 1
         
