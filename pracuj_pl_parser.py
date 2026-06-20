@@ -12,6 +12,7 @@ import email.utils
 import google.generativeai as genai
 import json
 import sqlite3
+from datetime import datetime 
 
 # Load environment variables
 load_dotenv()
@@ -30,14 +31,14 @@ mail_ids = messages[0].split()
 print("Number of emails:", len(mail_ids))
 
 # Load data
-Cache_file = "processed_mails.txt"
+cache_file = "processed_mails.txt"
 jobs = []
 
 status, response = mail.search(None, 'ALL')
 mail_ids = response[0].split()
 
 clean_jobs= []
-def get_html(msg):
+def get_html(msg: str) -> str:
     if msg is None:
         return None
     if msg.is_multipart():
@@ -49,7 +50,7 @@ def get_html(msg):
             return msg.get_payload(decode=True).decode(errors="ignore")
     return None
 
-def is_valid_offer(offer):
+def is_valid_offer(offer: str) -> str:
     pos = offer.get('position', '').strip()
     comp = offer.get('company', '').strip()
 
@@ -70,17 +71,19 @@ if api_key:
 else:
     print("None")
 
-async def parser_offers_API(text):
+async def parser_offers_API(text: str) -> list:
     model = genai.GenerativeModel('models/gemini-3.5-flash')
     
     # A very simple prompt to exclude interpretation errors
     prompt = (
-         "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
-            "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-            "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
-            "Jeśli nie ma żadnej oferty, zwróć: []\n"
-            "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
-            f"TEKST MAIL:\n{text}"
+        "Jesteś precyzyjnym ekstraktorem ofert pracy. Twoim JEDYNYM zadaniem jest wyciągnięcie ofert z tekstu.\n"
+        "Zasady:\n"
+        "1. Zwróć wyłącznie poprawny format JSON (tablica obiektów).\n"
+        "2. Jeśli w tekście nie ma ofert, zwróć dokładnie tylko: []\n"
+        "3. ABSOLUTNIE NIE pisz żadnych wstępów, zakończeń, wyjaśnień ani znaków formatowania Markdown (takich jak ```json).\n"
+        "4. Format wyjściowy:\n"
+        "[{\"position\": \"nazwa\", \"company\": \"nazwa\", \"location\": \"miasto\", \"salary\": \"kwota\"}]\n\n"
+        f"TEKST DO ANALIZY:\n{text}"
         )
     
     try:
@@ -97,7 +100,7 @@ async def parser_offers_API(text):
         print(f"Parser Error: {e}")
         return []
     
-def clean_block(block):
+def clean_block(block: str) -> str:
     cleaned = []
 
     for line in block:
@@ -133,7 +136,7 @@ bad_titles = [
     "hit",
 ]
 
-async def process_pracuj_block(text, current_date, data):
+async def process_pracuj_block(text: str, current_date: datetime, data: dict):
     # text is already plain text (we cleaned it in main)
     offers = await parser_offers_API(text)
     
@@ -180,7 +183,7 @@ skip = [
     ]
 
 
-def looks_like_job(title):
+def looks_like_job(title: str) -> bool:
     if not title or not isinstance(title, str):
         return False
 
@@ -215,7 +218,12 @@ def looks_like_job(title):
         "spedytor", 
         "menedżer",  
         "logist", 
-        "supply"
+        "supply", 
+        "analityk", "analyst", "specjalista", "specjalistka", "developer", "konsultant", 
+        "księgowy", "staż", "młodszy", "data", "it", "danych", "business", "controlling", 
+        "finanse", "finance", "planowania", "planowanie", "kontroler", "raportowanie", 
+        "raporty", "raportowania", "biurowy", "fakturowania", "spedytor", "menedżer", 
+        "logist", "supply", "koordynator", "asystent", "asystentka", "project manager", "financial", "junior"
     ]
     exclude = [
         "sp. z o.o", 
@@ -231,7 +239,7 @@ def looks_like_job(title):
             return True
     return False
 
-def is_job_trigger(line):
+def is_job_trigger(line: str) -> dict:
     keywords = [
     "analityk", "analyst", "specjalista", "specjalistka", "developer", "engineer",
     "konsultant", "staż", "intern", "kontroler", "finansowy", "it", "data", "business"
@@ -270,7 +278,7 @@ def Knows_Companies(company):
     return any(kc in clean_name for kc in KNOWN_COMPANIES_LIST)
 
 
-def is_valid_job(job):
+def is_valid_job(job: str) -> str:
     title = job["title"].lower()
 
     if any(b in title for b in bad_titles):
@@ -291,21 +299,25 @@ if not mail_ids:
 else:
         print(f"Found {len(mail_ids)} new emails.")
 
-if os .path.exists(Cache_file):
-    with open(Cache_file, "r") as f:
+if os .path.exists(cache_file):
+    with open(cache_file, "r") as f:
         processed_ids = set(line.strip() for line in f)
 else:
     processed_ids = set()
 
 # Main loop
 async def main(mail, mail_ids, clean_jobs):
-    if os.path.exists(Cache_file):
-        with open(Cache_file, "r") as f:
+    # Load cache only once at startup
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
             processed_ids.update(line.strip() for line in f)
 
     for i in mail_ids:
         mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
+        print(f"DEBUG: Checking mail ID: {mail_id_str}")
+        # Skip if mail was already processed
         if mail_id_str in processed_ids:
+            print(f"DEBUG: Mail {mail_id_str} is already processed. Skipping.")
             continue
 
         status, msg_data = mail.fetch(i, "(RFC822)")
@@ -313,53 +325,47 @@ async def main(mail, mail_ids, clean_jobs):
         
         msg = email.message_from_bytes(msg_data[0][1])
         current_date = email.utils.parsedate_to_datetime(msg.get("Date")).strftime("%d.%m.%Y") if msg.get("Date") else "N/A"
-        
+        print(f"DEBUG: Attempting to fetch mail {mail_id_str}")
         html = get_html(msg)
-        if not html: continue
+        if not html: 
+            print(f"DEBUG: Mail {mail_id_str} has no content (html is None). Skipping.")
+            # Mark as processed even if empty to avoid re-checking
+            with open(cache_file, "a") as f:
+                f.write(mail_id_str + "\n")
+            processed_ids.add(mail_id_str)
+            continue
 
         text = BeautifulSoup(html, "html.parser").get_text("\n")
-        
+        print(f"DEBUG: Calling process_pracuj_block for mail ID: {mail_id_str}")
+        # AI processes the mail
         await process_pracuj_block(text, current_date, clean_jobs)
-
-    for job in clean_jobs:
-        print(f"Debug: Test save offers: {job.get('title')}")
-        save_offers(
+        await asyncio.sleep(45)
+        # Save offers
+        for job in clean_jobs:
+            print(f"Debug: Saving: {job.get('title')}")
+            save_offers(
                 title=job.get('title', 'N/A'),
                 company=job.get('company', 'N/A'),
                 location=job.get('location', 'N/A'),
                 salary=job.get('salary', 'N/A'),
                 date=job.get('date', 'N/A'),
-                source='pracuj.pl'
-        )
-    
-    clean_jobs.clear()
-    print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
-    
-    with open(Cache_file, "a") as f:
-        f.write(mail_id_str + "\n")
-    await asyncio.sleep(25)
-    processed_ids.add(mail_id_str)
+                source='Pracuj.pl'
+            )
+        
+        # Clear the list after saving to avoid duplicates for the next mail
+        clean_jobs.clear()
+        
+        # SAVE ID TO CACHE after finishing the mail
+        with open(cache_file, "a") as f:
+            f.write(mail_id_str + "\n")
+        processed_ids.add(mail_id_str)
 
-# Create new dataframe with new offers
-def init_db():
-    conn = sqlite3.connect('new_offers.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS Offers(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT,
-            company TEXT,
-            location TEXT,
-            salary TEXT,
-            date TEXT,
-            source TEXT
-        )
-    ''')
-    conn.commit()
-    conn.close()
+        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
+        await asyncio.sleep(25)
 
-def save_offers(title, company, location, salary, date, source):
-    conn = sqlite3.connect('new_offers.db')
+
+def save_offers(title: str, company: str, location: str, salary: str , date: str, source: str, db_name = 'new_offers.db'):
+    conn = sqlite3.connect(db_name)
     cursor =conn.cursor()
     cursor.execute('''
             INSERT INTO Offers (title, company, location, salary, date, source)
@@ -371,7 +377,6 @@ def save_offers(title, company, location, salary, date, source):
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
 if __name__ == "__main__":
-    init_db()
     clean_jobs = []
     asyncio.run(main(mail, mail_ids, clean_jobs))
   
