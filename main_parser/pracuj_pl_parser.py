@@ -3,9 +3,8 @@ import asyncio
 import imaplib
 from bs4 import BeautifulSoup
 from email import message_from_bytes
-from typing import TypedDict, List, Dict, Any, Set, Optional
+from typing import List, Dict, Any, Optional
 import email
-import pandas as pd
 import os
 from dotenv import load_dotenv
 import re
@@ -16,13 +15,6 @@ import sqlite3
 from datetime import datetime 
 from email.message import Message
 from imaplib import IMAP4_SSL
-
-class JobOffer(TypedDict):
-    title: str
-    company: str 
-    location: str
-    salary: str
-    date: str
 
 # Load environment variables
 load_dotenv()
@@ -42,12 +34,10 @@ print("Number of UNSEEN emails:", len(mail_ids))
 
 # Load data
 cache_file = "processed_mails.txt"
-jobs:List[Dict[str, Any]] = []
-
 status, response = mail.search(None, 'ALL')
 mail_ids = response[0].split()
-
 clean_jobs: List[Dict[str, Any]] = []
+
 def get_html(msg: Message) -> Optional[str]:
     if msg is None:
         return None
@@ -58,7 +48,7 @@ def get_html(msg: Message) -> Optional[str]:
                 payload = part.get_payload(decode=True)
                 if isinstance(payload, bytes):
                     return payload.decode('utf-8', errors='ignore')
-    elif msg.get_content_type() ==" text/html":
+    elif msg.get_content_type() =="text/html":
         payload = msg.get_payload(decode=True)
         if isinstance(payload, bytes):
             return payload.decode('utf-8', errors='ignore')
@@ -77,7 +67,7 @@ def is_valid_offer(offer: Dict[str, Any]) -> bool:
         return False
     return True
 
-#Load APi
+#Load API
 api_key = os.getenv("KEY_API")
 if api_key:
     key_api = api_key.strip().replace(",", "")
@@ -266,7 +256,7 @@ def is_job_trigger(line: Optional[str]) -> bool:
     "junior", "konsultant", "kontroler", "księgowy", "logist", "menedżer", 
     "młodszy", "planowanie", "planowania", "project manager", "raportowanie", 
     "raportowania", "raporty", "specjalista", "specjalistka", "spedytor", 
-    "staż", "supply"
+    "staż", "supply", "analizy"
     ]
 
     return any(k in lowercased_line.lower() for k in keywords)
@@ -374,7 +364,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         await asyncio.sleep(45)
         # Save offers
         for job in clean_jobs:
-            print(f"Debug: Saving: {job.get('title')}")
+            print(f"Debug: Saving: {repr(job.get('title'))}")
             save_offers(
                 title=job.get('title', 'N/A'),
                 company=job.get('company', 'N/A'),
@@ -388,7 +378,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         # Clear the list after saving to avoid duplicates for the next mail
         clean_jobs.clear()
         
-        # SAVE ID TO CACHE after finishing the mail
+        # SAVE ID to cache after finishing the mail
         with open(cache_file, "a") as f:
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
