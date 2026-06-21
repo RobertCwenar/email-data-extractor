@@ -2,7 +2,7 @@ import pytest
 
 from unittest.mock import MagicMock, patch
 
-from linkedin_parser import main
+from main_parser.linkedin_parser import main
 
 @pytest.mark.asyncio
 
