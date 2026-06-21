@@ -261,37 +261,6 @@ def is_job_trigger(line: Optional[str]) -> bool:
 
     return any(k in lowercased_line.lower() for k in keywords)
 
-def known_companies(filename="known_companies.txt"):
-    if not os.path.exists(filename):
-        return []
-    with open(filename, "r", encoding="utf-8") as f:
-        # 
-        return [line.strip().lower() for line in f if line.strip()]
-
-# Load known companies
-KNOWN_COMPANIES_LIST = known_companies()
-
-def Knows_Companies(company: Optional[str]) -> bool:
-    if not company:
-        return False
-        
-    company = company.lower().strip()
-    
-    # Normalization for company names in search script
-    clean_name = (
-        company.replace(" sp. z o.o.", "")
-        .replace(" sp. z o.o", "")
-        .replace(".", "")
-        .replace(",", "")
-        .replace("sa ", "sa")
-    )
-    clean_name = re.sub(r'\s+', ' ', clean_name)
-    clean_name = re.sub(r'\s*-\s*', ' ', clean_name)
-    
-    # Check company from file
-    return any(kc in clean_name for kc in KNOWN_COMPANIES_LIST)
-
-
 def is_valid_job(job: Dict[str, Any]) -> bool:
     title = job["title"].lower()
 
