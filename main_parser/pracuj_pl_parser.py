@@ -315,7 +315,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
             continue
 
         date_header = msg.get("Date")
-        current_date = email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()
+        current_date = (email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()).strftime("%Y-%m-%d")
         print(f"DEBUG: Attempting to fetch mail {mail_id_str}")
         html = get_html(msg)
         if not html: 

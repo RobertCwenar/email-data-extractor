@@ -17,7 +17,7 @@ from imaplib import IMAP4_SSL
 #Load environment variables from .env file
 load_dotenv()
 
-#Login to wp.pl
+# Login to wp.pl
 mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
 login_email = os.getenv("EMAIL", "").strip().replace(",", "")
 my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
@@ -25,11 +25,10 @@ print("Logging in:", bool(login_email))
 print("Password loaded:", bool(my_password))
 
 mail.login(login_email, my_password)
-mail.select("Link") # Change to the desired mailbox (e.g., "inbox")!!!!
+mail.select("Link") 
 status, messages = mail.search(None, "UNSEEN")
 mail_ids = messages[0].split()
-
-print("Number of UNSEEN mails:", len(mail_ids))
+print("Number of UNSEEN emails:", len(mail_ids))
 
 # Create empty list to store data
 cache_file_path = "processed_linkedin_mails.txt"
@@ -225,7 +224,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
             continue
 
         date_header = msg.get("Date")
-        current_date = email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()
+        current_date = (email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()).strftime("%Y-%m-%d")
         
         html = get_html(msg)
         if not html: 
