@@ -21,7 +21,6 @@ pip
 pyparsing
 python-dateutil
 pytz
-pywin32
 requests
 setuptools
 six
@@ -33,3 +32,6 @@ tzdata
 urllib3
 zope.interface
 zxcvbn
+dotenv
+google.generativeai
+google-genai

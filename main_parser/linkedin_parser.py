@@ -4,50 +4,54 @@ import imaplib
 import json
 from bs4 import BeautifulSoup
 from email import message_from_bytes
-import pandas as pd
+from typing import List, Dict, Any, Optional
 import os
 from dotenv import load_dotenv
-import re
 import email.utils
-from openpyxl import load_workbook
 import google.generativeai as genai
-import time
+import sqlite3
+from email.message import Message
+from datetime import datetime
+from imaplib import IMAP4_SSL
 
 #Load environment variables from .env file
 load_dotenv()
 
-#Login to wp.pl
+# Login to wp.pl
 mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
-login_email = os.getenv("EMAIL").strip().replace(",", "")
-my_password = os.getenv("PASSWORD").strip().replace(",", "")
-print("Logging in: ", bool (login_email))
+login_email = os.getenv("EMAIL", "").strip().replace(",", "")
+my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
+print("Logging in:", bool(login_email))
 print("Password loaded:", bool(my_password))
 
 mail.login(login_email, my_password)
-mail.select("Link") # Change to the desired mailbox (e.g., "inbox")!!!!
+mail.select("Link") 
 status, messages = mail.search(None, "UNSEEN")
 mail_ids = messages[0].split()
-
-print("Number of mails:", len(mail_ids))
+print("Number of UNSEEN emails:", len(mail_ids))
 
 # Create empty list to store data
-Cache_file_path = "processed_linkedin_mails.txt"
+cache_file_path = "processed_linkedin_mails.txt"
 processed_mail_ids = set()
-data = [] 
+clean_jobs: List[Dict[str, Any]] = [] 
 
-def get_html(msg): 
+def get_html(msg: Message) -> Optional[str]:
+    if msg is None:
+        return None
+    
     if msg.is_multipart():
         for part in msg.walk():
-            # Looking for a part of email with html
             if part.get_content_type() == "text/html":
-                charset = part.get_content_charset() or 'utf-8'
-                return part.get_payload(decode=True).decode(charset, errors='ignore')
-    elif msg.get_content_type() == "text/html":
-        charset = msg.get_content_charset() or 'utf-8'
-        return msg.get_payload(decode=True).decode(charset, errors='ignore')
-    return ""
+                payload = part.get_payload(decode=True)
+                if isinstance(payload, bytes):
+                    return payload.decode('utf-8', errors='ignore')
+    elif msg.get_content_type() =="text/html":
+        payload = msg.get_payload(decode=True)
+        if isinstance(payload, bytes):
+            return payload.decode('utf-8', errors='ignore')
+    return None
 
-def is_valid_offer(offer):
+def is_valid_offer(offer: Dict [str, Any]) -> bool:
     pos = offer.get('position', '').strip()
     comp = offer.get('company', '').strip()
 
@@ -73,11 +77,13 @@ async def parse_all_offers_from_mail(text):
     model = genai.GenerativeModel('models/gemini-3.5-flash')
     
     prompt = (
-    "Jesteś precyzyjnym systemem ekstrakcji danych. Przeanalizuj poniższy tekst i wyciągnij WSZYSTKIE oferty pracy.\n"
-        "Zwróć wynik jako czysty JSON w formacie listy obiektów: [{'position': '...', 'company': '...', 'location': '...'}, ...].\n"
-        "Jeśli w tekście jest 12 ofert, lista musi mieć 12 elementów. NIE dodawaj żadnego tekstu przed ani po JSON-ie.\n"
-        f"TEKST DO ANALIZY:\n{text}"
-    )
+            "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
+            "Zwróć wynik TYLKO jako czystą tablicę JSON: "
+            "[{\"position\": \"nazwa stanowiska\", \"company\": \"nazwa firmy\", \"location\": \"miasto\", \"salary\": \"kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego'\"}]\n\n"
+            "Jeśli nie ma żadnej oferty, zwróć: []\n"
+            "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
+            f"TEKST MAIL:\n{text}"
+        )
     
     response = model.generate_content(prompt)
 
@@ -90,9 +96,9 @@ async def parse_all_offers_from_mail(text):
         print(f"JSON parsing error: {e}")
         return []
 
-async def process_linkedin_block(text, current_date, data):
+async def process_linkedin_block(text: str, current_date: datetime, data: List[dict[str, Any]]) -> None:
     # text is already plain text (we cleaned it in main)
-    offers = await parse_all_offers_from_mail(text)
+    offers: List[Dict[str, Any]] = await parse_all_offers_from_mail(text)
     
     count = 0
     # Iterate once over each offer
@@ -106,35 +112,44 @@ async def process_linkedin_block(text, current_date, data):
                 "date": current_date,
                 "title": offer.get('position', 'N/A'),
                 "company": offer.get('company', 'N/A'),
-                "location": offer.get('location', 'N/A')
+                "location": offer.get('location', 'N/A'),
+                "salary": offer.get('salary', 'N/A')
             })
             count += 1
+            
         else:
             print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
     
-    print(f" [SUKCES] Wyciągnięto {count} poprawnych ofert.")
+    print(f" [SUCCESS] {count} valid offers retrieved.")
 # Define functions to analyze job offers and companies
-bad_titles = ["Zobacz oferty", 
-              "absolwentów uczelni",
-                "absolwent uczelni",
-                "aktywnie rekrutuje",
-                "zobacz oferty",
-                "zobacz więcej",
-                "zobacz wszystkie"]
-
-skip = ["zobacz oferty",
+bad_titles = [
+        "Zobacz oferty", 
         "absolwentów uczelni",
         "absolwent uczelni",
         "aktywnie rekrutuje",
+        "zobacz oferty",
         "zobacz więcej",
-        "zobacz wszystkie",
-        "właścicielem marki"]
+        "zobacz wszystkie"
+    ]
+
+skip = [
+    "zobacz oferty",
+    "absolwentów uczelni",
+    "absolwent uczelni",
+    "aktywnie rekrutuje",
+    "zobacz więcej",
+    "zobacz wszystkie",
+    "właścicielem marki"
+]
 
 # Define functions to analyze job offers and companies
-def looks_like_job(title):
+def looks_like_job(title: Optional[str]) -> bool:
+    if not title or not isinstance(title, str):
+        return False
+    
     clean_title = title.lower()
 
-    junk_phrases = [
+    junk_phrases: list[str] = [
         "aktywnie rekrutuje", "bądź pierwszym", "spośród", "kandydatów", 
         "1 kontakt", "absolwentów uczelni", "absolwent uczelni", "zobacz oferty", 
     ]
@@ -178,19 +193,19 @@ if not mail_ids:
 else:
         print(f"Found {len(mail_ids)} new emails.")
 
-Cache_file_path = "processed_linkedin_mails.txt"
-if os.path.exists(Cache_file_path):
-    with open(Cache_file_path, "r") as f:
+if os.path.exists(cache_file_path):
+    with open(cache_file_path, "r") as f:
         processed_mail_ids = set(line.strip() for line in f)
 else:
     processed_mail_ids = set()
 
 # Main Loop
-async def main(mail, mail_ids):
-    if os.path.exists(Cache_file_path):
-        with open(Cache_file_path, "r") as f:
+async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, Any]]) -> int:
+    total_added = 0
+  
+    if os.path.exists(cache_file_path):
+        with open(cache_file_path, "r") as f:
             processed_mail_ids.update(line.strip() for line in f)
-
     for i in mail_ids:
         mail_id_str = i.decode() if isinstance(i, bytes) else str(i)
         if mail_id_str in processed_mail_ids:
@@ -199,56 +214,67 @@ async def main(mail, mail_ids):
         status, msg_data = mail.fetch(i, "(RFC822)")
         if status != 'OK': continue
         
-        msg = email.message_from_bytes(msg_data[0][1])
-        current_date = email.utils.parsedate_to_datetime(msg.get("Date")).strftime("%d.%m.%Y") if msg.get("Date") else "N/A"
+        if msg_data and isinstance(msg_data[0], tuple):
+            raw_email = msg_data[0][1]
+            if isinstance(raw_email, bytes):
+                msg = email.message_from_bytes(raw_email)
+            else:
+                continue 
+        else:
+            continue
+
+        date_header = msg.get("Date")
+        current_date = (email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()).strftime("%Y-%m-%d")
         
         html = get_html(msg)
-        if not html: continue
-
-        soup = BeautifulSoup(html, "html.parser")
-        text_block = soup.get_text(separator=" ", strip=True)[:2000]
-        
-        if len(text_block) > 50:
-            await process_linkedin_block(text_block, current_date, data)
-            print("Czekam 15 sekund")
-            await asyncio.sleep(15)
-
-            with open(Cache_file_path, "a") as f:
+        if not html: 
+            with open(cache_file_path, "a") as f:
                 f.write(mail_id_str + "\n")
             processed_mail_ids.add(mail_id_str)
+            continue    
+        
+        text = BeautifulSoup(html, "html.parser").get_text("\n")
+
+        await process_linkedin_block(text, current_date, clean_jobs)
+        await asyncio.sleep(40)
+        for job in clean_jobs:
+            save_offers(
+                title=job.get('title', 'N/A'),
+                company=job.get('company', 'N/A'),
+                location=job.get('location', 'N/A'),
+                salary=job.get('salary', 'N/A'),
+                date=job.get('date', 'N/A'),
+                source='Linkedin'
+            )
+            total_added += 1
+      
+        clean_jobs.clear()
+      
+        with open(cache_file_path, "a") as f:
+            f.write(mail_id_str + "\n")
+        processed_mail_ids.add(mail_id_str)
+        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
+        await asyncio.sleep(25)       
+        
+    return total_added
+
+# Add new jobs offers to database file
+def save_offers(title: str, company: str, location: str, salary: str, date: str, source: str, db_name='new_offers.db'):
+    conn = sqlite3.connect(db_name)
+    cursor =conn.cursor()
+    cursor.execute('''
+            INSERT INTO Offers (title, company, location, salary, date, source)
+                   VALUES (?, ?, ?, ?, ?, ?)
+        ''', (title, company, location, salary, date, source))
+
+    conn.commit()
+    conn.close()
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
 if __name__ == "__main__":
-    asyncio.run(main(mail, mail_ids))
+    clean_jobs = []
+    total_found = asyncio.run(main(mail, mail_ids, clean_jobs))
 
-# Add new jobs offers to excel file
-
-file_path = "new_offers.xlsx"
-sheet_name = "LinkedIn"
-
-def append_to_excel(data, file_path="new_offers.xlsx"):
-    if not data: return
-    df = pd.DataFrame(data)
-    
-    if not os.path.exists(file_path):
-        df.to_excel(file_path, index=False, sheet_name="LinkedIn")
-    else:
-        with pd.ExcelWriter(file_path, engine='openpyxl', mode='a', if_sheet_exists='overlay') as writer:
-            try:
-                # Wczytaj by znaleźć ostatni wiersz
-                old_df = pd.read_excel(file_path, sheet_name="LinkedIn")
-                start_row = len(old_df) + 1
-                df.to_excel(writer, index=False, header=False, startrow=start_row, sheet_name="LinkedIn")
-            except Exception:
-                df.to_excel(writer, index=False, sheet_name="LinkedIn")
-    
-    
-    print(f"Zapisano {len(data)} ofert do pliku {file_path}.")
-print("\nFinished!")
-print("MAILS processed:", len(mail_ids))
-print("TOTAL JOBS found:", len(data))
-
-if data:
-    append_to_excel(data, file_path="new_offers.xlsx")
-else:
-    print("Brak danych do zapisania w Excelu.")
+    print ("\nFinished")
+    print("Mails processed:", len(mail_ids))
+    print("Total jobs found:", total_found)
