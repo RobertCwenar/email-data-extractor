@@ -9,3 +9,4 @@ processed_mails.txt
 processed_linkedin_mails.txt
 *.db
 *sqbpro
+*.egg-info/
