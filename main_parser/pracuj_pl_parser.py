@@ -19,25 +19,27 @@ from imaplib import IMAP4_SSL
 # Load environment variables
 load_dotenv()
 
-# Login to wp.pl
-mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
-login_email = os.getenv("EMAIL", "").strip().replace(",", "")
-my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
-print("Logging in:", bool(login_email))
-print("Password loaded:", bool(my_password))
+# Login to wp.pl and fetch unseen messages
+def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
+    mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
+    login_email = os.getenv("EMAIL", "").strip().replace(",", "")
+    my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
+    print("Logging in:", bool(login_email))
+    print("Password loaded:", bool(my_password))
+    
+    mail.login(login_email, my_password)
+    mail.select("PRACA") 
+    status, response = mail.search(None, 'UNSEEN')
+    mail_ids = response[0].split()
+    return mail, mail_ids
 
-mail.login(login_email, my_password)
-mail.select("PRACA") 
-status, messages = mail.search(None, "UNSEEN")
-mail_ids = messages[0].split()
-print("Number of UNSEEN emails:", len(mail_ids))
+mail, mail_ids = login()
 
-# Load data
+# Cache file to store processed mail IDs
 cache_file = "processed_mails.txt"
-status, response = mail.search(None, 'ALL')
-mail_ids = response[0].split()
 clean_jobs: List[Dict[str, Any]] = []
 
+# Define a function to extract HTML content from an email message
 def get_html(msg: Message) -> Optional[str]:
     if msg is None:
         return None
@@ -256,7 +258,7 @@ def is_job_trigger(line: Optional[str]) -> bool:
     "junior", "konsultant", "kontroler", "księgowy", "logist", "menedżer", 
     "młodszy", "planowanie", "planowania", "project manager", "raportowanie", 
     "raportowania", "raporty", "specjalista", "specjalistka", "spedytor", 
-    "staż", "supply", "analizy"
+    "staż", "supply", "analizy", 'analytics', 'engineer', 'SAP'
     ]
 
     return any(k in lowercased_line.lower() for k in keywords)
@@ -330,7 +332,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         print(f"DEBUG: Calling process_pracuj_block for mail ID: {mail_id_str}")
         # AI processes the mail
         await process_pracuj_block(text, current_date, clean_jobs)
-        await asyncio.sleep(45)
+        await asyncio.sleep(21)  # Wait 21 seconds to avoid hitting API limits
         # Save offers
         for job in clean_jobs:
             print(f"Debug: Saving: {repr(job.get('title'))}")
@@ -351,8 +353,8 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         with open(cache_file, "a") as f:
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
-        await asyncio.sleep(50)
-        print(f"Processed mail: {mail_id_str}, wait 50 seconds...")
+        await asyncio.sleep(25)
+        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
     return total_added
 
 def save_offers(title: str, company: str, location: str, salary: str , date: str, source: str, db_name = 'new_offers.db'):
@@ -367,10 +369,15 @@ def save_offers(title: str, company: str, location: str, salary: str , date: str
     conn.close()
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
+async def run_parser(mail: Any, mail_ids: list[str]) -> int:
+    clean_jobs: List[dict]= []
+    result = await main(mail, mail_ids, clean_jobs)
+    return result
+
 if __name__ == "__main__":
-    clean_jobs = []
-    total_found = asyncio.run(main(mail, mail_ids, clean_jobs))
-  
-print("\nFinished!")
-print("MAILS processed:", len(mail_ids))
-print("TOTAL JOBS found:", total_found)
+    clean_jobs: List[dict]= []
+    total_found = asyncio.run(run_parser(mail, mail_ids))
+
+    print("\nFinished!")
+    print("MAILS processed:", len(mail_ids))
+    print("TOTAL JOBS found:", total_found)
