@@ -7,6 +7,8 @@ venv/
 *.xlsx
 processed_mails.txt
 processed_linkedin_mails.txt
+processed_rocketjobs_mails.txt
 *.db
 *sqbpro
-*.egg-info/
+*.egg-info
+mail_records/
