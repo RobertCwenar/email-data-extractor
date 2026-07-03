@@ -1,16 +1,19 @@
 {
   "name": "email-data-extractor",
   "image": "mcr.microsoft.com/devcontainers/python:3.12",
-  "postCreateCommand": "python -m pip install --upgrade pip && pip install -r requirements.txt",
+
+  "postCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && uv sync",
+
   "customizations": {
     "vscode": {
       "extensions": [
         "ms-python.python",
         "ms-toolsai.jupyter"
-      ], 
+      ],
       "settings": {
-          "python.defaultInterpreterPath": "/workspaces/email-data-extractor/.venv/bin/python"
+        "python.defaultInterpreterPath": ".venv/bin/python"
       }
     }
   }
 }
+
