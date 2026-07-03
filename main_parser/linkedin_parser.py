@@ -13,8 +13,9 @@ import sqlite3
 from email.message import Message
 from datetime import datetime
 from imaplib import IMAP4_SSL
+from pathlib import Path
 
-#Load environment variables from .env file
+# Load environment variables from .env file
 load_dotenv()
 
 # Login to wp.pl and fetch unseen messages
@@ -26,7 +27,7 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
     print("Password loaded:", bool(my_password))
     
     mail.login(login_email, my_password)
-    mail.select("PRACA") 
+    mail.select("Link") 
     status, response = mail.search(None, 'UNSEEN')
     mail_ids = response[0].split()
     return mail, mail_ids
@@ -34,9 +35,9 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
 mail, mail_ids = login()
 
 # Cache file to store processed mail IDs
-cache_file = "processed_mails.txt"
+cache_file = Path("mail_records/processed_linkedin_mails.txt")
 clean_jobs: List[Dict[str, Any]] = []
-processed_ids = set()
+processed_ids: set[str] = set()
 
 def get_html(msg: Message) -> Optional[str]:
     if msg is None:
@@ -58,7 +59,6 @@ def is_valid_offer(offer: Dict [str, Any]) -> bool:
     pos = offer.get('position', '').strip()
     comp = offer.get('company', '').strip()
 
-    
     if len(pos) < 3 or len(comp) < 2 or pos.lower() == "null" or comp.lower() == "null":
         return False
     
@@ -112,7 +112,7 @@ async def process_linkedin_block(text: str, current_date: datetime, data: List[d
         if is_valid and is_job:
             # Add the offer
             data.append({
-                "date": current_date,
+                "date": current_date.strftime("%Y-%m-%d"),
                 "title": offer.get('position', 'N/A'),
                 "company": offer.get('company', 'N/A'),
                 "location": offer.get('location', 'N/A'),
@@ -227,7 +227,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
             continue
 
         date_header = msg.get("Date")
-        current_date = (email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now()).strftime("%Y-%m-%d")
+        current_date = (email.utils.parsedate_to_datetime(date_header) if date_header else datetime.now())
         
         html = get_html(msg)
         if not html: 
@@ -275,14 +275,14 @@ def save_offers(title: str, company: str, location: str, salary: str, date: str,
 
 # Entry point: Initialize the asyncio event loop and execute the main processing function
 async def run_parser(mail: Any, mail_ids: list[str]) -> int:
-    clean_jobs: List[dict]= []
+    clean_jobs: List[Dict[str, Any]] = []
     result = await main(mail, mail_ids, clean_jobs)
     return result
 
 if __name__ == "__main__":
-    clean_jobs: List[dict]= []
-    total_found = asyncio.run(run_parser(mail, mail_ids))
+    mail_ids_str: List[str] = [m.decode('utf-8') if isinstance(m, bytes) else str(m) for m in mail_ids]
+    total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
     print("\nFinished!")
-    print("MAILS processed:", len(mail_ids))
+    print("MAILS processed:", len(mail_ids_str))
     print("TOTAL JOBS found:", total_found)
