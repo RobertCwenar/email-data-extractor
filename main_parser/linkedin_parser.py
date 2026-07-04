@@ -32,12 +32,8 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
     mail_ids = response[0].split()
     return mail, mail_ids
 
-mail, mail_ids = login()
-
 # Cache file to store processed mail IDs
 cache_file = Path("mail_records/processed_linkedin_mails.txt")
-clean_jobs: List[Dict[str, Any]] = []
-processed_ids: set[str] = set()
 
 def get_html(msg: Message) -> Optional[str]:
     if msg is None:
@@ -191,19 +187,26 @@ def looks_like_job(title: Optional[str]) -> bool:
     print(f" [DEBUG] Rejected: '{title}' | Match: {is_match} | Excluded: {is_excluded}")
     return False
 
-if not mail_ids:
+# Entry point: Initialize the asyncio event loop and execute the main processing function
+async def run_parser(mail: Any, mail_ids: list[str]) -> int:
+    cache_file = Path("mail_records/processed_linkedin_mails.txt")
+    if not mail_ids:
         print("None new offers found.")
-else:
+    else:
         print(f"Found {len(mail_ids)} new emails.")
 
-if os.path.exists(cache_file):
-    with open(cache_file, "r") as f:
-        processed_ids = {line.strip() for line in f}
-else:
-    processed_ids = set()
+    if os.path.exists(cache_file):
+        with open(cache_file, "r") as f:
+            processed_ids = {line.strip() for line in f}
+    else:
+        processed_ids = set()
+
+    clean_jobs: List[Dict[str, Any]] = []
+    result = await main(mail, mail_ids, clean_jobs, processed_ids)
+    return result
 
 # Main Loop
-async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, Any]]) -> int:
+async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, Any]], processed_ids: set[str]) -> int:
     total_added = 0
   
     if os.path.exists(cache_file):
@@ -256,8 +259,8 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         with open(cache_file, "a") as f:
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
-        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
-        await asyncio.sleep(45)       
+        await asyncio.sleep(35)
+        print(f"Processed mail: {mail_id_str}, wait 35 seconds...") 
         
     return total_added
 
@@ -273,13 +276,8 @@ def save_offers(title: str, company: str, location: str, salary: str, date: str,
     conn.commit()
     conn.close()
 
-# Entry point: Initialize the asyncio event loop and execute the main processing function
-async def run_parser(mail: Any, mail_ids: list[str]) -> int:
-    clean_jobs: List[Dict[str, Any]] = []
-    result = await main(mail, mail_ids, clean_jobs)
-    return result
-
 if __name__ == "__main__":
+    mail, mail_ids = login()
     mail_ids_str: List[str] = [m.decode('utf-8') if isinstance(m, bytes) else str(m) for m in mail_ids]
     total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
