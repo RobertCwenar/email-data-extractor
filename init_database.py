@@ -1,10 +1,11 @@
 import sqlite3
 
+
 # Create new dataframe with new offers
-def init_db(db_name='new_offers.db'):
+def init_db(db_name="new_offers.db"):
     conn = sqlite3.connect(db_name)
     cursor = conn.cursor()
-    cursor.execute('''
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS Offers(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             title TEXT,
@@ -14,6 +15,6 @@ def init_db(db_name='new_offers.db'):
             date TEXT,
             source TEXT
         )
-    ''')
+    """)
     conn.commit()
     conn.close()
