@@ -1,22 +1,42 @@
 # Library
 import asyncio
+import email
 import email.utils
 import imaplib
-import json
+import logging
 import os
 import sqlite3
 from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from google import genai
+from pydantic import BaseModel
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("parser")
+
+
+class JobOffer(BaseModel):
+    date: datetime
+    title: str
+    company: str
+    location: str
+    salary: Optional[float] = None
+
+
+class OffersResponse(BaseModel):
+    offers: List[JobOffer]
 
 
 # Login to wp.pl and fetch unseen messages
@@ -55,9 +75,9 @@ def get_html(msg: Message) -> Optional[str]:
     return None
 
 
-def is_valid_offer(offer: Dict[str, Any]) -> bool:
-    pos = offer.get("position", "").strip()
-    comp = offer.get("company", "").strip()
+def is_valid_offer(offer: JobOffer) -> bool:
+    pos = offer.title.strip()
+    comp = offer.company.strip()
 
     if len(pos) < 3 or len(comp) < 2 or pos.lower() == "null" or comp.lower() == "null":
         return False
@@ -70,67 +90,62 @@ def is_valid_offer(offer: Dict[str, Any]) -> bool:
 
 
 # Load API
-api_key = os.getenv("KEY_API")
-if api_key:
-    key_api = api_key.strip().replace(",", "")
-    genai.configure(api_key=key_api)
-else:
-    print("None")
+client = genai.Client(api_key=os.getenv("KEY_API", "").strip().replace(",", ""))
 
 
-async def parse_all_offers_from_mail(text: str) -> List[Dict[str, Any]]:
-    model = genai.GenerativeModel("models/gemini-3.1-flash-lite")
-
-    prompt = (
-        "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
-        "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-        '[{"position": "nazwa stanowiska", '
-        '"company": "nazwa firmy", '
-        '"location": "miasto", '
-        '"salary": "kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego"}]\n'
-        "Jeśli nie ma żadnej oferty, zwróć: []\n"
-        "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
-        f"TEKST MAIL:\n{text}"
-    )
-
-    generation = {
-        "response_mime_type": "application/json",
-    }
-
-    # cast to Any to satisfy type checkers expecting a specific GenerationConfig type
-    response = await asyncio.to_thread(model.generate_content, prompt, generation_config=cast(Any, generation))
+async def parser_offers_API(text: str) -> List[JobOffer]:
+    prompt = f'Extract all job offers from this text mail:\n"{text}'
 
     try:
-        return json.loads(response.text)
-    except json.JSONDecodeError:
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model="models/gemini-3.1-flash-lite",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": OffersResponse.model_json_schema(),
+                "temperature": 0.0,
+            },
+        )
+        if not response.parsed:
+            return []
+        try:
+            parsed_response = OffersResponse.model_validate(response.parsed)
+            return parsed_response.offers
+        except Exception as parse_error:
+            logger.error("Failed to validate parsed API response: %s", parse_error, exc_info=True)
+            return []
+    except Exception as e:
+        logger.error(f"Error occurred while parsing offers: {e}", exc_info=True)
         return []
 
 
 async def process_linkedin_block(text: str, current_date: datetime, data: List[dict[str, Any]]) -> None:
     # text is already plain text (we cleaned it in main)
-    offers: List[Dict[str, Any]] = await parse_all_offers_from_mail(text)
+    offers: List[JobOffer] = await parser_offers_API(text)
 
     count = 0
     # Iterate once over each offer
     for offer in offers:
         is_valid = is_valid_offer(offer)
-        is_job = looks_like_job(offer.get("position", ""))
+        # JobOffer is a Pydantic model, access attributes directly. Use title for job detection.
+        is_job = looks_like_job(getattr(offer, "title", ""))
 
         if is_valid and is_job:
             # Add the offer
             data.append(
                 {
                     "date": current_date.strftime("%Y-%m-%d"),
-                    "title": offer.get("position", "N/A"),
-                    "company": offer.get("company", "N/A"),
-                    "location": offer.get("location", "N/A"),
-                    "salary": offer.get("salary", "N/A"),
+                    "title": offer.title,
+                    "company": offer.company,
+                    "location": offer.location,
+                    "salary": offer.salary,
                 }
             )
             count += 1
 
         else:
-            print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
+            print(f" [Reject] {offer.title} | Valid: {is_valid} | Job: {is_job}")
 
     print(f" [SUCCESS] {count} valid offers retrieved.")
 

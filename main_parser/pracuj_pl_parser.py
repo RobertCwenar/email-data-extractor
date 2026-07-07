@@ -3,21 +3,40 @@ import asyncio
 import email
 import email.utils
 import imaplib
-import json
+import logging
 import os
 import sqlite3
 from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
 from pathlib import Path
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, List, Optional
 
-import google.generativeai as genai
 from bs4 import BeautifulSoup
 from dotenv import load_dotenv
+from google import genai
+from pydantic import BaseModel
 
 # Load environment variables
 load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger("parser")
+
+
+class JobOffer(BaseModel):
+    date: datetime
+    title: str
+    company: str
+    location: str
+    salary: Optional[float] = None
+
+
+class OffersResponse(BaseModel):
+    offers: List[JobOffer]
 
 
 # Login to wp.pl and fetch unseen messages
@@ -57,9 +76,15 @@ def get_html(msg: Message) -> Optional[str]:
     return None
 
 
-def is_valid_offer(offer: Dict[str, Any]) -> bool:
-    pos = offer.get("position", "").strip()
-    comp = offer.get("company", "").strip()
+def is_valid_offer(offer: JobOffer) -> bool:
+    if isinstance(offer, dict):
+        pos = str(offer.get("position", "")).strip()
+        comp = str(offer.get("company", "")).strip()
+    elif isinstance(offer, JobOffer):
+        pos = offer.title.strip()
+        comp = offer.company.strip()
+    else:
+        return False
 
     if len(pos) < 3 or len(comp) < 2 or pos.lower() == "null" or comp.lower() == "null":
         return False
@@ -72,40 +97,33 @@ def is_valid_offer(offer: Dict[str, Any]) -> bool:
 
 
 # Load API
-api_key = os.getenv("KEY_API")
-if api_key:
-    key_api = api_key.strip().replace(",", "")
-    genai.configure(api_key=key_api)
-else:
-    print("None")
+client = genai.Client(api_key=os.getenv("KEY_API", "").strip().replace(",", ""))
 
 
-async def parser_offers_API(text: str) -> List[Dict[str, Any]]:
-    model = genai.GenerativeModel("models/gemini-3.1-flash-lite")
-
-    # A very simple prompt to exclude interpretation errors
-    prompt = (
-        "Jesteś ekstraktorem ofert pracy. Z poniższego tekstu wyciągnij wszystkie oferty.\n"
-        "Zwróć wynik TYLKO jako czystą tablicę JSON: "
-        '[{"position": "nazwa stanowiska", '
-        '"company": "nazwa firmy", '
-        '"location": "miasto", '
-        '"salary": "kwota wynagrodzenia jeżeli nie ma to nie wpisuj niczego"}]\n'
-        "Jeśli nie ma żadnej oferty, zwróć: []\n"
-        "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
-        f"TEKST MAIL:\n{text}"
-    )
-
-    generation = {
-        "response_mime_type": "application/json",
-    }
-
-    # cast to Any to satisfy type checkers expecting a specific GenerationConfig type
-    response = await asyncio.to_thread(model.generate_content, prompt, generation_config=cast(Any, generation))
+async def parser_offers_API(text: str) -> List[JobOffer]:
+    prompt = f'Extract all job offers from this text mail:\n"{text}'
 
     try:
-        return json.loads(response.text)
-    except json.JSONDecodeError:
+        response = await asyncio.to_thread(
+            client.models.generate_content,
+            model="models/gemini-3.1-flash-lite",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": OffersResponse.model_json_schema(),
+                "temperature": 0.0,
+            },
+        )
+        if not response.parsed:
+            return []
+        try:
+            parsed_response = OffersResponse.model_validate(response.parsed)
+            return parsed_response.offers
+        except Exception as parse_error:
+            logger.error("Failed to validate parsed API response: %s", parse_error, exc_info=True)
+            return []
+    except Exception as e:
+        logger.error(f"Error occurred while parsing offers: {e}", exc_info=True)
         return []
 
 
@@ -171,13 +189,13 @@ bad_titles = [
 
 async def process_pracuj_block(text: str, current_date: datetime, data: List[dict[str, Any]]) -> None:
     # text is already plain text (we cleaned it in main)
-    offers: List[Dict[str, Any]] = await parser_offers_API(text)
+    offers = await parser_offers_API(text)
 
     count = 0
     # Iterate once over each offer
     for offer in offers:
         is_valid = is_valid_offer(offer)
-        position_title = str(offer.get("position", ""))
+        position_title = str(offer.title)
         is_job = looks_like_job(position_title)
 
         if is_valid and is_job:
@@ -185,17 +203,17 @@ async def process_pracuj_block(text: str, current_date: datetime, data: List[dic
             data.append(
                 {
                     "date": current_date.strftime("%Y-%m-%d"),
-                    "title": offer.get("position", "N/A"),
-                    "company": str(offer.get("company", "N/A")),
-                    "location": str(offer.get("location", "N/A")),
-                    "salary": str(offer.get("salary", "N/A")),
+                    "title": offer.title,
+                    "company": str(offer.company),
+                    "location": str(offer.location),
+                    "salary": str(offer.salary),
                 }
             )
             count += 1
         else:
-            print(f" [Reject] {offer.get('position')} | Valid: {is_valid} | Job: {is_job}")
+            logger.info(f" [Reject] {offer.title} | Valid: {is_valid} | Job: {is_job}")
 
-    print(f" [SUCCESS] {count} valid offers retrieved.")
+    logger.info(f" [SUCCESS] {count} valid offers retrieved.")
 
 
 # Define functions to analyze job offers and companies
@@ -368,9 +386,9 @@ def is_valid_job(job: Dict[str, Any]) -> bool:
 async def run_parser(mail: Any, mail_ids: list[str]) -> int:
     cache_file = Path("mail_records/processed_mails.txt")
     if not mail_ids:
-        print("None new offers found.")
+        logger.info("None new offers found.")
     else:
-        print(f"Found {len(mail_ids)} new emails.")
+        logger.info(f"Found {len(mail_ids)} new emails.")
 
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
@@ -411,7 +429,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         print(f"DEBUG: Attempting to fetch mail {mail_id_str}")
         html = get_html(msg)
         if not html:
-            print(f"DEBUG: Mail {mail_id_str} has no content (html is None). Skipping.")
+            logger.debug(f"DEBUG: Mail {mail_id_str} has no content (html is None). Skipping.")
             # Mark as processed even if empty to avoid re-checking
             with open(cache_file, "a") as f:
                 f.write(mail_id_str + "\n")
@@ -419,13 +437,13 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
             continue
 
         text = BeautifulSoup(html, "html.parser").get_text("\n")
-        print(f"DEBUG: Calling process_pracuj_block for mail ID: {mail_id_str}")
+        logger.debug(f"DEBUG: Calling process_pracuj_block for mail ID: {mail_id_str}")
         # AI processes the mail
         await process_pracuj_block(text, current_date, clean_jobs)
         await asyncio.sleep(28)  # Wait 28 seconds to avoid hitting API limits
         # Save offers
         for job in clean_jobs:
-            print(f"Debug: Saving: {repr(job.get('title'))}")
+            logger.debug(f"Debug: Saving: {repr(job.get('title'))}")
             save_offers(
                 title=job.get("title", "N/A"),
                 company=job.get("company", "N/A"),
@@ -444,7 +462,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
         await asyncio.sleep(25)
-        print(f"Processed mail: {mail_id_str}, wait 25 seconds...")
+        logger.info(f"Processed mail: {mail_id_str}, wait 25 seconds...")
     return total_added
 
 
@@ -469,5 +487,5 @@ if __name__ == "__main__":
     total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
     print("\nFinished!")
-    print("MAILS processed:", len(mail_ids_str))
-    print("TOTAL JOBS found:", total_found)
+    logger.info("MAILS processed: %d", len(mail_ids_str))
+    logger.info("TOTAL JOBS found: %d", total_found)
