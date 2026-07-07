@@ -10,7 +10,7 @@ from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import google.generativeai as genai
 from bs4 import BeautifulSoup
@@ -81,7 +81,7 @@ else:
 
 
 async def parser_offers_API(text: str) -> List[Dict[str, Any]]:
-    model = genai.GenerativeModel("models/gemini-3.5-flash")
+    model = genai.GenerativeModel("models/gemini-3.1-flash-lite")
 
     # A very simple prompt to exclude interpretation errors
     prompt = (
@@ -95,18 +95,16 @@ async def parser_offers_API(text: str) -> List[Dict[str, Any]]:
         "Nie dodawaj żadnych wyjaśnień, wstępów, ani znaków Markdown typu ```json.\n"
         f"TEKST MAIL:\n{text}"
     )
+    generation = {
+        "response_mime_type": "application/json",
+    }
+
+    # cast to Any to satisfy type checkers expecting a specific GenerationConfig type
+    response = await asyncio.to_thread(model.generate_content, prompt, generation_config=cast(Any, generation))
+
     try:
-        response = await model.generate_content_async(prompt)
-
-        raw_output = response.text
-        print(f"DEBUG: Raw AI response: {raw_output[:500]}")
-
-        # Parser
-        clean_json = raw_output.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
-
-    except Exception as e:
-        print(f"Parser Error: {e}")
+        return json.loads(response.text)
+    except json.JSONDecodeError:
         return []
 
 

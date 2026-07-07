@@ -9,7 +9,7 @@ from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import google.generativeai as genai
 from bs4 import BeautifulSoup
@@ -78,7 +78,7 @@ else:
     print("None")
 
 
-async def parse_all_offers_from_mail(text):
+async def parse_all_offers_from_mail(text: str) -> List[Dict[str, Any]]:
     model = genai.GenerativeModel("models/gemini-3.1-flash-lite")
 
     prompt = (
@@ -93,13 +93,16 @@ async def parse_all_offers_from_mail(text):
         f"TEKST MAIL:\n{text}"
     )
 
-    response = await asyncio.to_thread(model.generate_content, prompt)
+    generation = {
+        "response_mime_type": "application/json",
+    }
 
-    cleaned = response.text.replace("```json", "").replace("```", "").strip()
+    # cast to Any to satisfy type checkers expecting a specific GenerationConfig type
+    response = await asyncio.to_thread(model.generate_content, prompt, generation_config=cast(Any, generation))
 
     try:
-        return json.loads(cleaned)
-    except Exception:
+        return json.loads(response.text)
+    except json.JSONDecodeError:
         return []
 
 

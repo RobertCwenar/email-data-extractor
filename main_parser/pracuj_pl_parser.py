@@ -10,7 +10,7 @@ from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, cast
 
 import google.generativeai as genai
 from bs4 import BeautifulSoup
@@ -81,7 +81,7 @@ else:
 
 
 async def parser_offers_API(text: str) -> List[Dict[str, Any]]:
-    model = genai.GenerativeModel("models/gemini-3.5-flash")
+    model = genai.GenerativeModel("models/gemini-3.1-flash-lite")
 
     # A very simple prompt to exclude interpretation errors
     prompt = (
@@ -96,18 +96,16 @@ async def parser_offers_API(text: str) -> List[Dict[str, Any]]:
         f"TEKST MAIL:\n{text}"
     )
 
+    generation = {
+        "response_mime_type": "application/json",
+    }
+
+    # cast to Any to satisfy type checkers expecting a specific GenerationConfig type
+    response = await asyncio.to_thread(model.generate_content, prompt, generation_config=cast(Any, generation))
+
     try:
-        response = await model.generate_content_async(prompt)
-
-        raw_output = response.text
-        print(f"DEBUG: Raw AI response: {raw_output[:500]}")
-
-        # Parser
-        clean_json = raw_output.replace("```json", "").replace("```", "").strip()
-        return json.loads(clean_json)
-
-    except Exception as e:
-        print(f"Parser Error: {e}")
+        return json.loads(response.text)
+    except json.JSONDecodeError:
         return []
 
 
@@ -424,7 +422,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         print(f"DEBUG: Calling process_pracuj_block for mail ID: {mail_id_str}")
         # AI processes the mail
         await process_pracuj_block(text, current_date, clean_jobs)
-        await asyncio.sleep(21)  # Wait 21 seconds to avoid hitting API limits
+        await asyncio.sleep(28)  # Wait 28 seconds to avoid hitting API limits
         # Save offers
         for job in clean_jobs:
             print(f"Debug: Saving: {repr(job.get('title'))}")
