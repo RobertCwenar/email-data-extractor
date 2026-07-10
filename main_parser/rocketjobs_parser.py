@@ -44,8 +44,8 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
     mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
     login_email = os.getenv("EMAIL", "").strip().replace(",", "")
     my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
-    print("Logging in:", bool(login_email))
-    print("Password loaded:", bool(my_password))
+    logger.info(f"Logging in: {bool(login_email)}")
+    logger.info(f"Password loaded: {bool(my_password)}")
 
     mail.login(login_email, my_password)
     mail.select("RocketJobs")  # Select the mailbox
@@ -142,7 +142,7 @@ def clean_block(block: Optional[str]) -> List[str]:
     return cleaned
 
 
-skip = skip = [
+skip = [
     "logo",
     "więcej",
     "ciepłe",
@@ -175,8 +175,8 @@ skip = skip = [
     "mamy dla ciebie nowe oferty pracy",
     "mamy dla ciebie nowe oferty",
     "twoje preferencje",
-    "Mamy dla Ciebie nowe oferty. "
-    "Twoje preferencje: Logistyka, Wrocław, 30 km, "
+    "Mamy dla Ciebie nowe oferty.",
+    "Twoje preferencje: Logistyka, Wrocław, 30 km,",
     "Specjalista / Mid, Młodszy specjalista / Junior",
 ]
 
@@ -482,6 +482,6 @@ if __name__ == "__main__":
     mail_ids_str: List[str] = [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in mail_ids]
     total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
-    print("\nFinished!")
-    print("MAILS processed:", len(mail_ids_str))
-    print("TOTAL JOBS found:", total_found)
+    logger.info("\nFinished!")
+    logger.info(f"MAILS processed: {len(mail_ids_str)}")
+    logger.info(f"TOTAL JOBS found: {total_found}")

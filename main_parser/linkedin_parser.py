@@ -44,8 +44,8 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
     mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
     login_email = os.getenv("EMAIL", "").strip().replace(",", "")
     my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
-    print("Logging in:", bool(login_email))
-    print("Password loaded:", bool(my_password))
+    logger.info(f"Logging in: {bool(login_email)}")
+    logger.info(f"Password loaded: {bool(my_password)}")
 
     mail.login(login_email, my_password)
     mail.select("Link")
@@ -58,6 +58,7 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
 cache_file = Path("mail_records/processed_linkedin_mails.txt")
 
 
+# Function to extract HTML content from an email message
 def get_html(msg: Message) -> Optional[str]:
     if msg is None:
         return None
@@ -93,8 +94,9 @@ def is_valid_offer(offer: JobOffer) -> bool:
 client = genai.Client(api_key=os.getenv("KEY_API", "").strip().replace(",", ""))
 
 
+# Function to parse job offers from text using the API
 async def parser_offers_API(text: str) -> List[JobOffer]:
-    prompt = f'Extract all job offers from this text mail:\n"{text}'
+    prompt = f'Extract all job offers from this text mail:\n"{text}"'
 
     try:
         response = await asyncio.to_thread(
@@ -120,6 +122,7 @@ async def parser_offers_API(text: str) -> List[JobOffer]:
         return []
 
 
+# Process each block of text to extract job offers and validate them
 async def process_linkedin_block(text: str, current_date: datetime, data: List[dict[str, Any]]) -> None:
     # text is already plain text (we cleaned it in main)
     offers: List[JobOffer] = await parser_offers_API(text)
@@ -146,7 +149,7 @@ async def process_linkedin_block(text: str, current_date: datetime, data: List[d
 
         else:
             print(f" [Reject] {offer.title} | Valid: {is_valid} | Job: {is_job}")
-
+    # Print the number of valid offers retrieved
     print(f" [SUCCESS] {count} valid offers retrieved.")
 
 
@@ -291,9 +294,9 @@ def looks_like_job(title: Optional[str]) -> bool:
 async def run_parser(mail: Any, mail_ids: list[str]) -> int:
     cache_file = Path("mail_records/processed_linkedin_mails.txt")
     if not mail_ids:
-        print("None new offers found.")
+        logger.info("None new offers found.")
     else:
-        print(f"Found {len(mail_ids)} new emails.")
+        logger.info(f"Found {len(mail_ids)} new emails.")
 
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
@@ -388,6 +391,6 @@ if __name__ == "__main__":
     mail_ids_str: List[str] = [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in mail_ids]
     total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
-    print("\nFinished!")
-    print("MAILS processed:", len(mail_ids_str))
-    print("TOTAL JOBS found:", total_found)
+    logger.info("\nFinished!")
+    logger.info(f"MAILS processed: {len(mail_ids_str)}")
+    logger.info(f"TOTAL JOBS found: {total_found}")

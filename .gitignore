@@ -12,3 +12,4 @@ processed_rocketjobs_mails.txt
 *sqbpro
 *.egg-info
 mail_records/
+*.json

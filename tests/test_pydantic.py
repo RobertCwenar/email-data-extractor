@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, Optional, cast
 
 import pytest
 from pydantic import BaseModel
@@ -62,7 +62,8 @@ def test_job_offer_serialization():
             "salary": None,
         },
     ]
-    offers = [JobOffer(**item) for item in data]
+
+    offers = [JobOffer(**cast(Dict[str, Any], item)) for item in data]
     assert len(offers) == 4
     assert offers[0].title == "Software Engineer"
     assert offers[1].title == "Data Scientist"

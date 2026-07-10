@@ -44,8 +44,8 @@ def login() -> tuple[imaplib.IMAP4_SSL, list[bytes]]:
     mail = imaplib.IMAP4_SSL("imap.wp.pl", 993)
     login_email = os.getenv("EMAIL", "").strip().replace(",", "")
     my_password = os.getenv("PASSWORD", "").strip().replace(",", "")
-    print("Logging in:", bool(login_email))
-    print("Password loaded:", bool(my_password))
+    logger.info(f"Logging in: {bool(login_email)}")
+    logger.info(f"Password loaded: {bool(my_password)}")
 
     mail.login(login_email, my_password)
     mail.select("PRACA")
@@ -101,7 +101,7 @@ client = genai.Client(api_key=os.getenv("KEY_API", "").strip().replace(",", ""))
 
 
 async def parser_offers_API(text: str) -> List[JobOffer]:
-    prompt = f'Extract all job offers from this text mail:\n"{text}'
+    prompt = f'Extract all job offers from this text mail:\n"{text}"'
 
     try:
         response = await asyncio.to_thread(
@@ -486,6 +486,6 @@ if __name__ == "__main__":
     mail_ids_str: List[str] = [m.decode("utf-8") if isinstance(m, bytes) else str(m) for m in mail_ids]
     total_found = asyncio.run(run_parser(mail, mail_ids_str))
 
-    print("\nFinished!")
-    logger.info("MAILS processed: %d", len(mail_ids_str))
-    logger.info("TOTAL JOBS found: %d", total_found)
+    logger.info("\nFinished!")
+    logger.info(f"MAILS processed: {len(mail_ids_str)}")
+    logger.info(f"TOTAL JOBS found: {total_found}")
