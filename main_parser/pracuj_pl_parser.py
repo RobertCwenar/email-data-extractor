@@ -6,6 +6,7 @@ import imaplib
 import logging
 import os
 import sqlite3
+import sys
 from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
@@ -16,6 +17,9 @@ from bs4 import BeautifulSoup
 from dotenv import load_dotenv
 from google import genai
 from pydantic import BaseModel
+
+sys.path.append(str(Path(__file__).parent.parent))
+from config import config
 
 # Load environment variables
 load_dotenv()
@@ -127,69 +131,12 @@ async def parser_offers_API(text: str) -> List[JobOffer]:
         return []
 
 
-def clean_block(block: Optional[str]) -> List[str]:
-    if block is None:
-        return []
-
-    lines = block.splitlines()
-    cleaned: List[str] = []
-
-    for line in lines:
-        lin = line.lower()
-
-        if lin in ["!", "nowość!", "nowość", "hit!", "śpiesz się!"]:
-            continue
-
-        if "z " in lin and "." in lin:
-            continue
-
-        cleaned.append(line)
-
-    return cleaned
-
-
-skip = skip = [
-    "logo",
-    "więcej",
-    "ciepłe",
-    "najlepiej dopasowana",
-    "nowość",
-    "hit",
-    "śpiesz się",
-    "krajowego rejestru",
-    "krs",
-    "nip",
-    "regon",
-    "kapitału zakładowego",
-    "wpłacony w całości",
-    "ul. prosta",
-    "wyprzedź innych kandydatów",
-    "Zobacz oferty, które mogły Ci umknąć",
-    "bądź na bieżąco z nowymi ofertami pracy",
-    "zobacz wszystkie oferty pracy",
-    "zobacz wszystkie oferty",
-    "zobacz więcej ofert",
-    "zobacz więcej",
-    "zobacz inne oferty",
-    "zobacz inne",
-    "zobacz podobne oferty",
-    "zobacz podobne",
-    "sprawdź inne oferty",
-    "sprawdź inne",
-    "sprawdź podobne oferty",
-    "sprawdź podobne",
-]
-
-bad_titles = [
-    "najlepiej dopasowana",
-    "nowość",
-    "hit",
-]
-
-
 async def process_pracuj_block(text: str, current_date: datetime, data: List[dict[str, Any]]) -> None:
     # text is already plain text (we cleaned it in main)
     offers = await parser_offers_API(text)
+
+    bad_titles = config.get_list(["process_block", "bad_titles"])
+    skip = config.get_list(["process_block", "skip"])
 
     count = 0
     # Iterate once over each offer
@@ -198,7 +145,10 @@ async def process_pracuj_block(text: str, current_date: datetime, data: List[dic
         position_title = str(offer.title)
         is_job = looks_like_job(position_title)
 
-        if is_valid and is_job:
+        is_bad = any(bad in offer.title.lower() for bad in bad_titles)
+        is_job = any(k in offer.title.lower() for k in skip)
+
+        if is_valid_offer(offer) and not is_bad and is_job:
             # Add the offer
             data.append(
                 {
@@ -216,157 +166,42 @@ async def process_pracuj_block(text: str, current_date: datetime, data: List[dic
     logger.info(f" [SUCCESS] {count} valid offers retrieved.")
 
 
-# Define functions to analyze job offers and companies
-bad_titles = [
-    "Zobacz oferty",
-    "absolwentów uczelni",
-    "absolwent uczelni",
-    "aktywnie rekrutuje",
-    "zobacz oferty",
-    "zobacz więcej",
-    "zobacz wszystkie",
-]
-
-skip = [
-    "zobacz oferty",
-    "absolwentów uczelni",
-    "absolwent uczelni",
-    "aktywnie rekrutuje",
-    "zobacz więcej",
-    "zobacz wszystkie",
-    "właścicielem marki",
-]
-
-
 def looks_like_job(title: Optional[str]) -> bool:
     if not title or not isinstance(title, str):
         return False
 
     title = title.lower()
 
-    keywords = [
-        "analityk",
-        "analyst",
-        "specjalista",
-        "developer",
-        "konsultant",
-        "księgowy",
-        "staż",
-        "młodszy",
-        "data",
-        "it",
-        "danych",
-        "business",
-        "controlling",
-        "finanse",
-        "finance",
-        "planowania",
-        "planowanie",
-        "kontroler",
-        "kontroler finansowy",
-        "raportowanie",
-        "raporty",
-        "raportowania",
-        "archiwum",
-        "biurowy",
-        "fakturowania",
-        "spedytor",
-        "menedżer",
-        "logist",
-        "supply",
-        "analityk",
-        "analyst",
-        "specjalista",
-        "specjalistka",
-        "developer",
-        "konsultant",
-        "księgowy",
-        "staż",
-        "młodszy",
-        "data",
-        "it",
-        "danych",
-        "business",
-        "controlling",
-        "finanse",
-        "finance",
-        "planowania",
-        "planowanie",
-        "kontroler",
-        "raportowanie",
-        "raporty",
-        "raportowania",
-        "biurowy",
-        "fakturowania",
-        "spedytor",
-        "menedżer",
-        "logist",
-        "supply",
-        "koordynator",
-        "asystent",
-        "asystentka",
-        "project manager",
-        "financial",
-        "junior",
-    ]
-    exclude = ["sp. z o.o", "s.a.", "sa ", " sp. z", "bank", "polska"]
+    junk_phrases = config.get_list(["looks_like_job", "junk_phrases"])
+    words = config.get_list(["looks_like_job", "word_phrases"])
+    exclude = config.get_list(["looks_like_job", "exclude"])
 
-    if any(k in title for k in keywords):
-        if not any(e in title for e in exclude):
-            return True
+    clean_title = title
+    for junk in junk_phrases:
+        clean_title = clean_title.replace(junk.lower(), "")
+
+    is_match = any(w in clean_title for w in words)
+    is_excluded = any(e in clean_title for e in exclude)
+
+    # Logic: must match words AND must not match exclusions
+    if is_match and not is_excluded:
+        return True
+    print(f" [DEBUG] Rejected: '{title}' | Match: {is_match} | Excluded: {is_excluded}")
     return False
 
 
 def is_job_trigger(line: Optional[str]) -> bool:
     lowercased_line = (line or "").lower()
-    keywords = [
-        "analyst",
-        "analityk",
-        "asystent",
-        "asystentka",
-        "biurowy",
-        "business",
-        "controlling",
-        "coordinator",
-        "data",
-        "danych",
-        "developer",
-        "engineer",
-        "fakturowania",
-        "finance",
-        "finanse",
-        "finansowy",
-        "intern",
-        "it",
-        "junior",
-        "konsultant",
-        "kontroler",
-        "księgowy",
-        "logist",
-        "menedżer",
-        "młodszy",
-        "planowanie",
-        "planowania",
-        "project manager",
-        "raportowanie",
-        "raportowania",
-        "raporty",
-        "specjalista",
-        "specjalistka",
-        "spedytor",
-        "staż",
-        "supply",
-        "analizy",
-        "analytics",
-        "engineer",
-        "SAP",
-    ]
 
-    return any(k in lowercased_line.lower() for k in keywords)
+    word_phrases = config.get_list(["looks_like_job", "word_phrases"])
+
+    return any(k in lowercased_line for k in word_phrases)
 
 
 def is_valid_job(job: Dict[str, Any]) -> bool:
     title = job["title"].lower()
+
+    bad_titles = config.get_list(["process_block", "bad_titles"])
 
     if any(b in title for b in bad_titles):
         return False

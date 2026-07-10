@@ -6,6 +6,7 @@ import imaplib
 import logging
 import os
 import sqlite3
+import sys
 from datetime import datetime
 from email.message import Message
 from imaplib import IMAP4_SSL
@@ -17,6 +18,10 @@ from dotenv import load_dotenv
 from google import genai
 from pydantic import BaseModel
 
+sys.path.append(str(Path(__file__).parent.parent))
+
+from config import config
+
 # Load environment variables
 load_dotenv()
 
@@ -27,6 +32,7 @@ logging.basicConfig(
 logger = logging.getLogger("parser")
 
 
+# Add class
 class JobOffer(BaseModel):
     date: datetime
     title: str
@@ -127,6 +133,9 @@ async def process_linkedin_block(text: str, current_date: datetime, data: List[d
     # text is already plain text (we cleaned it in main)
     offers: List[JobOffer] = await parser_offers_API(text)
 
+    bad_titles = config.get_list(["process_block", "bad_titles"])
+    skip = config.get_list(["process_block", "skip"])
+
     count = 0
     # Iterate once over each offer
     for offer in offers:
@@ -134,7 +143,10 @@ async def process_linkedin_block(text: str, current_date: datetime, data: List[d
         # JobOffer is a Pydantic model, access attributes directly. Use title for job detection.
         is_job = looks_like_job(getattr(offer, "title", ""))
 
-        if is_valid and is_job:
+        is_bad = any(bad in offer.title.lower() for bad in bad_titles)
+        is_job = any(k in offer.title.lower() for k in skip)
+
+        if is_valid_offer(offer) and not is_bad and is_job:
             # Add the offer
             data.append(
                 {
@@ -148,31 +160,9 @@ async def process_linkedin_block(text: str, current_date: datetime, data: List[d
             count += 1
 
         else:
-            print(f" [Reject] {offer.title} | Valid: {is_valid} | Job: {is_job}")
+            logger.info(f" [Reject] {offer.title} | Valid: {is_valid} | Job: {is_job}")
     # Print the number of valid offers retrieved
     print(f" [SUCCESS] {count} valid offers retrieved.")
-
-
-# Define functions to analyze job offers and companies
-bad_titles = [
-    "Zobacz oferty",
-    "absolwentów uczelni",
-    "absolwent uczelni",
-    "aktywnie rekrutuje",
-    "zobacz oferty",
-    "zobacz więcej",
-    "zobacz wszystkie",
-]
-
-skip = [
-    "zobacz oferty",
-    "absolwentów uczelni",
-    "absolwent uczelni",
-    "aktywnie rekrutuje",
-    "zobacz więcej",
-    "zobacz wszystkie",
-    "właścicielem marki",
-]
 
 
 # Define functions to analyze job offers and companies
@@ -182,105 +172,14 @@ def looks_like_job(title: Optional[str]) -> bool:
 
     clean_title = title.lower()
 
-    junk_phrases: list[str] = [
-        "aktywnie rekrutuje",
-        "bądź pierwszym",
-        "spośród",
-        "kandydatów",
-        "1 kontakt",
-        "absolwentów uczelni",
-        "absolwent uczelni",
-        "zobacz oferty",
-    ]
+    junk_phrases = config.get_list(["looks_like_job", "junk_phrases"])
+    words = config.get_list(["looks_like_job", "word_phrases"])
+    exclude = config.get_list(["looks_like_job", "exclude"])
 
     for junk in junk_phrases:
         clean_title = clean_title.replace(junk.lower(), "")
 
-    words = {
-        "analityk",
-        "analityczka",
-        "analiz",
-        "data",
-        "bi",
-        "business intelligence",
-        "raport",
-        "raportowanie",
-        "danych",
-        "science",
-        "sql",
-        "dwh",
-        "etl",
-        "power bi",
-        "dashboard",
-        "wizualizacja",
-        "biznesowy",
-        "business",
-        "finans",
-        "finance",
-        "controlling",
-        "kontroler",
-        "ksiegow",
-        "accounting",
-        "audyt",
-        "audit",
-        "compliance",
-        "ryzyko",
-        "kredyt",
-        "planowanie",
-        "planowania",
-        "zakup",
-        "sourcing",
-        "procurement",
-        "it",
-        "developer",
-        "administrator",
-        "support",
-        "helpdesk",
-        "systemow",
-        "siec",
-        "cyber",
-        "security",
-        "crm",
-        "sap",
-        "erp",
-        "webcon",
-        "logist",
-        "spedyt",
-        "transport",
-        "magazyn",
-        "supply",
-        "chain",
-        "operac",
-        "dystrybucja",
-        "produkcja",
-        "realizacji",
-        "zamówień",
-        "konsultant",
-        "rpa",
-        "automatyz",
-        "specjalista",
-        "rozliczeń",
-        "staż",
-        "praktyk",
-        "controller",
-        "asystent",
-        "biurow",
-        "administrac",
-        "hr",
-        "kadr",
-        "plac",
-        "office",
-        "rekrut",
-    }
     is_match = any(w in clean_title for w in words)
-
-    exclude = [
-        "sp. z o.o",
-        "s.a.",
-        "sa ",
-        " sp. z",
-    ]
-
     is_excluded = any(e in clean_title for e in exclude)
 
     # Logic: must match words AND must not match exclusions

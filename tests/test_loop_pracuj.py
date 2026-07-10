@@ -10,9 +10,9 @@ async def test_main_loop_flow():
     mock_mail = MagicMock()
 
     mail_ids = [b"220"]
-    clean_jobs = []
+    clean_jobs: list = []
 
-    processed_ids = set()
+    processed_ids: set[str] = set()
 
     # don't call main yet; set up mocks first so the loop can fetch and process
 
