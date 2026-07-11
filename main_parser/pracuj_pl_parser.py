@@ -145,10 +145,11 @@ async def process_pracuj_block(text: str, current_date: datetime, data: List[dic
         position_title = str(offer.title)
         is_job = looks_like_job(position_title)
 
-        is_bad = any(bad in offer.title.lower() for bad in bad_titles)
-        is_job = any(k in offer.title.lower() for k in skip)
+        title_lower = offer.title.lower()
+        is_bad = any(bad.lower() in title_lower for bad in bad_titles)
+        is_skip = any(k.lower() in title_lower for k in skip)
 
-        if is_valid_offer(offer) and not is_bad and is_job:
+        if is_valid and is_job and not is_bad and not is_skip:
             # Add the offer
             data.append(
                 {
@@ -193,17 +194,20 @@ def looks_like_job(title: Optional[str]) -> bool:
 def is_job_trigger(line: Optional[str]) -> bool:
     lowercased_line = (line or "").lower()
 
-    word_phrases = config.get_list(["looks_like_job", "word_phrases"])
+    word_phrases = config.get_list(["is_job_trigger", "keywords"])
 
-    return any(k in lowercased_line for k in word_phrases)
+    result = any(k.lower() in lowercased_line for k in word_phrases)
+
+    return result
 
 
 def is_valid_job(job: Dict[str, Any]) -> bool:
     title = job["title"].lower()
 
     bad_titles = config.get_list(["process_block", "bad_titles"])
+    excluded = config.get_list(["looks_like_job", "excluded_phrases"])
 
-    if any(b in title for b in bad_titles):
+    if any(bad_title in title for bad_title in bad_titles):
         return False
 
     # It should be like a job title, not just a single word
@@ -211,7 +215,7 @@ def is_valid_job(job: Dict[str, Any]) -> bool:
         return False
 
     # Company not offering jobs
-    if "sp. z o.o" in title.lower():
+    if any(phrase in title for phrase in excluded):
         return False
 
     return True
@@ -228,10 +232,13 @@ async def run_parser(mail: Any, mail_ids: list[str]) -> int:
     if os.path.exists(cache_file):
         with open(cache_file, "r") as f:
             processed_ids = {line.strip() for line in f}
+        logger.info(f"Loaded {len(processed_ids)} processed ids")
     else:
+        logger.info("Cache file does not exist")
         processed_ids = set()
 
     clean_jobs: List[Dict[str, Any]] = []
+    logger.info("Before main()")
     result = await main(mail, mail_ids, clean_jobs, processed_ids)
     return result
 
@@ -296,7 +303,7 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         with open(cache_file, "a") as f:
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
-        await asyncio.sleep(25)
+
         logger.info(f"Processed mail: {mail_id_str}, wait 25 seconds...")
     return total_added
 

@@ -139,10 +139,11 @@ async def process_rocket_block(text: str, current_date: datetime, data: List[dic
         position_title = str(offer.title)
         is_job = looks_like_job(position_title)
 
-        is_bad = any(bad in offer.title.lower() for bad in bad_titles)
-        is_job = any(k in offer.title.lower() for k in skip)
+        title_lower = offer.title.lower()
+        is_bad = any(bad.lower() in title_lower for bad in bad_titles)
+        is_skip = any(k.lower() in title_lower for k in skip)
 
-        if is_valid_offer(offer) and not is_bad and is_job:
+        if is_valid and is_job and not is_bad and not is_skip:
             # Add the offer
             data.append(
                 {
