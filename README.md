@@ -1,4 +1,4 @@
-### EMAIL DATA EXTRACTION
+# EMAIL DATA EXTRACTION
 
 ## Introduction
 
@@ -11,43 +11,50 @@ Email parsing pipeline for processing and analyzing incoming messages. The proje
 
 ## Usage and Installation
 
-# 1. Clone the repository
+### 1. Clone the repository
 
-git clone: https://github.com/RobertCwenar/email-data-extractor
+git clone: [https://github.com/RobertCwenar/email-data-extractor]
 cd email-data-extractor
 
-# 2. Install dependencies
+### 2. Install dependencies
 
 Make sure you have Python installed, then install the project dependencies:
 • uv sync
 or:
 • pip install -r requirements.txt
 
-# 3.Configure environment variables
+### 3.Configure environment variables
 
-Create a .env file and add required configuration values, for example:
+#### Create a .env file and add required configuration values, for example
+
 • EMAIL_HOST=your_email_host
 • EMAIL_USER=your_email
 • EMAIL_PASSWORD=your_password
 
-# 4.Run the application
+### 4.Run the application
 
-Start the parser with:
-uv run python main.py
+#### Start the parser with
+
+• uv run python main.py
 The application connects to the configured mailbox, extracts job offers, processes the data, and saves the results.
 
-# 5.Run tests
+### 5.Run tests
 
-To run the test suite:
+#### To run the test suite
+
 • uv run pytest
 
-# 6.Code quality checks
+### 6.Code quality checks
 
-Run linting and formatting:
+#### Run linting and formatting
+
+• uv run ruff check .
+• uv run ruff format .
 • uv run ruff check .
 • uv run ruff format .
 
-Output
+#### Output
+
 After successful execution, processed job offers are saved to the configured.
 
 ## Features

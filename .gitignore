@@ -13,3 +13,4 @@ processed_rocketjobs_mails.txt
 *.egg-info
 mail_records/
 *.json
+Structure_parser.txt

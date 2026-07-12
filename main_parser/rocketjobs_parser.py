@@ -88,7 +88,7 @@ def is_valid_offer(offer: JobOffer) -> bool:
         return False
 
     # Rubbish
-    bad_markers = ["zobacz", "rekrutuje", "więcej", "wszystkie", "ofert"]
+    bad_markers = ["zobacz", "rekrutuje", "więcej", "wszystkie"]
     if any(marker in pos.lower() for marker in bad_markers):
         return False
     return True
@@ -280,7 +280,6 @@ async def main(mail: IMAP4_SSL, mail_ids: List[Any], clean_jobs: List[Dict[str, 
         with open(cache_file, "a") as f:
             f.write(mail_id_str + "\n")
         processed_ids.add(mail_id_str)
-        await asyncio.sleep(35)
         print(f"Processed mail: {mail_id_str}, wait 35 seconds...")
 
     return total_added

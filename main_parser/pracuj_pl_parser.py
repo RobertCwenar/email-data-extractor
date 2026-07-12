@@ -94,7 +94,7 @@ def is_valid_offer(offer: JobOffer) -> bool:
         return False
 
     # Rubbish
-    bad_markers = ["zobacz", "rekrutuje", "więcej", "wszystkie", "ofert"]
+    bad_markers = ["zobacz", "rekrutuje", "więcej", "wszystkie"]
     if any(marker in pos.lower() for marker in bad_markers):
         return False
     return True
@@ -238,7 +238,6 @@ async def run_parser(mail: Any, mail_ids: list[str]) -> int:
         processed_ids = set()
 
     clean_jobs: List[Dict[str, Any]] = []
-    logger.info("Before main()")
     result = await main(mail, mail_ids, clean_jobs, processed_ids)
     return result
 
