@@ -2,7 +2,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from main import main
+from orchestrator import main
 
 
 @pytest.mark.asyncio
