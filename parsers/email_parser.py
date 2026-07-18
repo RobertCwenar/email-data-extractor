@@ -1,6 +1,7 @@
 import email
 import imaplib
 from email.message import Message
+from email.utils import parsedate_to_datetime
 from typing import Optional
 
 from bs4 import BeautifulSoup
@@ -20,10 +21,12 @@ class EmailParser(BaseParser):
         filter_service: FilterService,
         email_config,
         folder_name: str,
+        source: str,
     ):
         super().__init__(ai_service, db_service, filter_service)
         self.email_config = email_config
         self.folder_name = folder_name
+        self.source = source
 
     def _connect(self):
         mail = imaplib.IMAP4_SSL(
@@ -84,14 +87,20 @@ class EmailParser(BaseParser):
 
             if not msg:
                 continue
+
             html = self._get_html(msg)
             if not html:
                 continue
+
             text = self._html_to_text(html)
 
             offers = await self.ai.parser_offers_api(text)
 
-            offers_result.extend(offers)
+            mail_date = parsedate_to_datetime(msg["Date"]).date().isoformat()
+
+            for offer in offers:
+                offer.date = mail_date
+                offers_result.append(offer)
 
         mail.logout()
 

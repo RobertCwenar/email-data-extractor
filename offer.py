@@ -1,16 +1,16 @@
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 # Add class
 class JobOffer(BaseModel):
-    date: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$")
     title: str
     company: str
     location: str
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
+    date: Optional[str] = None
 
 
 class OffersResponse(BaseModel):
