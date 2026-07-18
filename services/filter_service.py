@@ -44,4 +44,9 @@ class FilterService:
         return False
 
     def should_save(self, offer: JobOffer) -> bool:
-        return self.is_valid_offer(offer) and self.looks_like_job(offer.title)
+        valid = self.is_valid_offer(offer)
+        job_like = self.looks_like_job(offer.title)
+
+        print(offer.title, "| valid:", valid, "| looks_like_job:", job_like)
+
+        return valid and job_like

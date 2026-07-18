@@ -8,6 +8,7 @@ class Database:
         self.db_name = db_name
 
     def save_offers(self, job: JobOffer, source: str):
+        print("SAVING TO DB:", job.title, source)
         conn = sqlite3.connect(self.db_name)
         cursor = conn.cursor()
         cursor.execute(
@@ -19,4 +20,5 @@ class Database:
         )
 
         conn.commit()
+        print("INSERT OK, row id:", cursor.lastrowid)
         conn.close()

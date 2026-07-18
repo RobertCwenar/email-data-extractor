@@ -32,14 +32,18 @@ class AIService:
                 "temperature": 0.0,
             },
         )
+        print("AI EXTRACT:", response.text)
+        await asyncio.sleep(5)
 
-        self.logger.error(f"DEBUG: RAW RESPONSE: {response.text}")
+        self.logger.debug("RAW RESPONSE: %s", response.text)
 
         if not response.parsed:
             self.logger.warning("Gemini returned no parsed response. Raw: %s", response.text)
             return []
 
         parsed_response = OffersResponse.model_validate(response.parsed)
+
+        print("PARSED:", len(parsed_response.offers), [o.title for o in parsed_response.offers])
 
         if not parsed_response.offers:
             self.logger.info("No job offers found")
