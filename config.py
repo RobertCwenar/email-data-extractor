@@ -14,7 +14,7 @@ class AppConfig:
             return json.load(f)
 
     # Returns a list of values from configuration using nested keys.
-    def get_list(self, keys: list):
+    def get_list(self, keys: list[str]):
         current = self._data
         for key in keys:
             current = current.get(key, {})
