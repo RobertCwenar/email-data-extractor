@@ -1,6 +1,8 @@
+import gc
 import logging
 import os
 import sqlite3
+import time
 
 import pytest
 
@@ -10,17 +12,17 @@ from offer import JobOffer
 
 
 @pytest.fixture
-def test_db():
-
-    db_name = "test_offers.db"
-    # Cleanup previous test database if it exists
-    if os.path.exists(db_name):
-        os.remove(db_name)
+def test_db(tmp_path):
+    db_name = tmp_path / "test_offers.db"
 
     init_db(db_name)
+
     yield db_name
 
-    # Cleanup after test
+    gc.collect()
+
+    time.sleep(0.5)
+
     if os.path.exists(db_name):
         os.remove(db_name)
 
@@ -38,7 +40,6 @@ def test_saving(test_db):
     db = Database(test_db)
 
     db.save_offers(job, source="Pracuj.pl")
-    #
 
     with sqlite3.connect(test_db) as conn:
         cursor = conn.cursor()

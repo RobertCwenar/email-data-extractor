@@ -20,7 +20,6 @@ def migrate_db():
             print("Failed import {sheet_name}: {e}")
 
     conn.close()
-    print("Completed Migration!")
 
 
 migrate_db()
