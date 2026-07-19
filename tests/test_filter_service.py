@@ -1,5 +1,5 @@
+from modules.filter_service import FilterService
 from offer import JobOffer
-from services.filter_service import FilterService
 
 
 class FakeConfig:

@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from services.ai_service import AIService
+from modules.ai_service import AIService
 
 
 @pytest.mark.asyncio

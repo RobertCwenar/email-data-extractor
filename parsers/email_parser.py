@@ -7,10 +7,10 @@ from typing import Optional
 from bs4 import BeautifulSoup
 
 from main_parser.base_parser import BaseParser
+from modules.ai_service import AIService
+from modules.db_save import Database
+from modules.filter_service import FilterService
 from offer import JobOffer
-from services.ai_service import AIService
-from services.db_save import Database
-from services.filter_service import FilterService
 
 
 class EmailParser(BaseParser):

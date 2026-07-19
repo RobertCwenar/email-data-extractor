@@ -1,6 +1,6 @@
 from config import config
+from modules.filter_service import FilterService
 from offer import JobOffer
-from services.filter_service import FilterService
 
 
 def test_save_valid_offer():

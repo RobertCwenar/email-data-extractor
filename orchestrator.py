@@ -5,10 +5,10 @@ import os
 from dotenv import load_dotenv
 
 from config import config
+from modules.ai_service import AIService
+from modules.db_save import Database
+from modules.filter_service import FilterService
 from parsers.email_parser import EmailParser
-from services.ai_service import AIService
-from services.db_save import Database
-from services.filter_service import FilterService
 
 # Load environment variables from .env file
 load_dotenv()
@@ -45,8 +45,6 @@ async def main():
 
         for offer in offers:
             result = filter_service.should_save(offer)
-
-            print(f"{offer.title} | SAVE={result}")
 
             if result:
                 db.save_offers(offer, source=parser.source)
