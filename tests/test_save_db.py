@@ -1,10 +1,12 @@
+import logging
 import os
 import sqlite3
 
 import pytest
 
 from init_database import init_db
-from main_parser.pracuj_pl_parser import save_offers
+from modules.db_save import Database
+from offer import JobOffer
 
 
 @pytest.fixture
@@ -23,33 +25,29 @@ def test_db():
         os.remove(db_name)
 
 
-def test_saving_offers(test_db):
-    # Example offer
-    mock_job = {
-        "title": "Python Developer",
-        "company": "Software House",
-        "location": "Wroclaw",
-        "salary": "15000",
-        "date": "20.06.2026",
-        "source": "pracuj.pl",
-    }
-
-    save_offers(
-        mock_job["title"],
-        mock_job["company"],
-        mock_job["location"],
-        mock_job["salary"],
-        mock_job["date"],
-        mock_job["source"],
-        db_name=test_db,
+def test_saving(test_db):
+    job = JobOffer(
+        title="Python Developer",
+        company="Software House",
+        location="Warsaw",
+        salary_min=10000.0,
+        salary_max=24000.0,
+        date="20.07.2026",
     )
 
-    #
-    conn = sqlite3.connect(test_db)
-    cursor = conn.cursor()
-    cursor.execute("SELECT title FROM Offers")
-    result = cursor.fetchone()
-    conn.close()
+    db = Database(test_db)
 
+    db.save_offers(job, source="Pracuj.pl")
+    #
+
+    with sqlite3.connect(test_db) as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT title, company, source FROM Offers")
+        result = cursor.fetchone()
+
+    assert result is not None
     assert result[0] == "Python Developer"
-    print("Test regarding: The offer has been saved in the test version!")
+    assert result[1] == "Software House"
+    assert result[2] == "Pracuj.pl"
+
+    logging.info("Test regarding: The offer has been saved in the test version!")
