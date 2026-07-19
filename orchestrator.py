@@ -41,7 +41,10 @@ async def main():
     ]
 
     for parser in sources:
+        logger.info("Processing source: %s", parser.source)
+
         offers = await parser.fetch_offers()
+        logger.info("%s found  %s offers", parser.source, len(offers))
 
         for offer in offers:
             result = filter_service.should_save(offer)
