@@ -10,6 +10,7 @@ from main_parser.base_parser import BaseParser
 from modules.ai_service import AIService
 from modules.db_save import Database
 from modules.filter_service import FilterService
+from modules.processed_cache import FileCache
 from offer import JobOffer
 
 
@@ -22,11 +23,13 @@ class EmailParser(BaseParser):
         email_config,
         folder_name: str,
         source: str,
+        cache: FileCache,
     ):
-        super().__init__(ai_service, db_service, filter_service)
+        super().__init__(ai_service, db_service, filter_service, cache)
         self.email_config = email_config
         self.folder_name = folder_name
         self.source = source
+        self.cache = cache
 
     def _connect(self):
         mail = imaplib.IMAP4_SSL(
@@ -83,6 +86,11 @@ class EmailParser(BaseParser):
         mail_ids = self._get_mail_ids(mail)
 
         for mail_id in mail_ids:
+            cache_id = mail_id.decode()
+
+            if self.cache.contains(cache_id):
+                continue
+
             msg = self._fetch_mail(mail, mail_id)
 
             if not msg:
@@ -101,6 +109,8 @@ class EmailParser(BaseParser):
             for offer in offers:
                 offer.date = mail_date
                 offers_result.append(offer)
+
+            self.cache.add(cache_id)
 
         mail.logout()
 

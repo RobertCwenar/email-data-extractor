@@ -8,6 +8,7 @@ from config import config
 from modules.ai_service import AIService
 from modules.db_save import Database
 from modules.filter_service import FilterService
+from modules.processed_cache import FileCache
 from parsers.email_parser import EmailParser
 
 # Load environment variables from .env file
@@ -35,9 +36,33 @@ async def main():
     }
 
     sources = [
-        EmailParser(ai, db, filter_service, email_config, "RocketJobs", source="RocketJobs"),
-        EmailParser(ai, db, filter_service, email_config, "PRACA", source="Pracuj.pl"),
-        EmailParser(ai, db, filter_service, email_config, "Link", source="Linkedin"),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "RocketJobs",
+            source="RocketJobs",
+            cache=FileCache("mail_records/processed_rocketjobs_mails.txt"),
+        ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "PRACA",
+            source="Pracuj.pl",
+            cache=FileCache("mail_records/processed_praca_mails.txt"),
+        ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "Link",
+            source="Linkedin",
+            cache=FileCache("mail_records/processed_linkedin_mails.txt"),
+        ),
     ]
 
     for parser in sources:
