@@ -6,7 +6,7 @@ import time
 
 import pytest
 
-from init_database import init_db
+from database.init_database import init_db
 from modules.db_save import Database
 from offer import JobOffer
 
