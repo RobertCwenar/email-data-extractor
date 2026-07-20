@@ -26,6 +26,7 @@ async def main():
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database("new_offers.db")
+    db.check_table()
     filter_service = FilterService(config)
 
     email_config = {
