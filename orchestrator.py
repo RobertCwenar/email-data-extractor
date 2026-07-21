@@ -26,9 +26,7 @@ async def main():
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database("new_offers.db")
-    db.check_table()
     filter_service = FilterService(config)
-
     email_config = {
         "host": os.getenv("EMAIL_HOST"),
         "port": int(os.getenv("EMAIL_PORT", 993)),
@@ -70,7 +68,7 @@ async def main():
         logger.info("Processing source: %s", parser.source)
 
         offers = await parser.fetch_offers()
-        logger.info("%s found  %s offers", parser.source, len(offers))
+        logger.info("%s found %s offers", parser.source, len(offers))
 
         for offer in offers:
             result = filter_service.should_save(offer)

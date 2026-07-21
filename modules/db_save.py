@@ -32,14 +32,6 @@ class Database:
         self.db_name = db_name
         self.logger = logging.getLogger(__name__)
 
-    def check_table(self):
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("PRAGMA table_info(Offers)")
-            for column in cursor.fetchall():
-                logging.info(column)
-
     def save_offers(self, job: JobOffer, source: str):
         self.logger.debug(
             "SAVING TO DB: %s (%s)",
