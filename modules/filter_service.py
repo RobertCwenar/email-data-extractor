@@ -3,11 +3,12 @@ from typing import Optional
 
 from offer import JobOffer
 
+logger = logging.getLogger(__name__)
+
 
 class FilterService:
     def __init__(self, config):
         self.config = config
-        self.logger = logging.getLogger(__name__)
 
     def is_valid_offer(self, offer: JobOffer) -> bool:
         pos = offer.title.strip()
@@ -40,13 +41,13 @@ class FilterService:
         # Logic: must match words AND must not match exclusions
         if is_match and not is_excluded:
             return True
-        self.logger.debug(f" [DEBUG] Rejected: '{title}' | Match: {is_match} | Excluded: {is_excluded}")
+        logger.debug(f" [DEBUG] Rejected: '{title}' | Match: {is_match} | Excluded: {is_excluded}")
         return False
 
     def should_save(self, offer: JobOffer) -> bool:
         valid = self.is_valid_offer(offer)
         job_like = self.looks_like_job(offer.title)
 
-        self.logger.debug(f"{offer.title} | valid: {valid} | looks_like_job: {job_like}")
+        logger.debug(f"{offer.title} | valid: {valid} | looks_like_job: {job_like}")
 
         return valid and job_like

@@ -4,6 +4,8 @@ from datetime import datetime
 
 from offer import JobOffer
 
+logger = logging.getLogger(__name__)
+
 
 def normalize_date(value):
     if not value:
@@ -30,10 +32,9 @@ def normalize_date(value):
 class Database:
     def __init__(self, db_name: str = "new_offers.db"):
         self.db_name = db_name
-        self.logger = logging.getLogger(__name__)
 
     def save_offers(self, job: JobOffer, source: str):
-        self.logger.debug(
+        logger.debug(
             "SAVING TO DB: %s (%s)",
             job.title,
             source,

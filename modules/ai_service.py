@@ -7,12 +7,13 @@ from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_ex
 
 from offer import JobOffer, OffersResponse
 
+logger = logging.getLogger(__name__)
+
 
 # Function to parse job offers from text using the API
 class AIService:
-    def __init__(self, api_key: str, logger=None):
+    def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
-        self.logger = logger or logging.getLogger(__name__)
 
     @retry(
         retry=retry_if_exception_type(ClientError),
@@ -32,18 +33,18 @@ class AIService:
                 "temperature": 0.0,
             },
         )
-        self.logger.debug("AI EXTRACT:", response.text)
+        logger.debug("AI EXTRACT:", response.text)
         await asyncio.sleep(5)
 
-        self.logger.debug("RAW RESPONSE: %s", response.text)
+        logger.debug("RAW RESPONSE: %s", response.text)
 
         if not response.parsed:
-            self.logger.warning("Gemini returned no parsed response. Raw: %s", response.text)
+            logger.warning("Gemini returned no parsed response. Raw: %s", response.text)
             return []
 
         parsed_response = OffersResponse.model_validate(response.parsed)
 
         if not parsed_response.offers:
-            self.logger.info("No job offers found")
+            logger.info("No job offers found")
 
         return parsed_response.offers
