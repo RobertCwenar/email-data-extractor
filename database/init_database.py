@@ -17,5 +17,29 @@ def init_db(db_name="new_offers.db"):
             source TEXT
         )
     """)
-    conn.commit()
-    conn.close()
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Companies(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            company TEXT UNIQUE NOT NULL
+        )
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS Modes(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            mode TEXT UNIQUE NOT NULL
+        )
+        """)
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS JobLinks(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offer_id INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            source TEXT,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )
+        """)
+
+        conn.commit()

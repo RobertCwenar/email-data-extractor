@@ -45,10 +45,15 @@ def test_saving(test_db):
         cursor = conn.cursor()
         cursor.execute("SELECT title, company, source FROM Offers")
         result = cursor.fetchone()
+        cursor.execute("SELECT company FROM Companies")
+        company_result = cursor.fetchone()
 
     assert result is not None
     assert result[0] == "Python Developer"
     assert result[1] == "Software House"
     assert result[2] == "Pracuj.pl"
+
+    assert company_result is not None
+    assert company_result[0] == "Software House"
 
     logging.info("Test regarding: The offer has been saved in the test version!")
