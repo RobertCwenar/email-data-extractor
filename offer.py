@@ -13,6 +13,7 @@ class JobOffer(BaseModel):
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     date: Optional[str] = None
+    url: Optional[str] = None
 
 
 class OffersResponse(BaseModel):
