@@ -6,7 +6,7 @@ from typing import Optional
 
 from bs4 import BeautifulSoup
 
-from main_parser.base_parser import BaseParser
+from core.base_parser import BaseParser
 from modules.ai_service import AIService
 from modules.db_save import Database
 from modules.filter_service import FilterService
