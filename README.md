@@ -106,6 +106,7 @@ After successful execution, processed job offers are saved to the configured.
 │
 ├── /database
 │    ├── init_database.py
+│    ├── job_title.py    
 │    ├── migration_db.py
 │
 ├── /core
@@ -137,8 +138,8 @@ After successful execution, processed job offers are saved to the configured.
 ├── offer.py
 ├── orchestrator.py
 ├── pyproject.toml
-├──.pre-commit-config.yaml
-├──.python-version
+├── .pre-commit-config.yaml
+├── .python-version
 ├── LICENSE
 ├── README.md
 ├── uv.lock

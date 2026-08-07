@@ -10,6 +10,9 @@ from modules.db_save import Database
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from parsers.email_parser import EmailParser
+from modules.job_classification_service import JobClassificationService
+from modules.job_classifier import JobClassifier
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -68,6 +71,12 @@ async def main():
         ),
     ]
 
+    classifier = JobClassifier()
+
+    classification_service = JobClassificationService(
+        db, 
+        classifier
+    )
     for parser in sources:
         logger.info("Processing source: %s", parser.source)
 
@@ -80,6 +89,7 @@ async def main():
             if result:
                 db.save_offers(offer, source=parser.source)
 
-
+    # Process job classifications in the database ofer details 
+    classification_service.process_jobs()
 if __name__ == "__main__":
     asyncio.run(main())
