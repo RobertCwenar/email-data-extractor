@@ -12,7 +12,7 @@ class JobClassifier:
             if level.lower() in title:
                 return level
 
-        return None
+        return "mid" # Default level if no match is found
 
     def classify_category(self, clean_title: str):
         title = clean_title.lower()

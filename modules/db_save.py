@@ -6,7 +6,7 @@ from offer import JobOffer
 
 logger = logging.getLogger(__name__)
 
-
+# Normalize date to a standard format
 def normalize_date(value):
     if not value:
         return None
@@ -19,7 +19,7 @@ def normalize_date(value):
         "%Y-%m-%d %H:%M:%S",
         "%Y-%m-%d %H:%M:%S%z",
     ]
-
+    # Try pasing the value through each format untill one works
     for format in formats:
         try:
             return datetime.strptime(value, format).strftime("%Y-%m-%d")
@@ -28,11 +28,11 @@ def normalize_date(value):
 
     return None
 
-
+# Database class for saving job offers and related data to SQLite database
 class Database:
     def __init__(self, db_name: str = "new_offers.db"):
         self.db_name = db_name
-
+    # Save job offer to the database
     def save_offers(self, job: JobOffer, source: str):
         self.save_company(job.company)
         logger.debug(
@@ -54,7 +54,7 @@ class Database:
             )
 
             return cursor.lastrowid
-
+    # Create the Companies table
     def create_companies_table(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -64,7 +64,7 @@ class Database:
             id INTEGER PRIMARY KEY AUTOINCREMENT, 
             company TEXT UNIQUE NOT NULL)
             """)
-
+    # Save company to the Companies table and return its ID
     def save_company(self, company_name: str):
         if not company_name:
             return None
@@ -86,7 +86,7 @@ class Database:
                 (company_name,),
             )
             return cursor.fetchone()[0]
-
+    # Create the modes table 
     def create_modes_table(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -98,7 +98,7 @@ class Database:
                 mode TEXT UNIQUE NOT NULL
                     )
                 """)
-
+    # Create the JobLinks table
     def create_job_links_table(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -112,7 +112,7 @@ class Database:
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
             """)
-
+    # Save job link to the Joblinks table
     def save_job_link(self, offer_id: int, url: str, source: str):
 
         with sqlite3.connect(self.db_name) as conn:
@@ -129,7 +129,7 @@ class Database:
             """,
                 (offer_id, url, source),
             )
-
+    # Create the JobDetails table
     def create_job_details_table(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -145,7 +145,7 @@ class Database:
             """)
 
             conn.commit()
-
+    # Save job details to the JobDetails table
     def save_job_details(self, offer_id: int, clean_title: str, level: str, category: str):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -160,3 +160,14 @@ class Database:
             )
 
             conn.commit()
+    # Get jobs for classification from the Offers table
+    def get_jobs_for_classification(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT id, title 
+                FROM OFFERS
+                """
+            )
+            return cursor.fetchall()
