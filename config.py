@@ -1,9 +1,10 @@
 import json
-from pathlib import Path
 import logging
+from pathlib import Path
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
 
 # Class responsible for loading and accessing application configuration.
 class AppConfig:
@@ -14,9 +15,9 @@ class AppConfig:
             self.path = Path("filter_keywords_example.json")
 
         logger.info("Loading config: %s", self.path)
-        
+
         self._data = self._load()
-    
+
     # Loads configuration data from a JSON file.
     def _load(self):
         with open(self.path, "r", encoding="utf-8") as f:
@@ -36,6 +37,7 @@ class AppConfig:
             current = current.get(key, {})
 
         return current if isinstance(current, dict) else {}
+
 
 # Creates a shared configuration object used across the application.
 config = AppConfig()

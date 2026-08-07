@@ -13,7 +13,6 @@ class JobClassificationService:
         jobs = self.db.get_jobs_for_classification()
 
         for offer_id, clean_title in jobs:
-
             if not clean_title:
                 continue
 
@@ -23,7 +22,7 @@ class JobClassificationService:
                 level=self.classifier.classify_level(clean_title),
                 category=self.classifier.classify_category(clean_title),
             )
-            
+
             self.db.save_job_details(
                 classification.offer_id,
                 classification.clean_title,
