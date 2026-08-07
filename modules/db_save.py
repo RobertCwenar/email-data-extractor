@@ -129,3 +129,34 @@ class Database:
             """,
                 (offer_id, url, source),
             )
+
+    def create_job_details_table(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS JobDetails(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                offer_id INTEGER NOT NULL,
+                clean_title TEXT,
+                level TEXT,
+                category TEXT
+            )
+            """)
+
+            conn.commit()
+
+    def save_job_details(self, offer_id: int, clean_title: str, level: str, category: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                INSERT INTO JobDetails
+                (offer_id, clean_title, level, category)
+                VALUES (?, ?, ?, ?)
+                """,
+                (offer_id, clean_title, level, category),
+            )
+
+            conn.commit()

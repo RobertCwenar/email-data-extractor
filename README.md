@@ -26,8 +26,9 @@ Email parsing pipeline for processing and analyzing incoming messages. The proje
 - Stores processed data in SQLite database
 - Includes automated tests
 
-## Architecture 
-```
+## Architecture
+
+```text
 Emails
   ↓
 Email Parser
@@ -44,10 +45,12 @@ SQLite Database
 ## Usage and Installation
 
 ### 1. Clone the repository
-```
+
+```bash
 git clone: [https://github.com/RobertCwenar/email-data-extractor]
 cd email-data-extractor
 ```
+
 ### 2. Install dependencies
 
 Make sure you have Python installed, then install the project dependencies:
@@ -66,21 +69,24 @@ or:
 - EMAIL_USER=your_email
 - EMAIL_PASSWORD=your_password
 
-
 ### 4. Run the application
 
 #### Start the parser with
-```
+
+```bash
 uv run python orchestrator.py
 ```
+
 The application connects to the configured mailbox, extracts job offers, processes the data, and saves the results.
 
 ### 5. Run tests
 
 #### To run the test suite
-```
+
+```bash
 uv run pytest
 ```
+
 ### 6. Code quality checks
 
 #### Run linting and formatting
@@ -92,8 +98,7 @@ uv run pytest
 
 After successful execution, processed job offers are saved to the configured.
 
-
-## Project Structure 
+## Project Structure
 
 ```text
 /email-data-extractor
@@ -140,8 +145,4 @@ After successful execution, processed job offers are saved to the configured.
 └── .gitignore
 ```
 
-
-
 ## Roadmap
-
-## License

@@ -1,25 +1,47 @@
 import sqlite3
 
-import pandas as pd
+DB = "new_offers.db"
 
 
-# Migrate data from Excel to SQLite database
-def migrate_db():
-    conn = sqlite3.connect("new_offers.db")
+def migrate_job_details():
+    conn = sqlite3.connect(DB)
+    cursor = conn.cursor()
 
-    sources = {"Pracuj.pl": "Pracuj.pl", "LinkedIn": "Linkedin"}
-    for sheet_neme, source_name in sources.items():
-        try:
-            df = pd.read_excel("new_offers.xlsx", sheet_name=sheet_neme)
+    cursor.execute("""
+        SELECT id, title
+        FROM Offers
+    """)
 
-            df["source"] = source_name
-            df.to_sql("Offers", conn, if_exists="append", index=False)
-            print(f"Add data from sheet: {sheet_neme}")
+    offers = cursor.fetchall()
 
-        except Exception:
-            print("Failed import {sheet_name}: {e}")
+    print(f"Found {len(offers)} offers")
+
+    for offer in offers:
+        cursor.execute(
+            """
+            INSERT INTO JobDetails
+            (offer_id, clean_title, level, category)
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                offer[0],
+                offer[1],
+                None,
+                None,
+            ),
+        )
+
+    conn.commit()
+
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM JobDetails
+    """)
+
+    print("JobDetails after:", cursor.fetchone()[0])
 
     conn.close()
 
 
-migrate_db()
+if __name__ == "__main__":
+    migrate_job_details()

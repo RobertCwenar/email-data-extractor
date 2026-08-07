@@ -47,3 +47,10 @@ class JobRawData(BaseModel):
     source: str
     raw_json: dict
     scraped_at: str
+
+
+class JobClassification(BaseModel):
+    offer_id: int
+    clean_title: Optional[str] = None
+    level: Optional[str] = None
+    category: Optional[str] = None

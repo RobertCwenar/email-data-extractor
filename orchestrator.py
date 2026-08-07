@@ -29,6 +29,7 @@ async def main():
     db.create_companies_table()
     db.create_modes_table()
     db.create_job_links_table()
+    db.create_job_details_table()
     filter_service = FilterService(config)
     email_config = {
         "host": os.getenv("EMAIL_HOST"),

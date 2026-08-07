@@ -43,3 +43,15 @@ def init_db(db_name="new_offers.db"):
         """)
 
         conn.commit()
+
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS JobDetails(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            offer_id INTEGER NOT NULL,
+            clean_title TEXT,
+            level TEXT,
+            category TEXT
+        )
+        """)
+
+        conn.commit()
