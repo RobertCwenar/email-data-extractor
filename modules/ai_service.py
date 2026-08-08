@@ -5,7 +5,7 @@ from google import genai
 from google.genai.errors import ClientError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from offer import JobOffer, OffersResponse
+from offer import CategoryValidationResponse, JobOffer, OffersResponse
 
 logger = logging.getLogger(__name__)
 
@@ -48,3 +48,35 @@ class AIService:
             logger.info("No job offers found")
 
         return parsed_response.offers
+
+    async def validate_category_api(self, clean_title: str, categories: list[str]) -> CategoryValidationResponse:
+        """Validate/classify a job title into a category using the AI API.
+
+        Return a CategoryValidationResponse.
+        """
+        categories_str = ", ".join(categories)
+        prompt = (
+            f"Classify the job title. Available categories: {categories_str}. "
+            f'Return the correct category or unknown:\n"{clean_title}"'
+        )
+
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
+            model="models/gemini-3.1-flash-lite",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": CategoryValidationResponse.model_json_schema(),
+                "temperature": 0.0,
+            },
+        )
+
+        logger.info("CATEGORY RAW RESPONSE: %s", response.text)
+
+        if not response.parsed:
+            logger.warning("Gemini returned no parsed response for category validation. Raw: %s", response.text)
+            return CategoryValidationResponse(category="unknown")
+
+        parsed = CategoryValidationResponse.model_validate(response.parsed)
+
+        return parsed

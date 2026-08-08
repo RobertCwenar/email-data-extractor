@@ -70,7 +70,7 @@ async def main():
         ),
     ]
 
-    classifier = JobClassifier()
+    classifier = JobClassifier(ai)
 
     classification_service = JobClassificationService(db, classifier)
     for parser in sources:
@@ -86,7 +86,7 @@ async def main():
                 db.save_offers(offer, source=parser.source)
 
     # Process job classifications in the database ofer details
-    classification_service.process_jobs()
+    await classification_service.process_jobs()
 
 
 if __name__ == "__main__":

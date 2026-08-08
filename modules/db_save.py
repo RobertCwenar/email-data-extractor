@@ -165,26 +165,18 @@ class Database:
     ):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
-
-            cursor.execute(
-                "SELECT COUNT(*) FROM JobDetails WHERE offer_id = ?",
-                (offer_id,),
-            )
-
-            match = cursor.fetchone()[0]
-
-            print(f"offer_id={offer_id}, JobDetails match={match}")
-
             cursor.execute(
                 """
-                UPDATE JobDetails
-                SET clean_title = ?, level = ?, category = ?
-                WHERE offer_id = ?
+                INSERT INTO JobDetails (
+                    offer_id,
+                    clean_title,
+                    level,
+                    category
+                )
+                VALUES (?, ?, ?, ?)
                 """,
-                (clean_title, level, category, offer_id),
+                (offer_id, clean_title, level, category),
             )
-
-            print(f"offer_id={offer_id}, level={level}, category={category}, updated={cursor.rowcount}")
 
             conn.commit()
 
@@ -194,7 +186,42 @@ class Database:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT id, title 
-                FROM OFFERS
-                """)
+                SELECT o.id, o.title
+                FROM Offers o
+                LEFT JOIN JobDetails jd ON jd.offer_id = o.id
+                WHERE jd.offer_id IS NULL
+                    or jd.category IS NULL
+            """)
+
             return cursor.fetchall()
+
+    def get_classification_by_title(self, clean_title: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT level, category
+                FROM JobDetails
+                WHERE clean_title = ?
+                LIMIT 1
+                """,
+                (clean_title,),
+            )
+
+            return cursor.fetchone()
+
+    def update_job_category(self, offer_id: int, category: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE JobDetails
+                SET category = ?
+                WHERE offer_id = ?
+                """,
+                (category, offer_id),
+            )
+
+            conn.commit()

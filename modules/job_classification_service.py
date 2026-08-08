@@ -1,4 +1,6 @@
-from offer import JobClassification
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class JobClassificationService:
@@ -8,7 +10,7 @@ class JobClassificationService:
         self.classifier = classifier
 
     # Process jobs for classification and save the results to the database
-    def process_jobs(self):
+    async def process_jobs(self):
 
         jobs = self.db.get_jobs_for_classification()
 
@@ -16,16 +18,24 @@ class JobClassificationService:
             if not clean_title:
                 continue
 
-            classification = JobClassification(
-                offer_id=offer_id,
-                clean_title=clean_title,
-                level=self.classifier.classify_level(clean_title),
-                category=self.classifier.classify_category(clean_title),
-            )
+            cached = self.db.get_classification_by_title(clean_title)
 
-            self.db.save_job_details(
-                classification.offer_id,
-                classification.clean_title,
-                classification.level,
-                classification.category,
-            )
+            if cached and cached[1]:
+                logger.info("Classification cache: %s", clean_title)
+                level, category = cached
+                self.db.update_job_category(offer_id, category)
+                continue
+
+            logger.info("New Classification: %s", clean_title)
+            level = self.classifier.classify_level(clean_title)
+            category = await self.classifier.classify_category(clean_title)
+
+            if cached:
+                self.db.update_job_category(offer_id, category)
+            else:
+                self.db.save_job_details(
+                    offer_id,
+                    clean_title,
+                    level,
+                    category,
+                )

@@ -1,10 +1,15 @@
+import logging
 import re
 
 from config import config
+from modules.ai_service import AIService
+
+logger = logging.getLogger(__name__)
 
 
 class JobClassifier:
-    def __init__(self):
+    def __init__(self, ai_service: AIService):
+        self.ai_service = ai_service
         self.levels = config.get_dict(["job_classification", "level"])
         self.categories = config.get_dict(["job_classification", "category"])
 
@@ -12,11 +17,11 @@ class JobClassifier:
         title = clean_title.lower()
 
         priority = [
-            "manager",
             "senior",
             "junior",
             "intern",
             "mid",
+            "manager",
         ]
 
         for level in priority:
@@ -26,9 +31,9 @@ class JobClassifier:
                 if re.search(pattern, title):
                     return level
 
-        return "mid"
+        return "unknown"
 
-    def classify_category(self, clean_title: str):
+    async def classify_category(self, clean_title: str):
         title = clean_title.lower()
 
         for category, keywords in self.categories.items():
@@ -36,4 +41,11 @@ class JobClassifier:
                 if keyword.lower() in title:
                     return category
 
-        return "unknown"
+        logger.info("AI Category: %s", clean_title)
+
+        result = await self.ai_service.validate_category_api(
+            clean_title,
+            list(self.categories.keys()),
+        )
+
+        return result.category

@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List, Literal, Optional
 
 from pydantic import BaseModel
 
@@ -49,8 +49,33 @@ class JobRawData(BaseModel):
     scraped_at: str
 
 
+class Category(BaseModel):
+    id: Optional[int] = None
+    name: str
+
+
 class JobClassification(BaseModel):
     offer_id: int
     clean_title: Optional[str] = None
     level: Optional[str] = None
     category: Optional[str] = None
+
+
+class CategoryValidationResponse(BaseModel):
+    category: Literal[
+        "data_analytics",
+        "software_it",
+        "it_support",
+        "finance_accounting",
+        "hr_payroll",
+        "logistics_supply_chain",
+        "administration",
+        "sales_customer_service",
+        "marketing",
+        "project_management",
+        "engineering_production",
+        "legal_compliance_risk",
+        "procurement",
+        "customer_operations",
+        "unknown",
+    ]
