@@ -24,16 +24,23 @@ class AppConfig:
             return json.load(f)
 
     # Returns a list of values from configuration using nested keys.
-    def get_list(self, keys: list[str]):
+    def get_list(self, keys: list[str]) -> list:
         current = self._data
+
         for key in keys:
+            if not isinstance(current, dict):
+                return []
             current = current.get(key, {})
+
         return current if isinstance(current, list) else []
 
     # Returns a dictionary from configuration using nested keys.
-    def get_dict(self, keys: list[str]):
+    def get_dict(self, keys: list[str]) -> dict:
         current = self._data
+
         for key in keys:
+            if not isinstance(current, dict):
+                return {}
             current = current.get(key, {})
 
         return current if isinstance(current, dict) else {}
