@@ -103,22 +103,23 @@ After successful execution, processed job offers are saved to the configured.
 ```text
 /email-data-extractor
 │
+├── /core
+│   ├── base_parser.py
 │
 ├── /database
-│    ├── init_database.py
-│    ├── job_title.py    
-│    ├── migration_db.py
-│
-├── /core
-│   ├── __init__.py
-│   ├── base_parser.py
+│   ├── init_database.py
+│   ├── classify_jobs.py
+│   ├── migration_db.py
 │
 ├── /modules
 │   ├── __init__.py
 │   ├── ai_service.py
 │   ├── db_save.py
 │   ├── filter_service.py
+│   ├── job_classification_service.py
+│   ├── job_classifier.py
 │   ├── processed_cache.py
+│   ├── salary_estimator
 │
 ├── /parsers
 │   ├── __init__.py
@@ -126,8 +127,9 @@ After successful execution, processed job offers are saved to the configured.
 │
 ├── /tests
 │   ├── test_ai.py
+│   ├── test_classification.py
 │   ├── test_filter_service.py
-│   ├── test_filterjson.py
+│   ├── test_filter_json.py
 │   ├── test_json.py
 │   ├── test_orchestrator.py
 │   ├── test_pydantic.py
