@@ -225,3 +225,19 @@ class Database:
             )
 
             conn.commit()
+
+    def job_details_exists(self, offer_id: int) -> bool:
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT 1
+                FROM JobDetails
+                WHERE offer_id = ?
+                LIMIT 1
+                """,
+                (offer_id,),
+            )
+
+            return cursor.fetchone() is not None
