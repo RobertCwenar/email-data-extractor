@@ -23,7 +23,10 @@ class JobClassificationService:
             if cached and cached[1]:
                 logger.info("Classification cache: %s", clean_title)
                 level, category = cached
-                self.db.update_job_category(offer_id, category)
+                if self.db.job_details_exists(offer_id):
+                    self.db.update_job_category(offer_id, category)
+                else:
+                    self.db.save_job_details(offer_id, clean_title, level, category)
                 continue
 
             logger.info("New Classification: %s", clean_title)
