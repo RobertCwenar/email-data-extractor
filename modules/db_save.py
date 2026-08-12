@@ -6,30 +6,6 @@ from offer import JobOffer
 
 logger = logging.getLogger(__name__)
 
-
-# Normalize date to a standard format
-def normalize_date(value):
-    if not value:
-        return None
-
-    value = str(value).strip()
-
-    formats = [
-        "%Y-%m-%d",
-        "%d.%m.%Y",
-        "%Y-%m-%d %H:%M:%S",
-        "%Y-%m-%d %H:%M:%S%z",
-    ]
-    # Try pasing the value through each format untill one works
-    for format in formats:
-        try:
-            return datetime.strptime(value, format).strftime("%Y-%m-%d")
-        except ValueError:
-            pass
-
-    return None
-
-
 # Database class for saving job offers and related data to SQLite database
 class Database:
     def __init__(self, db_name: str = "new_offers.db"):
@@ -50,10 +26,10 @@ class Database:
 
             cursor.execute(
                 """
-                    INSERT INTO Offers (title, company, location, salary_min, salary_max, date, source)
-                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO Offers (title, company, location, salary_min, salary_max, date, source, salary_status)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job.title, job.company, job.location, job.salary_min, job.salary_max, job.date, source),
+                (job.title, job.company, job.location, job.salary_min, job.salary_max, job.date, source, job.salary_status),
             )
 
             return cursor.lastrowid
@@ -225,3 +201,25 @@ class Database:
             )
 
             conn.commit()
+
+# Normalize date to a standard format
+def normalize_date(value):
+    if not value:
+        return None
+
+    value = str(value).strip()
+
+    formats = [
+        "%Y-%m-%d",
+        "%d.%m.%Y",
+        "%Y-%m-%d %H:%M:%S",
+        "%Y-%m-%d %H:%M:%S%z",
+    ]
+    # Try pasing the value through each format untill one works
+    for format in formats:
+        try:
+            return datetime.strptime(value, format).strftime("%Y-%m-%d")
+        except ValueError:
+            pass
+
+    return None

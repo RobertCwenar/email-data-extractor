@@ -3,6 +3,7 @@ import re
 
 from config import config
 from modules.ai_service import AIService
+from typing import get_args, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +17,15 @@ class JobClassifier:
     def classify_level(self, clean_title: str):
         title = clean_title.lower()
 
-        priority = [
+        Priority = Literal[
             "senior",
             "junior",
             "intern",
             "mid",
-            "manager",
+            "manager", 
         ]
 
-        for level in priority:
+        for level in get_args(Priority):
             for keyword in self.levels[level]:
                 pattern = rf"\b{re.escape(keyword.lower())}\b"
 

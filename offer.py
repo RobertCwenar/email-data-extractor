@@ -6,14 +6,13 @@ from pydantic import BaseModel
 # Add class
 class JobOffer(BaseModel):
     id: Optional[int] = None
-
     title: str
     company: str
     location: str
     salary_min: Optional[float] = None
     salary_max: Optional[float] = None
     date: Optional[str] = None
-    url: Optional[str] = None
+    salary_status: Optional[str] = None
 
 
 class OffersResponse(BaseModel):

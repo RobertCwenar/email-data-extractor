@@ -71,10 +71,10 @@ class AIService:
             },
         )
 
-        logger.info("CATEGORY RAW RESPONSE: %s", response.text)
+        logger.info(f"CATEGORY RAW RESPONSE: {response.text}")
 
         if not response.parsed:
-            logger.warning("Gemini returned no parsed response for category validation. Raw: %s", response.text)
+            logger.warning(f"Gemini returned no parsed response for category validation. Raw: {response.text}")
             return CategoryValidationResponse(category="unknown")
 
         parsed = CategoryValidationResponse.model_validate(response.parsed)
