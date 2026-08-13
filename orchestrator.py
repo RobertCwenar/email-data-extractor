@@ -12,6 +12,8 @@ from modules.job_classification_service import JobClassificationService
 from modules.job_classifier import JobClassifier
 from modules.processed_cache import FileCache
 from parsers.email_parser import EmailParser
+from modules.salary_estimator import SalaryEstimator
+from modules.salary_history import SalaryHistory
 
 # Load environment variables from .env file
 load_dotenv()
@@ -28,10 +30,7 @@ async def main():
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database("new_offers.db")
-    db.create_companies_table()
-    db.create_modes_table()
-    db.create_job_links_table()
-    db.create_job_details_table()
+    db.create_tables()
     filter_service = FilterService(config)
     email_config = {
         "host": os.getenv("EMAIL_HOST"),
@@ -71,8 +70,10 @@ async def main():
     ]
 
     classifier = JobClassifier(ai)
+    salary_estimator = SalaryEstimator()
+    classification_service = JobClassificationService(db, classifier, salary_estimator)
+    salary_history = SalaryHistory(salary_history)
 
-    classification_service = JobClassificationService(db, classifier)
     for parser in sources:
         logger.info("Processing source: %s", parser.source)
 
@@ -83,11 +84,11 @@ async def main():
             result = filter_service.should_save(offer)
 
             if result:
+                offer.salary_status = salary_estimator.salary_status(offer)
                 db.save_offers(offer, source=parser.source)
 
     # Process job classifications in the database ofer details
     await classification_service.process_jobs()
-
 
 if __name__ == "__main__":
     asyncio.run(main())

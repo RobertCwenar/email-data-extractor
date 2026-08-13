@@ -104,12 +104,18 @@ After successful execution, processed job offers are saved to the configured.
 /email-data-extractor
 │
 ├── /core
+│   ├── __init__.py
 │   ├── base_parser.py
 │
 ├── /database
-│   ├── init_database.py
+│   ├── __init__.py
 │   ├── classify_jobs.py
+│   ├── init_database.py
 │   ├── migration_db.py
+│
+│
+├── /integration_tests
+│   ├── test_save_job_link.py
 │
 ├── /modules
 │   ├── __init__.py
@@ -119,7 +125,9 @@ After successful execution, processed job offers are saved to the configured.
 │   ├── job_classification_service.py
 │   ├── job_classifier.py
 │   ├── processed_cache.py
-│   ├── salary_estimator
+│   ├── salary_estimator.py
+│   ├── salary_history.py
+│   ├── statistics_salary.py
 │
 ├── /parsers
 │   ├── __init__.py

@@ -90,14 +90,16 @@ class Database:
             CREATE TABLE IF NOT EXISTS JobLinks(
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 offer_id INTEGER NOT NULL,
+                title TEXT,
                 url TEXT NOT NULL,
                 source TEXT,
+                filter_keywords TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
             """)
 
-    # Save job link to the Joblinks table
-    def save_job_link(self, offer_id: int, url: str, source: str):
+    # Save job link to the JobLinks table
+    def save_job_link(self, offer_id: int, title: str, url: str, source: str, filter_keywords: str):
 
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -106,12 +108,14 @@ class Database:
                 """
             INSERT INTO JobLinks
             (   offer_id,
+                title,
                 url,
-                source
+                source,
+                filter_keywords
             )
-            VALUES (?, ?, ?)
+            VALUES (?, ?, ?, ?, ?)
             """,
-                (offer_id, url, source),
+                (offer_id, title, url, source, filter_keywords),
             )
 
     # Create the JobDetails table
@@ -217,6 +221,58 @@ class Database:
             )
 
             return cursor.fetchone() is not None
+
+    def get_salary_status(self, offer_id: int) -> str:
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT salary_status
+                FROM Offers
+                WHERE id = ?
+                """, 
+                (offer_id,)
+            )
+
+            return cursor.fetchone()[0]
+
+    def update_offer_salary(self, offer_id: int, salary_min: float, salary_max: float):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE Offers
+                SET salary_min = ?,
+                    salary_max = ?
+                WHERE id = ?
+                """,
+
+                (salary_min, salary_max, offer_id)
+            )   
+
+            conn.commit()
+
+    def get_salary_history(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+        
+            cursor.execute("""
+                SELECT o.id, o.title, o.salary_min, o.salary_max, jd.category, jd.level
+                FROM Offers o
+                LEFT JOIN JobDetails jd 
+                    ON jd.offer_id = o.id
+                WHERE o.salary_status = "offer"
+            """)
+        
+            return cursor.fetchall()
+
+    def create_tables(self):
+        self.create_companies_table()
+        self.create_modes_table()
+        self.create_job_links_table()
+        self.create_job_details_table()
 
 # Normalize date to a standard format
 def normalize_date(value):
