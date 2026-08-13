@@ -1,6 +1,6 @@
-import logging
-from config import config 
-from offer import JobOffer, JobClassification
+from config import config
+from offer import JobClassification, JobOffer
+
 
 class SalaryEstimator:
     def __init__(self, salary_history):
@@ -17,18 +17,18 @@ class SalaryEstimator:
 
     def salary_logic(self, job: JobClassification):
 
-        history = self.salary_history.get_salary(job.category, job.level,)
+        history = self.salary_history.get_salary(
+            job.category,
+            job.level,
+        )
 
         if history and history[0] is not None and history[1] is not None:
             return history
-        
+
         for category, levels in self.salary_rules.items():
-
             if job.category == category:
-
                 for level, salary in levels.items():
                     if job.level == level:
-        
                         base_salary = salary["base"]
                         salary_range = salary["range"]
 

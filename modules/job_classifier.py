@@ -1,9 +1,9 @@
 import logging
 import re
+from typing import Literal, get_args
 
 from config import config
 from modules.ai_service import AIService
-from typing import get_args, Literal
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ class JobClassifier:
             "junior",
             "intern",
             "mid",
-            "manager", 
+            "manager",
         ]
 
         for level in get_args(Priority):

@@ -1,9 +1,10 @@
-import sqlite3
 import logging
+import sqlite3
 
 DB = "new_offers.db"
 
 logger = logging.getLogger(__name__)
+
 
 def migrate_job_details():
     with sqlite3.connect(DB) as conn:
@@ -19,7 +20,6 @@ def migrate_job_details():
     logger.info(f"Found {len(offers)} offers")
 
     for offer in offers:
-
         try:
             cursor.execute(
                 """
@@ -36,7 +36,6 @@ def migrate_job_details():
             )
         except sqlite3.Error as e:
             logger.warning(f"Could not save JobDetails for offer {offer[0]} {offer[1]}: {e}")
-  
 
     cursor.execute("""
         SELECT COUNT(*)
@@ -44,6 +43,7 @@ def migrate_job_details():
     """)
 
     logger.info(f"JobDetails after: {cursor.fetchone()[0]}")
+
 
 if __name__ == "__main__":
     migrate_job_details()

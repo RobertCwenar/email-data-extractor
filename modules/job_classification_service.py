@@ -1,8 +1,8 @@
 import logging
+
 from offer import JobClassification
 
 logger = logging.getLogger(__name__)
-
 
 
 class JobClassificationService:
@@ -26,9 +26,8 @@ class JobClassificationService:
             if cached and cached[1]:
                 logger.info("Classification cache: %s", clean_title)
                 level, category = cached
-            
-            else:
 
+            else:
                 logger.info("New Classification: %s", clean_title)
                 level = self.classifier.classify_level(clean_title)
                 category = await self.classifier.classify_category(clean_title)
@@ -37,12 +36,12 @@ class JobClassificationService:
                 offer_id=offer_id,
                 clean_title=clean_title,
                 level=level,
-                category=category, 
+                category=category,
             )
 
             salary_status = self.db.get_salary_status(offer_id)
 
-            if salary_status =="estimated":
+            if salary_status == "estimated":
                 salary_min, salary_max = self.salary_estimator.salary_logic(classification)
 
                 if salary_min is not None and salary_max is not None:
@@ -57,4 +56,3 @@ class JobClassificationService:
                     level,
                     category,
                 )
-                

@@ -6,6 +6,7 @@ from offer import JobOffer
 
 logger = logging.getLogger(__name__)
 
+
 # Database class for saving job offers and related data to SQLite database
 class Database:
     def __init__(self, db_name: str = "new_offers.db"):
@@ -29,7 +30,16 @@ class Database:
                     INSERT INTO Offers (title, company, location, salary_min, salary_max, date, source, salary_status)
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (job.title, job.company, job.location, job.salary_min, job.salary_max, job.date, source, job.salary_status),
+                (
+                    job.title,
+                    job.company,
+                    job.location,
+                    job.salary_min,
+                    job.salary_max,
+                    job.date,
+                    source,
+                    job.salary_status,
+                ),
             )
 
             return cursor.lastrowid
@@ -231,8 +241,8 @@ class Database:
                 SELECT salary_status
                 FROM Offers
                 WHERE id = ?
-                """, 
-                (offer_id,)
+                """,
+                (offer_id,),
             )
 
             return cursor.fetchone()[0]
@@ -248,16 +258,15 @@ class Database:
                     salary_max = ?
                 WHERE id = ?
                 """,
-
-                (salary_min, salary_max, offer_id)
-            )   
+                (salary_min, salary_max, offer_id),
+            )
 
             conn.commit()
 
     def get_salary_history(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
-        
+
             cursor.execute("""
                 SELECT o.id, o.title, o.salary_min, o.salary_max, jd.category, jd.level
                 FROM Offers o
@@ -265,7 +274,7 @@ class Database:
                     ON jd.offer_id = o.id
                 WHERE o.salary_status = "offer"
             """)
-        
+
             return cursor.fetchall()
 
     def create_tables(self):
@@ -273,6 +282,7 @@ class Database:
         self.create_modes_table()
         self.create_job_links_table()
         self.create_job_details_table()
+
 
 # Normalize date to a standard format
 def normalize_date(value):

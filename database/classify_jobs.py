@@ -6,7 +6,7 @@ from modules.job_classifier import JobClassifier
 def main():
     db = Database("new_offers.db")
     classifier = JobClassifier()
-    classification_service = JobClassificationService(db, classifier)
+    classification_service = JobClassificationService(db, classifier, None)
 
     classification_service.process_jobs()
 
