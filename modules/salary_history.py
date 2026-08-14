@@ -11,9 +11,15 @@ class SalaryHistory:
     def process_history(self):
         history_data = self.db.get_salary_history()
 
+        logger.info(f"Salary history records: {len(history_data)}")
+
         history = self.get_history(history_data)
 
+        logger.info(f"Processed salary history: {len(history)}")
+
         groups = self.group_history(history)
+
+        logger.info(f"History groups: {len(groups)}")
 
         self.statistics = {}
 
@@ -23,22 +29,18 @@ class SalaryHistory:
 
             logger.info(f"Salary history: {key}, {statistics}")
 
+    def _to_float(self, value):
+        try:
+            return float(value) if value not in (None, "") else None
+        except (ValueError, TypeError):
+            return None
+
     def get_history(self, history_data):
         history = []
 
         for offer in history_data:
-            salary_min = offer[2]
-            salary_max = offer[3]
-
-            try:
-                salary_min = float(salary_min) if salary_min not in (None, "") else None
-            except ValueError, TypeError:
-                salary_min = None
-
-            try:
-                salary_max = float(salary_max) if salary_max not in (None, "") else None
-            except ValueError, TypeError:
-                salary_max = None
+            salary_min = self._to_float(offer[2])
+            salary_max = self._to_float(offer[3])
 
             history.append((salary_min, salary_max, offer[4], offer[5]))
 
@@ -73,8 +75,14 @@ class SalaryHistory:
         return groups
 
     def get_salary(self, category, level):
+        key = (category, level)
+
+        logger.info(f"Looking for salary history:, {key}")
+
         statistics = self.statistics.get((category, level))
-        logger.info(f"Salary lookup: {category}, {level}, {statistics}")
+
+        logger.info(f"Salary lookup: {key}, {statistics}")
+
         if not statistics:
             return None
 
