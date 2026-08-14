@@ -17,16 +17,30 @@ class SalaryEstimator:
         
         return "estimated"
 
-    def salary_logic(self, job: JobClassification):
+    def salary_logic(self, job: JobClassification, company, title, date):
         logger.info(f"Salary estimation started: {job.category}, {job.level}")
+
+        history = self.salary_history.find_real_salary(
+            company=company,
+            title=title,
+            date=date,
+             )
+
+        logger.info(f"Real salary history result: {history}")
+
+        if history:
+            logger.info(f"Using real salary from history: {history}")
+            return history
+
         history = self.salary_history.get_salary(
-            job.category,
-            job.level,
+            job.category, 
+            job.level
         )
 
-        logger.info(f"Salary history result: {history}")
+        logger.info(f"Statistical salary history result: {history}")
+
         if history and history[0] is not None and history[1] is not None:
-            logger.info(f"Using salary history: {history}")
+            logger.info(f"Using statistical salary history: {history}")
             return history
 
         for category, levels in self.salary_rules.items():
@@ -37,10 +51,17 @@ class SalaryEstimator:
                         salary_range = salary["range"]
 
                         salary_min = base_salary
-
                         salary_max = base_salary + salary_range
-                        logger.info(f"Using salary rules for: {job.category}, {job.level}: "
-                                    f"{salary_min}, {salary_max}")
+
+                        logger.info(
+                            f"Using salary rules for {job.category}, "
+                            f"{job.level}: {salary_min}, {salary_max}"
+                        )
+
                         return salary_min, salary_max
-        logger.info(f"No salary rules found for {job.category}, {job.level} ")
+
+        logger.info(
+            f"No salary rules found for {job.category}, {job.level}"
+        )
+
         return None, None

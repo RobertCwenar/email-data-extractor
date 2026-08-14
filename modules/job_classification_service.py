@@ -17,24 +17,24 @@ class JobClassificationService:
 
         jobs = self.db.get_jobs_for_classification()
 
-        for offer_id, clean_title in jobs:
-            if not clean_title:
+        for offer_id, title, company, date in jobs:
+            if not title:
                 continue
 
-            cached = self.db.get_classification_by_title(clean_title)
+            cached = self.db.get_classification_by_title(title)
 
             if cached and cached[1]:
-                logger.info("Classification cache: %s", clean_title)
+                logger.info("Classification cache: %s", title)
                 level, category = cached
 
             else:
-                logger.info("New Classification: %s", clean_title)
-                level = self.classifier.classify_level(clean_title)
-                category = await self.classifier.classify_category(clean_title)
+                logger.info("New Classification: %s", title)
+                level = self.classifier.classify_level(title)
+                category = await self.classifier.classify_category(title)
 
             classification = JobClassification(
                 offer_id=offer_id,
-                clean_title=clean_title,
+                clean_title=title,
                 level=level,
                 category=category,
             )
@@ -44,7 +44,7 @@ class JobClassificationService:
             logger.info(f"Salary status for: {offer_id}, {salary_status}")
 
             if salary_status == "estimated":
-                salary_min, salary_max = self.salary_estimator.salary_logic(classification)
+                salary_min, salary_max = self.salary_estimator.salary_logic(classification, company, title, date)
 
                 logger.info(f"Salary estimation for: {offer_id}, {salary_min}, {salary_max}")
 
@@ -58,7 +58,7 @@ class JobClassificationService:
             else:
                 self.db.save_job_details(
                     offer_id,
-                    clean_title,
+                    title,
                     level,
                     category,
                 )

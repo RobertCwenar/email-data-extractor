@@ -176,7 +176,7 @@ class Database:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT o.id, o.title
+                SELECT o.id, o.title, o.company, o.date
                 FROM Offers o
                 LEFT JOIN JobDetails jd ON jd.offer_id = o.id
                 WHERE jd.offer_id IS NULL
@@ -268,7 +268,7 @@ class Database:
             cursor = conn.cursor()
 
             cursor.execute("""
-                SELECT o.id, o.title, o.salary_min, o.salary_max, jd.category, jd.level
+                SELECT o.id, o.title, o.company, o.salary_min, o.salary_max, o.date, jd.category, jd.level
                 FROM Offers o
                 LEFT JOIN JobDetails jd 
                     ON jd.offer_id = o.id
