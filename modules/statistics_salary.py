@@ -26,7 +26,7 @@ class SalaryStatistics:
             return None
 
         return max(salaries)
-        
+
     def standard_deviation(self, salaries):
         if len(salaries) < 2:
             return None

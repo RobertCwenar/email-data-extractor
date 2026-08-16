@@ -17,7 +17,7 @@ class AIService:
 
     @retry(
         retry=retry_if_exception_type(ClientError),
-        wait=wait_exponential(multiplier=1, min=4, max=60),  # Czekaj: 4s, 8s, 16s...
+        wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
         stop=stop_after_attempt(5),
     )
     async def parser_offers_api(self, text: str) -> list[JobOffer]:

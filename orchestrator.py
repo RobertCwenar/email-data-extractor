@@ -73,6 +73,7 @@ async def main():
     salary_history.process_history()
 
     salary_estimator = SalaryEstimator(salary_history)
+
     classifier = JobClassifier(ai)
 
     classification_service = JobClassificationService(db, classifier, salary_estimator)
@@ -81,7 +82,6 @@ async def main():
         logger.info("Processing source: %s", parser.source)
 
         offers = await parser.fetch_offers()
-        logger.info("%s found %s offers", parser.source, len(offers))
 
         for offer in offers:
             result = filter_service.should_save(offer)
@@ -90,7 +90,7 @@ async def main():
                 offer.salary_status = salary_estimator.salary_status(offer)
                 db.save_offers(offer, source=parser.source)
 
-    # Process job classifications in the database ofer details
+    # Process job classifications and salary estimation
     await classification_service.process_jobs()
 
 

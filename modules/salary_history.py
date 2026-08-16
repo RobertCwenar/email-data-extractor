@@ -1,6 +1,8 @@
 import logging
-from modules.statistics_salary import SalaryStatistics 
 from datetime import datetime
+
+from modules.statistics_salary import SalaryStatistics
+
 logger = logging.getLogger(__name__)
 
 
@@ -9,7 +11,7 @@ class SalaryHistory:
         self.db = db
         self.statistics = {}
         self.salary_statistics = SalaryStatistics()
-        self.history =[]
+        self.history = []
 
     def process_history(self):
         history_data = self.db.get_salary_history()
@@ -35,7 +37,7 @@ class SalaryHistory:
     def _to_float(self, value):
         try:
             return float(value) if value not in (None, "") else None
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
     def get_history(self, history_data):
@@ -45,16 +47,18 @@ class SalaryHistory:
             salary_min = self._to_float(offer[3])
             salary_max = self._to_float(offer[4])
 
-            history.append({
-                "id": offer[0],
-                "title": offer[1],
-                "company": offer[2],
-                "salary_min": salary_min,
-                "salary_max": salary_max,
-                "date": offer[5],
-                "category": offer[6],
-                "level": offer[7],
-            })
+            history.append(
+                {
+                    "id": offer[0],
+                    "title": offer[1],
+                    "company": offer[2],
+                    "salary_min": salary_min,
+                    "salary_max": salary_max,
+                    "date": offer[5],
+                    "category": offer[6],
+                    "level": offer[7],
+                }
+            )
 
         return history
 
@@ -93,8 +97,7 @@ class SalaryHistory:
             if key not in groups:
                 groups[key] = []
 
-            groups[key].append(
-                (offer["salary_min"], offer["salary_max"]))
+            groups[key].append((offer["salary_min"], offer["salary_max"]))
 
         return groups
 
@@ -111,9 +114,10 @@ class SalaryHistory:
             return None
 
         return (
-            statistics["avg_min"],
-            statistics["avg_max"],
+            statistics["median_min"],
+            statistics["median_max"],
         )
+
     def find_real_salary(self, company, title, date, months=2):
         if not company or not title or not date:
             return None

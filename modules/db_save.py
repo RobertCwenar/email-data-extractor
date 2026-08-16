@@ -263,10 +263,30 @@ class Database:
 
             conn.commit()
 
-    def get_salary_history(self):
+    def update_job_classification(
+        self,
+        offer_id: int,
+        level: str,
+        category: str,
+    ):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
+            cursor.execute(
+                """
+                UPDATE JobDetails
+                SET level = ?,
+                    category = ?
+                WHERE offer_id = ?
+                """,
+                (level, category, offer_id),
+            )
+
+            conn.commit()
+
+    def get_salary_history(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
             cursor.execute("""
                 SELECT o.id, o.title, o.company, o.salary_min, o.salary_max, o.date, jd.category, jd.level
                 FROM Offers o
@@ -274,7 +294,6 @@ class Database:
                     ON jd.offer_id = o.id
                 WHERE o.salary_status = "offer"
             """)
-
             return cursor.fetchall()
 
     def create_tables(self):
@@ -282,6 +301,36 @@ class Database:
         self.create_modes_table()
         self.create_job_links_table()
         self.create_job_details_table()
+
+    def get_jobs_for_salary_estimator(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+            SELECT o.id, o.title, o.company, o.date, jd.level, jd.category
+            FROM Offers o
+            Join JobDetails jd
+                ON jd.offer_id = o.id
+            WHERE o.salary_min IS Null
+                and o.salary_max IS NULL
+                and jd.level IS Not NULL
+                and jd.category IS NOT NULL
+                """)
+
+        return cursor.fetchall()
+
+    def get_all_job_details_for_migration(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+        SELECT offer_id, clean_title, level, category
+        FROM JobDetails
+        ORDER BY offer_id """
+            )
+
+            return cursor.fetchall()
 
 
 # Normalize date to a standard format
