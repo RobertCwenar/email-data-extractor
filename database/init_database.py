@@ -11,8 +11,8 @@ def init_db(db_name="new_offers.db"):
             title TEXT,
             company TEXT,
             location TEXT,
-            salary_min TEXT,
-            salary_max TEXT,
+            salary_min REAL,
+            salary_max REAL,
             date TEXT,
             source TEXT
         )

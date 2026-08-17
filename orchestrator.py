@@ -93,6 +93,8 @@ async def main():
     # Process job classifications and salary estimation
     await classification_service.process_jobs()
 
+    await classification_service.process_salary_estimations()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
