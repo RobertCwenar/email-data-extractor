@@ -66,7 +66,7 @@ class CategoryValidationResponse(BaseModel):
         "software_it",
         "it_support",
         "finance_accounting",
-        "hr_payroll",
+        "hr",
         "logistics_supply_chain",
         "administration",
         "sales_customer_service",
@@ -76,5 +76,6 @@ class CategoryValidationResponse(BaseModel):
         "legal_compliance_risk",
         "procurement",
         "customer_operations",
+        "medical",
         "unknown",
     ]

@@ -79,7 +79,7 @@ async def main():
     classification_service = JobClassificationService(db, classifier, salary_estimator)
 
     for parser in sources:
-        logger.info("Processing source: %s", parser.source)
+        logger.info(f"Processing source: {parser.source}")
 
         offers = await parser.fetch_offers()
 
