@@ -45,11 +45,7 @@ class JobClassifier:
         if cache_key in self.category_cache:
             category = self.category_cache[cache_key]
 
-            logger.info(
-                "Category cache HIT: '%s' -> '%s'",
-                clean_title,
-                category,
-            )
+            logger.info(f"Category cache HIT: '{clean_title}' -> '{category}'")
 
             return category
 
@@ -91,18 +87,11 @@ class JobClassifier:
                 key=lambda category: scores[category],
             )
 
-            logger.info(
-                "Category scores for '%s': %s",
-                clean_title,
-                scores,
-            )
+            logger.info(f"Category scores for {clean_title}: {scores}")
 
             logger.info(
-                "Category match: '%s' -> '%s' [score=%s, matches=%s]",
-                clean_title,
-                best_category,
-                scores[best_category],
-                matches_by_category[best_category],
+                f"Category match: '{clean_title}' -> '{best_category}' "
+                f"[score={scores[best_category]}, matches={matches_by_category[best_category]}]"
             )
 
             best_score = scores[best_category]
@@ -110,15 +99,11 @@ class JobClassifier:
             if best_score >= 1:
                 self.category_cache[cache_key] = best_category
 
-                logger.info(
-                    "Category cache SAVE: '%s' -> '%s'",
-                    clean_title,
-                    best_category,
-                )
+                logger.info(f"Category cache SAVE: {clean_title} -> {best_category}")
 
                 return best_category
 
-        logger.info("AI Category: %s", clean_title)
+        logger.info(f"AI Category: {clean_title}")
 
         await asyncio.sleep(2)
 
@@ -127,18 +112,10 @@ class JobClassifier:
             self.categories["Category_Literal"],
         )
 
-        logger.info(
-            "AI Category result: '%s' -> '%s'",
-            clean_title,
-            result.category,
-        )
+        logger.info(f"AI Category result: {clean_title} -> {result.category}")
 
         self.category_cache[cache_key] = result.category
 
-        logger.info(
-            "Category cache SAVE: '%s' -> '%s'",
-            clean_title,
-            result.category,
-        )
+        logger.info(f"Category cache SAVE: {clean_title} -> {result.category}")
 
         return result.category

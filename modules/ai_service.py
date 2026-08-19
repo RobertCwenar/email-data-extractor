@@ -33,13 +33,13 @@ class AIService:
                 "temperature": 0.0,
             },
         )
-        logger.debug("AI EXTRACT:", response.text)
+        logger.debug(f"AI EXTRACT: {response.text}")
         await asyncio.sleep(5)
 
-        logger.debug("RAW RESPONSE: %s", response.text)
+        logger.debug(f"RAW RESPONSE: {response.text}")
 
         if not response.parsed:
-            logger.warning("Gemini returned no parsed response. Raw: %s", response.text)
+            logger.warning(f"Gemini returned no parsed response. Raw: {response.text}")
             return []
 
         parsed_response = OffersResponse.model_validate(response.parsed)

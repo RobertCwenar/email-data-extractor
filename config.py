@@ -14,7 +14,7 @@ class AppConfig:
         if not self.path.exists():
             self.path = Path("filter_keywords_example.json")
 
-        logger.info("Loading config: %s", self.path)
+        logger.info(f"Loading config: {self.path}")
 
         self._data = self._load()
 
