@@ -37,7 +37,7 @@ class SalaryHistory:
     def _to_float(self, value):
         try:
             return float(value) if value not in (None, "") else None
-        except ValueError, TypeError:
+        except (ValueError, TypeError):
             return None
 
     def get_history(self, history_data):
