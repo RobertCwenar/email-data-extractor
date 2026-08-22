@@ -12,7 +12,7 @@ The application uses the `filter_keywords.json` configuration file to define fil
 
 The processed data is stored in an SQLite database, with Offers serving as the main table. Additional important tables include `JobDetails` and `Companies`.
 
-'''
+```text
 Email
   ↓
 Parsing
@@ -26,7 +26,7 @@ Classification
 Salary Estimation
   ↓
 SQLite
-'''
+```
 
 ## 2. System Architecture
 
@@ -34,7 +34,7 @@ The system is designed as a modular ETL pipeline for processing job offers from 
 
 ### 2.1 Data Flow
 
-'''
+```text
 Email Sources
      ↓
 EmailParser
@@ -52,11 +52,9 @@ JobDetails
 Salary Estimation
      ↓
 Database Update
-'''
+```
 
 ### 2.2 Main Components
-
-'''
 
 - EmailParser – extracts job offer data from emails.
 - FilterService – filters unwanted offers using configured rules.
@@ -67,13 +65,13 @@ Database Update
 - SalaryEstimator – estimates missing salary information.
 - Orchestrator – coordinates the entire processing pipeline.
 
-'''
 The modular architecture allows individual components to be developed, tested, and modified independently.
 
 ## 3. Email Sources
 
 The system uses incoming email messages as the primary source of job-offer data. Emails are received from multiple job platforms and processed into a common JobOffer structure.
- '''
+
+```text
 Email Sources
      │
      ├── RocketJobs.pl
@@ -89,13 +87,13 @@ Email Sources
             │
             ▼
          JobOffer
-'''
+```
+
 Each source may use a different email structure and formatting. The parsing layer is responsible for extracting the relevant information and converting it into a standardized `JobOffer` object.
 
 The `JobOffer` model provides a common interface for the rest of the application, regardless of the original email source.
 
 Typical information extracted from an email includes:
-'''
 
 - job title
 - company
@@ -104,14 +102,12 @@ Typical information extracted from an email includes:
 - date
 - source
 
-'''
 After parsing, the original email format is no longer relevant to the subsequent processing stages. The normalized `JobOffer` is passed to filtering, classification, database storage, and salary estimation.
 
 ## 4. Database Structure
 
 The main table is `Offers`, which stores the basic information about each job offer:
 
-'''
 Title — the job offer title.
 
 - id_offer - indywidual ID in database
@@ -133,7 +129,6 @@ The Companies table stores unique companies referenced by job offers. Company na
 
 - id_company — unique identifier of the company in the database.
 - company — unique company name.
-'''
 
 table Offers - Stores the primary data extracted from job offers.
 
@@ -144,28 +139,25 @@ table Companies - Stores company-related information used to associate offers wi
 ## 5. Job Classification
 
 Job classification provides two important pieces of information:
-'''
 
 - Level
 - Category
 
-'''
-The level is classified based on the cleaned job title retrieved from the Offers table. The classification uses level keywords defined in filter_keywords.json.
-'''
+The level is classified based on the cleaned job title retrieved from the Offers table. The classification uses level keywords defined in JobClassifier.
 
 - Senior
 - Junior
 - Intern
 - Mid
 - Manager
-'''
+
 If a matching keyword is found, the corresponding level is assigned. If no level can be identified, the result is set to unknown.
 
 The category is determined using the configured categories from `filter_keywords.json`. The classifier first uses keyword matching and scoring to identify the most relevant category. If the category can't be determined reliably, the classification is passed to AIService, which validates the job title against the available categories.
 
 If neither the keyword-based classifier nor AIService can identify a valid category, the result is set to unknown.
 
-'''
+```text
 JobClassificationService
         │
         ▼
@@ -179,11 +171,11 @@ JobClassificationService
                                            │
                                            ▼
                                     AI classification
-'''
+```
 
 ## 6. Salary Estimator
 
-'''
+```text
 Email
   │
   ▼
@@ -245,9 +237,9 @@ JobClassifier
                                           ▼
                                     Update Database
 
-'''
+```
 
-'''
+```text
 SalaryEstimator
       │
       ▼
@@ -277,13 +269,14 @@ Salary        │
          └────┬─────┘
               ▼
        Salary Min / Max
-    '''
+    ```
 
 ## 7. End-to-End Processing Flow
 
 The complete processing pipeline combines email extraction, data validation, filtering, classification, and salary estimation into a single workflow.
 
-'''
+```
+
 Email Sources
      │
      ▼
@@ -344,7 +337,8 @@ JobClassificationService
                                        │
                                        ▼
                                 Database Update
-'''
+
+```text
 
 ## 8. Configuration
 
@@ -353,26 +347,25 @@ The application uses configuration files to control filtering, job classificatio
 ### 8.1 Configuration Files
 
 The main configuration files are:
-'''
+```
 
 - `filter_keywords.json` – keywords and phrases used for job offer filtering and classification and fallback salary ranges used when there is not enough historical salary data for a given category and seniority level.
 - `.env` – environment-specific configuration and credentials where is Gemini API, login and password email.
 - `config.py` / `AppConfig` – application configuration loader and access layer.
-'''
 
 ### 8.2 Job Filtering Configuration
 
 `filter_keywords.json` contains rules used to identify and exclude irrelevant job offers.
 
 The configuration includes:
-'''
 
 - blocked job titles,
 - skip phrases,
 - irrelevant phrases,
 - category-specific keywords,
 - literal category mappings.
-'''
+
+```text
 
 This configuration is loaded at application startup and used by the filtering
 and classification services.
@@ -388,11 +381,8 @@ Historical data has priority. If sufficient historical data is available for a g
 
 Example salary rules:
 
-'''
-{
   "finance_accounting": {
     "Junior": {
-      "base": 5500,
       "range": 1200
     },
     "Mid": {
@@ -401,7 +391,7 @@ Example salary rules:
     }
   }
 }
-'''
+```
 
 ### 8.4 AI Configuration
 
@@ -417,7 +407,7 @@ AI is primarily used for new or unclassified offers. Classification results are 
 
 ### 8.5 Runtime Configuration
 
-'''
+```text
 The application loads configuration during startup:
 
 Application
@@ -427,7 +417,8 @@ AppConfig
 Configuration files
     ↓
 Filtering / Classification / Salary Estimation
-'''
+```
+
 Configuration is kept separate from business logic so that classification rules, salary parameters and filtering criteria can be updated independently of the application code.
 
 ## 9. Testing

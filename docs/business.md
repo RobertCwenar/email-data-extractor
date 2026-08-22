@@ -6,7 +6,8 @@ The main goal of the project is to automate the process of monitoring job offers
 The collected information includes job title, company, salary, location, source, job level, category, and other relevant job offer information.
 
 The project is designed to help answer questions such as:
-'''
+
+```text
 
 1. Recruitment activity
    • Which companies are actively recruiting for the positions you are interested in?
@@ -28,7 +29,8 @@ The project is designed to help answer questions such as:
    • Which companies offer the highest salaries for specific positions?
 10. Location
    • How does salary vary between different job locations?
-   '''
+```
+
    As the database grows, the collected data can be used to identify trends and changes in the job market over time. It can also be used to create reports and dashboards for further analysis.
 
 An important part of the project is the SalaryEstimator, which estimates salary ranges for different positions and experience levels. The salary can be calculated using several sources, including salary information from job offers, historical salary data, and predefined rules stored in a JSON configuration file. More information about the salary estimation process is available in the technical documentation.

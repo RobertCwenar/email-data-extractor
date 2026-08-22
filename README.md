@@ -111,10 +111,17 @@ After successful execution, processed job offers are saved to the configured.
 │   ├── __init__.py
 │   ├── classify_jobs.py
 │   ├── init_database.py
+│   ├── migrate_status.py
 │   ├── migration_db.py
 │
 │
+│
+├── /docs
+│   ├── business.md
+│   ├── technical.md
+│
 ├── /integration_tests
+│   ├── test_save_db.py
 │   ├── test_save_job_link.py
 │
 ├── /modules
@@ -141,7 +148,6 @@ After successful execution, processed job offers are saved to the configured.
 │   ├── test_json.py
 │   ├── test_orchestrator.py
 │   ├── test_pydantic.py
-│   ├── test_save_db.py
 │   ├── test_save_job_link.py
 │
 ├── config.py
@@ -157,3 +163,26 @@ After successful execution, processed job offers are saved to the configured.
 ```
 
 ## Roadmap
+
+### Completed
+
+- Email-based job offer extraction
+- Data validation with Pydantic
+- AI-based job classification
+- SQLite database integration
+- Salary estimation
+- Salary history analysis
+- Technical and business documentation
+- Classification level and category
+
+### In Progress
+
+- Support for different employment contract types
+- Improved salary normalization calculate B2B and mandate
+- Extended integration tests
+
+### Planned
+
+- Add new table from job links
+- Extract information from db use SQL
+- Power BI integration
