@@ -15,11 +15,7 @@ class Database:
     # Save job offer to the database
     def save_offers(self, job: JobOffer, source: str):
         self.save_company(job.company)
-        logger.debug(
-            "SAVING TO DB: %s (%s)",
-            job.title,
-            source,
-        )
+        logger.debug(f"SAVING TO DB: {job.title} {source}")
 
         job.date = normalize_date(job.date)
         with sqlite3.connect(self.db_name) as conn:
@@ -145,6 +141,43 @@ class Database:
 
             conn.commit()
 
+    def create_job_contracts_table(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+    
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS JobContracts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                offer_id INTEGER NOT NULL,
+                contract_type TEXT NOT NULL,
+                salary_type TEXT NOT NULL,
+                FOREIGN KEY (offer_id) REFERENCES Offers(id)
+                )
+                """)
+            conn.commit()
+
+    def save_job_contracts(
+            self, 
+            offer_id: int, 
+            contract_type: str, 
+            salary_type: str
+    ):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO JobContracts (
+                offer_id, 
+                contract_type,
+                salary_type
+                )
+                VALUES (?, ?, ?)
+                """, 
+                (offer_id, contract_type, salary_type), 
+            )
+
+            conn.commit()
+
     # Save job details to the JobDetails table
     def save_job_details(
         self,
@@ -169,6 +202,18 @@ class Database:
             )
 
             conn.commit()
+
+    def get_job_contract(self, offer_id: int):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                SELECT contract_type, salary_type
+                FROM JobContracts
+                WHERE offer_id = ?
+            """, (offer_id,))
+
+            return cursor.fetchone()
 
     # Get jobs for classification from the Offers table
     def get_jobs_for_classification(self):
@@ -301,6 +346,7 @@ class Database:
         self.create_modes_table()
         self.create_job_links_table()
         self.create_job_details_table()
+        self.create_job_contracts()
 
     def get_jobs_for_salary_estimator(self):
         with sqlite3.connect(self.db_name) as conn:
