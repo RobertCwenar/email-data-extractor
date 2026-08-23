@@ -60,6 +60,7 @@ class JobClassification(BaseModel):
     category: Optional[str] = None
 
 
+
 class SalaryStatisticsOffer(BaseModel):
     count_min: int
     count_max: int
@@ -85,6 +86,14 @@ class SalaryHistoryRecord(BaseModel):
 class SalaryRule(BaseModel):
     base: float
     range: float
+
+
+class JobContract(BaseModel):
+    offer_id: int
+    contract_type: Optional[str] = None
+    salary_type: Optional[str] = None
+    salary_min_offer: Optional[float] = None
+    salary_max_offer: Optional[float] = None
 
 
 class CategoryValidationResponse(BaseModel):

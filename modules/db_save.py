@@ -144,39 +144,52 @@ class Database:
     def create_job_contracts_table(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
-    
+
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS JobContracts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 offer_id INTEGER NOT NULL,
                 contract_type TEXT NOT NULL,
                 salary_type TEXT NOT NULL,
+                salary_min_offer NOT NULL, 
+                salary-ma_offer NOT NULL,
                 FOREIGN KEY (offer_id) REFERENCES Offers(id)
                 )
                 """)
             conn.commit()
 
-    def save_job_contracts(
-            self, 
-            offer_id: int, 
-            contract_type: str, 
-            salary_type: str
+    def save_job_contract(
+        self,
+        offer_id: int,
+        contract_type: str | None,
+        salary_type: str | None,
+        salary_min_offer: float | None,
+        salary_max_offer: float | None,
     ):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
+
             cursor.execute(
                 """
                 INSERT INTO JobContracts (
-                offer_id, 
-                contract_type,
-                salary_type
+                    offer_id,
+                    contract_type,
+                    salary_type,
+                    salary_min_offer,
+                    salary_max_offer
                 )
-                VALUES (?, ?, ?)
-                """, 
-                (offer_id, contract_type, salary_type), 
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (
+                    offer_id,
+                    contract_type,
+                    salary_type,
+                    salary_min_offer,
+                    salary_max_offer,
+                ),
             )
 
-            conn.commit()
+        conn.commit()
 
     # Save job details to the JobDetails table
     def save_job_details(
@@ -207,11 +220,14 @@ class Database:
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT contract_type, salary_type
                 FROM JobContracts
                 WHERE offer_id = ?
-            """, (offer_id,))
+            """,
+                (offer_id,),
+            )
 
             return cursor.fetchone()
 
@@ -346,7 +362,7 @@ class Database:
         self.create_modes_table()
         self.create_job_links_table()
         self.create_job_details_table()
-        self.create_job_contracts()
+        self.create_job_contracts_table()
 
     def get_jobs_for_salary_estimator(self):
         with sqlite3.connect(self.db_name) as conn:
