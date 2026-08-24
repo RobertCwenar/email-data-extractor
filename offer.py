@@ -60,6 +60,28 @@ class JobClassification(BaseModel):
     category: Optional[str] = None
 
 
+class SalaryStatistics(BaseModel):
+    count_min: int
+    count_max: int
+    avg_min: Optional[float] = None
+    avg_max: Optional[float] = None
+    median_min: Optional[float] = None
+    median_max: Optional[float] = None
+    standard_deviation_minimum: Optional[float] = None
+    standard_deviation_maximum: Optional[float] = None
+
+
+class SalaryHistoryRecord(BaseModel):
+    id: int
+    title: str
+    company: str
+    salary_min: Optional[float] = None
+    salary_max: Optional[float] = None
+    date: Optional[str] = None
+    category: Optional[str] = None
+    level: Optional[str] = None
+
+
 class CategoryValidationResponse(BaseModel):
     category: Literal[
         "data_analytics",
