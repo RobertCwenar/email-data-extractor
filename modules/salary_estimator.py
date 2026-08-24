@@ -1,14 +1,19 @@
 import logging
 
 from config import config
-from offer import JobClassification, JobOffer
+from offer import JobClassification, JobOffer, SalaryRule
 
 logger = logging.getLogger(__name__)
 
 
 class SalaryEstimator:
     def __init__(self, salary_history):
-        self.salary_rules = config.get_dict(["salary_rules"])
+        salary_rules = config.get_dict(["salary_rules"])
+
+        self.salary_rules = {
+            category: {level: SalaryRule(**salary) for level, salary in levels.items()}
+            for category, levels in salary_rules.items()
+        }
         self.salary_history = salary_history
 
     def salary_status(self, job: JobOffer):
@@ -45,8 +50,8 @@ class SalaryEstimator:
             if job.category == category:
                 for level, salary in levels.items():
                     if job.level == level:
-                        base_salary = salary["base"]
-                        salary_range = salary["range"]
+                        base_salary = salary.base
+                        salary_range = salary.range
 
                         salary_min = base_salary
                         salary_max = base_salary + salary_range

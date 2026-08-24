@@ -60,15 +60,15 @@ class JobClassification(BaseModel):
     category: Optional[str] = None
 
 
-class SalaryStatistics(BaseModel):
+class SalaryStatisticsOffer(BaseModel):
     count_min: int
     count_max: int
     avg_min: Optional[float] = None
     avg_max: Optional[float] = None
     median_min: Optional[float] = None
     median_max: Optional[float] = None
-    standard_deviation_minimum: Optional[float] = None
-    standard_deviation_maximum: Optional[float] = None
+    std_dev_min: Optional[float] = None
+    std_dev_max: Optional[float] = None
 
 
 class SalaryHistoryRecord(BaseModel):
@@ -80,6 +80,11 @@ class SalaryHistoryRecord(BaseModel):
     date: Optional[str] = None
     category: Optional[str] = None
     level: Optional[str] = None
+
+
+class SalaryRule(BaseModel):
+    base: float
+    range: float
 
 
 class CategoryValidationResponse(BaseModel):

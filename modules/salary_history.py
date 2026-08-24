@@ -2,6 +2,7 @@ import logging
 from datetime import datetime
 
 from modules.statistics_salary import SalaryStatistics
+from offer import SalaryHistoryRecord, SalaryStatisticsOffer
 
 logger = logging.getLogger(__name__)
 
@@ -9,9 +10,12 @@ logger = logging.getLogger(__name__)
 class SalaryHistory:
     def __init__(self, db):
         self.db = db
-        self.statistics = {}
+        self.statistics: dict[
+            tuple[str | None, str | None],
+            SalaryStatisticsOffer,
+        ] = {}
         self.salary_statistics = SalaryStatistics()
-        self.history = []
+        self.history: list[SalaryHistoryRecord] = []
 
     def process_history(self):
         history_data = self.db.get_salary_history()
@@ -30,17 +34,20 @@ class SalaryHistory:
 
         for key, data in groups.items():
             statistics = self.calculate_statistics(data)
-            self.statistics[key] = statistics
 
+            if statistics is None:
+                continue
+
+            self.statistics[key] = statistics
             logger.info(f"Salary history: {key}, {statistics}")
 
-    def _to_float(self, value):
+    def _to_float(self, value) -> float | None:
         try:
             return float(value) if value not in (None, "") else None
-        except (ValueError, TypeError):
+        except ValueError, TypeError:
             return None
 
-    def get_history(self, history_data):
+    def get_history(self, history_data) -> list[SalaryHistoryRecord]:
         history = []
 
         for offer in history_data:
@@ -48,21 +55,24 @@ class SalaryHistory:
             salary_max = self._to_float(offer[4])
 
             history.append(
-                {
-                    "id": offer[0],
-                    "title": offer[1],
-                    "company": offer[2],
-                    "salary_min": salary_min,
-                    "salary_max": salary_max,
-                    "date": offer[5],
-                    "category": offer[6],
-                    "level": offer[7],
-                }
+                SalaryHistoryRecord(
+                    id=offer[0],
+                    title=offer[1],
+                    company=offer[2],
+                    salary_min=salary_min,
+                    salary_max=salary_max,
+                    date=offer[5],
+                    category=offer[6],
+                    level=offer[7],
+                )
             )
 
         return history
 
-    def calculate_statistics(self, history):
+    def calculate_statistics(
+        self,
+        history: list[tuple[float | None, float | None]],
+    ) -> SalaryStatisticsOffer | None:
         if not history:
             return None
 
@@ -77,31 +87,31 @@ class SalaryHistory:
         standard_deviation_min = self.salary_statistics.standard_deviation(salary_min)
         standard_deviation_max = self.salary_statistics.standard_deviation(salary_max)
 
-        return {
-            "count_min": len(salary_min),
-            "count_max": len(salary_max),
-            "avg_min": average_min,
-            "avg_max": average_max,
-            "median_min": median_min,
-            "median_max": median_max,
-            "standard_deviation_minimum": standard_deviation_min,
-            "standard_deviation_maximum": standard_deviation_max,
-        }
+        return SalaryStatisticsOffer(
+            count_min=len(salary_min),
+            count_max=len(salary_max),
+            avg_min=average_min,
+            avg_max=average_max,
+            median_min=median_min,
+            median_max=median_max,
+            std_dev_min=standard_deviation_min,
+            std_dev_max=standard_deviation_max,
+        )
 
-    def group_history(self, history):
-        groups: dict[tuple[str, str], list[tuple]] = {}
+    def group_history(self, history: list[SalaryHistoryRecord]):
+        groups: dict[tuple[str | None, str | None], list[tuple[float | None, float | None]]] = {}
 
         for offer in history:
-            key = (offer["category"], offer["level"])
+            key = (offer.category, offer.level)
 
             if key not in groups:
                 groups[key] = []
 
-            groups[key].append((offer["salary_min"], offer["salary_max"]))
+            groups[key].append((offer.salary_min, offer.salary_max))
 
         return groups
 
-    def get_salary(self, category, level):
+    def get_salary(self, category: str, level: str) -> tuple[float | None, float | None] | None:
         key = (category, level)
 
         logger.info(f"Looking for salary history:, {key}")
@@ -114,11 +124,13 @@ class SalaryHistory:
             return None
 
         return (
-            statistics["median_min"],
-            statistics["median_max"],
+            statistics.median_min,
+            statistics.median_max,
         )
 
-    def find_real_salary(self, company, title, date, months=2):
+    def find_real_salary(
+        self, company: str, title: str, date: str, months: int = 2
+    ) -> tuple[float | None, float | None] | None:
         if not company or not title or not date:
             return None
 
@@ -127,22 +139,22 @@ class SalaryHistory:
         matches = []
 
         for offer in self.history:
-            if offer["company"] != company:
+            if offer.company != company:
                 continue
 
-            if offer["title"] != title:
+            if offer.title != title:
                 continue
 
-            if offer["date"] == date:
+            if offer.date == date:
                 continue
 
-            if offer["salary_min"] is None and offer["salary_max"] is None:
+            if offer.salary_min is None and offer.salary_max is None:
                 continue
 
-            if not offer["date"]:
+            if not offer.date:
                 continue
 
-            offer_date = datetime.fromisoformat(offer["date"])
+            offer_date = datetime.fromisoformat(offer.date)
 
             difference = abs((target_date - offer_date).days)
 
@@ -155,6 +167,6 @@ class SalaryHistory:
         closest_offer = min(matches, key=lambda item: item[0])[1]
 
         return (
-            closest_offer["salary_min"],
-            closest_offer["salary_max"],
+            closest_offer.salary_min,
+            closest_offer.salary_max,
         )
