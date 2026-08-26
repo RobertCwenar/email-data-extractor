@@ -74,19 +74,6 @@ class Database:
             )
             return cursor.fetchone()[0]
 
-    # Create the modes table
-    def create_modes_table(self):
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS Modes(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-
-                mode TEXT UNIQUE NOT NULL
-                    )
-                """)
-
     # Create the JobLinks table
     def create_job_links_table(self):
         with sqlite3.connect(self.db_name) as conn:
@@ -149,10 +136,13 @@ class Database:
             CREATE TABLE IF NOT EXISTS JobContracts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 offer_id INTEGER NOT NULL,
-                contract_type TEXT NOT NULL,
-                salary_type TEXT NOT NULL,
-                salary_min_offer NOT NULL, 
-                salary-ma_offer NOT NULL,
+                contract_type TEXT,
+                salary_currency TEXT,
+                salary_period TEXT,
+                salary_min_offer REAL, 
+                salary_max_offer REAL,
+                salary_min_monthly REAL, 
+                salary_max_monthly REAL,
                 FOREIGN KEY (offer_id) REFERENCES Offers(id)
                 )
                 """)
@@ -162,9 +152,12 @@ class Database:
         self,
         offer_id: int,
         contract_type: str | None,
-        salary_type: str | None,
+        salary_currency: str | None,
+        salary_period: str | None,
         salary_min_offer: float | None,
         salary_max_offer: float | None,
+        salary_min_monthly: float | None,
+        salary_max_monthly: float | None,
     ):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
@@ -174,22 +167,26 @@ class Database:
                 INSERT INTO JobContracts (
                     offer_id,
                     contract_type,
-                    salary_type,
+                    salary_currency,
+                    salary_period,
                     salary_min_offer,
-                    salary_max_offer
+                    salary_max_offer, 
+                    salary_min_monthly, 
+                    salary_max_monthly
                 )
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     offer_id,
                     contract_type,
-                    salary_type,
+                    salary_currency,
+                    salary_period,
                     salary_min_offer,
                     salary_max_offer,
+                    salary_min_monthly,
+                    salary_max_monthly,
                 ),
             )
-
-        conn.commit()
 
     # Save job details to the JobDetails table
     def save_job_details(
@@ -222,7 +219,7 @@ class Database:
 
             cursor.execute(
                 """
-                SELECT contract_type, salary_type
+                SELECT contract_type, salary_period
                 FROM JobContracts
                 WHERE offer_id = ?
             """,
@@ -359,7 +356,6 @@ class Database:
 
     def create_tables(self):
         self.create_companies_table()
-        self.create_modes_table()
         self.create_job_links_table()
         self.create_job_details_table()
         self.create_job_contracts_table()

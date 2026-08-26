@@ -5,7 +5,7 @@ from google import genai
 from google.genai.errors import ClientError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
-from offer import CategoryValidationResponse, JobOffer, OffersResponse
+from offer import CategoryValidationResponse, JobContract, JobContractResponse, JobOffer, OffersResponse
 
 logger = logging.getLogger(__name__)
 
@@ -80,3 +80,37 @@ class AIService:
         parsed = CategoryValidationResponse.model_validate(response.parsed)
 
         return parsed
+
+    async def validate_salary_api(
+        self,
+        salary_text: str,
+    ) -> list[JobContract]:
+        prompt = (
+            "Extract salary and contract information from this job offer text. "
+            "Return null for any missing information.\n\n"
+            f'"{salary_text}"'
+        )
+
+        response = await asyncio.to_thread(
+            self.client.models.generate_content,
+            model="models/gemini-3.1-flash-lite",
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": JobContractResponse.model_json_schema(),
+                "temperature": 0.0,
+            },
+        )
+
+        logger.debug(f"SALARY RAW RESPONSE: {response.text}")
+
+        if not response.parsed:
+            logger.warning(f"Gemini returned no parsed response for salary extraction. Raw: {response.text}")
+            return []
+
+        parsed_response = JobContractResponse.model_validate(response.parsed)
+
+        if not parsed_response.contracts:
+            logger.info("No salary contracts found")
+
+        return parsed_response.contracts
