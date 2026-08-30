@@ -11,7 +11,8 @@ from modules.ai_service import AIService
 from modules.db_save import Database
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
-from offer import JobOffer
+from modules.salary_processor import SalaryProcessor
+from offer import JobContract, JobOffer
 
 
 class EmailParser(BaseParser):
@@ -24,12 +25,14 @@ class EmailParser(BaseParser):
         folder_name: str,
         source: str,
         cache: FileCache,
+        salary_processor: SalaryProcessor,
     ):
         super().__init__(ai_service, db_service, filter_service, cache)
         self.email_config = email_config
         self.folder_name = folder_name
         self.source = source
         self.cache = cache
+        self.salary_processor = salary_processor
 
     def _connect(self):
         mail = imaplib.IMAP4_SSL(
@@ -59,27 +62,29 @@ class EmailParser(BaseParser):
 
         return email.message_from_bytes(msg_data[0][1])
 
-    # Function to extract HTML content from an email message
     def _get_html(self, msg: Message) -> Optional[str]:
-        if msg is None:
-            return None
-
         if msg.is_multipart():
             for part in msg.walk():
                 if part.get_content_type() == "text/html":
                     payload = part.get_payload(decode=True)
                     if isinstance(payload, bytes):
                         return payload.decode("utf-8", errors="ignore")
-        elif msg.get_content_type() == "text/html":
-            payload = msg.get_payload(decode=True)
-            if isinstance(payload, bytes):
-                return payload.decode("utf-8", errors="ignore")
+                    if isinstance(payload, str):
+                        return payload
+        else:
+            if msg.get_content_type() == "text/html":
+                payload = msg.get_payload(decode=True)
+                if isinstance(payload, bytes):
+                    return payload.decode("utf-8", errors="ignore")
+                if isinstance(payload, str):
+                    return payload
         return None
 
     def _html_to_text(self, html: str) -> str:
         return BeautifulSoup(html, "html.parser").get_text("\n")
 
-    async def fetch_offers(self) -> list[JobOffer]:
+    # Function to extract HTML content from an email message
+    async def fetch_offers(self) -> list[tuple[JobOffer, list[JobContract]]]:
         offers_result = []
 
         mail = self._connect()
@@ -92,23 +97,32 @@ class EmailParser(BaseParser):
                 continue
 
             msg = self._fetch_mail(mail, mail_id)
+            html = self._get_html(msg) if msg else None
 
-            if not msg:
-                continue
-
-            html = self._get_html(msg)
             if not html:
                 continue
-
             text = self._html_to_text(html)
 
             offers = await self.ai.parser_offers_api(text)
+            contracts = await self.ai.validate_salary_api(text)
 
+            for contract in contracts:
+                self.salary_processor.normalize_salary(contract)
+
+            selected_contract = self.salary_processor.select_contract(contracts)
+            salary_status = (
+                self.salary_processor.get_salary_status(selected_contract) if selected_contract else "estimated"
+            )
+            salary_min = selected_contract.salary_min_monthly if selected_contract else None
+            salary_max = selected_contract.salary_max_monthly if selected_contract else None
             mail_date = parsedate_to_datetime(msg["Date"]).date().isoformat()
 
             for offer in offers:
                 offer.date = mail_date
-                offers_result.append(offer)
+                offer.salary_status = salary_status
+                offers_result.append((offer, contracts))
+                offer.salary_min = salary_min
+                offer.salary_max = salary_max
 
             self.cache.add(cache_id)
 

@@ -1,7 +1,7 @@
 import logging
 
 from config import config
-from offer import JobClassification, JobOffer, SalaryRule
+from offer import JobClassification, SalaryRule
 
 logger = logging.getLogger(__name__)
 
@@ -15,13 +15,6 @@ class SalaryEstimator:
             for category, levels in salary_rules.items()
         }
         self.salary_history = salary_history
-
-    def salary_status(self, job: JobOffer):
-
-        if job.salary_min is not None or job.salary_max is not None:
-            return "offer"
-
-        return "estimated"
 
     def salary_logic(self, job: JobClassification, company, title, date):
         logger.info(f"Salary estimation started: {job.category}, {job.level}")

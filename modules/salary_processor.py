@@ -16,7 +16,7 @@ SalaryPeriod = Literal[
 
 
 class SalaryProcessor:
-    MONTHLY_WORKING_HOURS = 168
+    monthly_working_hours = 168
 
     CONTRACT_PRIORITY: list[ContractType] = [
         "UoP",
@@ -48,10 +48,10 @@ class SalaryProcessor:
             return contract
 
         if contract.salary_period == "hour":
-            contract.salary_min_monthly = contract.salary_min_offer * self.MONTHLY_WORKING_HOURS
+            contract.salary_min_monthly = contract.salary_min_offer * self.monthly_working_hours
 
             if contract.salary_max_offer is not None:
-                contract.salary_max_monthly = contract.salary_max_offer * self.MONTHLY_WORKING_HOURS
+                contract.salary_max_monthly = contract.salary_max_offer * self.monthly_working_hours
 
         elif contract.salary_period == "month":
             contract.salary_min_monthly = contract.salary_min_offer
@@ -64,3 +64,13 @@ class SalaryProcessor:
                 contract.salary_max_monthly = contract.salary_max_offer / 12
 
         return contract
+
+    def get_salary_status(self, contract: JobContract) -> str:
+
+        if contract.salary_min_offer is None and contract.salary_max_offer is None:
+            return "estimated"
+
+        if contract.salary_period == "month":
+            return "offer"
+
+        return "offer_calculate"

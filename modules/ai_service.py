@@ -81,6 +81,11 @@ class AIService:
 
         return parsed
 
+    @retry(
+        retry=retry_if_exception_type(ClientError),
+        wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
+        stop=stop_after_attempt(5),
+    )
     async def validate_salary_api(
         self,
         salary_text: str,

@@ -13,6 +13,7 @@ from modules.job_classifier import JobClassifier
 from modules.processed_cache import FileCache
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
+from modules.salary_processor import SalaryProcessor
 from parsers.email_parser import EmailParser
 
 # Load environment variables from .env file
@@ -39,6 +40,13 @@ async def main():
         "password": os.getenv("PASSWORD"),
     }
 
+    salary_history = SalaryHistory(db)
+    salary_history.process_history()
+
+    salary_estimator = SalaryEstimator(salary_history)
+    salary_processor = SalaryProcessor()
+    classifier = JobClassifier(ai)
+
     sources = [
         EmailParser(
             ai,
@@ -46,8 +54,9 @@ async def main():
             filter_service,
             email_config,
             "RocketJobs",
-            source="RocketJobs",
             cache=FileCache("mail_records/processed_rocketjobs_mails.txt"),
+            source="RocketJobs",
+            salary_processor=salary_processor,
         ),
         EmailParser(
             ai,
@@ -55,8 +64,9 @@ async def main():
             filter_service,
             email_config,
             "PRACA",
-            source="Pracuj.pl",
             cache=FileCache("mail_records/processed_praca_mails.txt"),
+            source="Pracuj.pl",
+            salary_processor=salary_processor,
         ),
         EmailParser(
             ai,
@@ -64,17 +74,11 @@ async def main():
             filter_service,
             email_config,
             "Link",
-            source="Linkedin",
             cache=FileCache("mail_records/processed_linkedin_mails.txt"),
+            source="Linkedin",
+            salary_processor=salary_processor,
         ),
     ]
-
-    salary_history = SalaryHistory(db)
-    salary_history.process_history()
-
-    salary_estimator = SalaryEstimator(salary_history)
-
-    classifier = JobClassifier(ai)
 
     classification_service = JobClassificationService(db, classifier, salary_estimator)
 
@@ -83,12 +87,13 @@ async def main():
 
         offers = await parser.fetch_offers()
 
-        for offer in offers:
-            result = filter_service.should_save(offer)
+        for offer, contracts in offers:
+            if filter_service.should_save(offer):
+                offer_id = db.save_offers(offer, source=parser.source)
 
-            if result:
-                offer.salary_status = salary_estimator.salary_status(offer)
-                db.save_offers(offer, source=parser.source)
+                for contract in contracts:
+                    contract.offer_id = offer_id
+                    db.save_job_contract(contract)
 
     # Process job classifications and salary estimation
     await classification_service.process_jobs()

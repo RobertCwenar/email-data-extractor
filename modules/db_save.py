@@ -2,7 +2,7 @@ import logging
 import sqlite3
 from datetime import datetime
 
-from offer import JobOffer
+from offer import JobContract, JobOffer
 
 logger = logging.getLogger(__name__)
 
@@ -13,7 +13,7 @@ class Database:
         self.db_name = db_name
 
     # Save job offer to the database
-    def save_offers(self, job: JobOffer, source: str):
+    def save_offers(self, job: JobOffer, source: str, contract: JobContract | None = None):
         self.save_company(job.company)
         logger.debug(f"SAVING TO DB: {job.title} {source}")
 
@@ -148,17 +148,7 @@ class Database:
                 """)
             conn.commit()
 
-    def save_job_contract(
-        self,
-        offer_id: int,
-        contract_type: str | None,
-        salary_currency: str | None,
-        salary_period: str | None,
-        salary_min_offer: float | None,
-        salary_max_offer: float | None,
-        salary_min_monthly: float | None,
-        salary_max_monthly: float | None,
-    ):
+    def save_job_contract(self, contract: JobContract):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
@@ -177,14 +167,14 @@ class Database:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    offer_id,
-                    contract_type,
-                    salary_currency,
-                    salary_period,
-                    salary_min_offer,
-                    salary_max_offer,
-                    salary_min_monthly,
-                    salary_max_monthly,
+                    contract.offer_id,
+                    contract.contract_type,
+                    contract.salary_currency,
+                    contract.salary_period,
+                    contract.salary_min_offer,
+                    contract.salary_max_offer,
+                    contract.salary_min_monthly,
+                    contract.salary_max_monthly,
                 ),
             )
 

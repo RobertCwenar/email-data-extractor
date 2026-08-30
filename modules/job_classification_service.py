@@ -32,26 +32,9 @@ class JobClassificationService:
                 level = self.classifier.classify_level(title)
                 category = await self.classifier.classify_category(title)
 
-            classification = JobClassification(
-                offer_id=offer_id,
-                clean_title=title,
-                level=level,
-                category=category,
-            )
-
             salary_status = self.db.get_salary_status(offer_id)
 
             logger.info(f"Salary status for: {offer_id}, {salary_status}")
-
-            if salary_status == "estimated":
-                salary_min, salary_max = self.salary_estimator.salary_logic(classification, company, title, date)
-
-                logger.info(f"Salary estimation for: {offer_id}, {salary_min}, {salary_max}")
-
-                if salary_min is not None and salary_max is not None:
-                    self.db.update_offer_salary(offer_id, salary_min, salary_max)
-
-                logger.info(f"Salary updated in database : {offer_id}, {salary_min}, {salary_max}")
 
             if self.db.job_details_exists(offer_id):
                 self.db.update_job_category(offer_id, category)
