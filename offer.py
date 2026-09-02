@@ -88,17 +88,29 @@ class SalaryRule(BaseModel):
 
 
 class JobContract(BaseModel):
-    offer_id: int
+    offer_id: Optional[int] = None
     contract_type: Optional[str] = None
     salary_currency: Optional[str] = None
-    salary_period: Optional[str] = None
+
+    salary_period: (
+        Literal[
+            "hourly",
+            "monthly",
+            "yearly",
+        ]
+        | None
+    ) = None
+
     salary_min_offer: Optional[float] = None
     salary_max_offer: Optional[float] = None
     salary_min_monthly: Optional[float] = None
     salary_max_monthly: Optional[float] = None
 
+    vat: bool | None = None
+
 
 class JobContractResponse(BaseModel):
+    title: str
     contracts: list[JobContract]
 
 

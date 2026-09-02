@@ -15,6 +15,7 @@ from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
 from parsers.email_parser import EmailParser
+from parsers.salary_parsers import SalaryParser
 
 # Load environment variables from .env file
 load_dotenv()
@@ -45,6 +46,7 @@ async def main():
 
     salary_estimator = SalaryEstimator(salary_history)
     salary_processor = SalaryProcessor()
+    salary_parser = SalaryParser()
     classifier = JobClassifier(ai)
 
     sources = [
@@ -56,7 +58,7 @@ async def main():
             "RocketJobs",
             cache=FileCache("mail_records/processed_rocketjobs_mails.txt"),
             source="RocketJobs",
-            salary_processor=salary_processor,
+            salary_parser=salary_parser,
         ),
         EmailParser(
             ai,
@@ -66,7 +68,7 @@ async def main():
             "PRACA",
             cache=FileCache("mail_records/processed_praca_mails.txt"),
             source="Pracuj.pl",
-            salary_processor=salary_processor,
+            salary_parser=salary_parser,
         ),
         EmailParser(
             ai,
@@ -76,7 +78,7 @@ async def main():
             "Link",
             cache=FileCache("mail_records/processed_linkedin_mails.txt"),
             source="Linkedin",
-            salary_processor=salary_processor,
+            salary_parser=salary_parser,
         ),
     ]
 
@@ -87,14 +89,39 @@ async def main():
 
         offers = await parser.fetch_offers()
 
-        for offer, contracts in offers:
+        for offer, offer_text, cache_id in offers:
             if filter_service.should_save(offer):
-                offer_id = db.save_offers(offer, source=parser.source)
+                offer_id = db.save_offers(
+                    offer,
+                    source=parser.source,
+                )
+
+                contracts = []
+
+                if offer_text:
+                    contracts = await ai.validate_salary_api(offer_text)
 
                 for contract in contracts:
                     contract.offer_id = offer_id
+                    salary_processor.normalize_salary(contract)
                     db.save_job_contract(contract)
 
+                selected_contract = salary_processor.select_contract(contracts)
+
+                if selected_contract:
+                    db.update_offer_salary(
+                        offer_id=offer_id,
+                        salary_min=selected_contract.salary_min_monthly,
+                        salary_max=selected_contract.salary_max_monthly,
+                        salary_status=salary_processor.get_salary_status(selected_contract),
+                    )
+                else:
+                    db.update_offer_salary(
+                        offer_id=offer_id,
+                        salary_min=None,
+                        salary_max=None,
+                        salary_status="estimated",
+                    )
     # Process job classifications and salary estimation
     await classification_service.process_jobs()
 

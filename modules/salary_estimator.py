@@ -75,10 +75,9 @@ class SalaryEstimator:
                 title,
                 date,
             )
-
-            if salary_min is not None and salary_max is not None:
-                db.update_offer_salary(
-                    offer_id,
-                    salary_min,
-                    salary_max,
-                )
+            db.update_offer_salary(
+                offer_id,
+                salary_min,
+                salary_max,
+                salary_status="estimated",
+            )
