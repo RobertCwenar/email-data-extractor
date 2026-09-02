@@ -1,8 +1,9 @@
 import asyncio
 import logging
+import time
 
 from google import genai
-from google.genai.errors import ClientError
+from google.genai.errors import ServerError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from offer import CategoryValidationResponse, JobContract, JobContractResponse, JobOffer, OffersResponse
@@ -14,18 +15,38 @@ logger = logging.getLogger(__name__)
 class AIService:
     def __init__(self, api_key: str):
         self.client = genai.Client(api_key=api_key)
+        self._api_lock = asyncio.Lock()
+        self._last_api_call = 0.0
+        self._api_delay = 4.0
+
+    async def _wait_before_api_call(self):
+        async with self._api_lock:
+            now = time.monotonic()
+            elapsed = now - self._last_api_call
+
+            if elapsed < self._api_delay:
+                await asyncio.sleep(self._api_delay - elapsed)
+
+            self._last_api_call = time.monotonic()
 
     @retry(
-        retry=retry_if_exception_type(ClientError),
+        retry=retry_if_exception_type(ServerError),
         wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
         stop=stop_after_attempt(5),
     )
     async def parser_offers_api(self, text: str) -> list[JobOffer]:
-        prompt = f'Extract all job offers from this text mail. If salary is missing, set salary to null:\n"{text}"'
+        prompt = (
+            "Extract all job offers from this email text. "
+            "Return each job offer separately. "
+            "Do not extract salary or contract information.\n\n"
+            'VAT: true if "VAT" is explicitly stated, otherwise null.'
+            f'"{text}"'
+        )
+        await self._wait_before_api_call()
 
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.1-flash-lite",
+            model="models/gemini-3.5-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -33,10 +54,8 @@ class AIService:
                 "temperature": 0.0,
             },
         )
-        logger.debug(f"AI EXTRACT: {response.text}")
-        await asyncio.sleep(5)
 
-        logger.debug(f"RAW RESPONSE: {response.text}")
+        logger.debug(f"AI OFFERS RAW RESPONSE: {response.text}")
 
         if not response.parsed:
             logger.warning(f"Gemini returned no parsed response. Raw: {response.text}")
@@ -59,10 +78,10 @@ class AIService:
             f"Classify the job title. Available categories: {categories_str}. "
             f'Return the correct category or unknown:\n"{clean_title}"'
         )
-
+        await self._wait_before_api_call()
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.1-flash-lite",
+            model="models/gemini-3.5-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -82,7 +101,7 @@ class AIService:
         return parsed
 
     @retry(
-        retry=retry_if_exception_type(ClientError),
+        retry=retry_if_exception_type(ServerError),
         wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
         stop=stop_after_attempt(5),
     )
@@ -90,15 +109,18 @@ class AIService:
         self,
         salary_text: str,
     ) -> list[JobContract]:
-        prompt = (
-            "Extract salary and contract information from this job offer text. "
-            "Return null for any missing information.\n\n"
-            f'"{salary_text}"'
-        )
 
+        prompt = (
+            "Extract salary and contract information ONLY from the provided job offer text.\n"
+            "Do not infer, estimate, copy, or use information from other offers.\n"
+            "If salary or contract information is not explicitly present, return an empty contracts list.\n"
+            "Return only contracts explicitly mentioned in this offer.\n\n"
+            f"JOB OFFER:\n{salary_text}"
+        )
+        await self._wait_before_api_call()
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.1-flash-lite",
+            model="models/gemini-3.5-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -117,5 +139,16 @@ class AIService:
 
         if not parsed_response.contracts:
             logger.info("No salary contracts found")
+            return []
 
-        return parsed_response.contracts
+        contracts = [
+            contract
+            for contract in parsed_response.contracts
+            if (
+                contract.contract_type is not None
+                or contract.salary_min_offer is not None
+                or contract.salary_max_offer is not None
+            )
+        ]
+
+        return contracts

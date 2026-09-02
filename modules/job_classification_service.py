@@ -69,9 +69,9 @@ class JobClassificationService:
 
             logger.info(f"Salary re-estimation for: {offer_id} {salary_min} {salary_max}")
 
-            if salary_min is not None and salary_max is not None:
-                self.db.update_offer_salary(
-                    offer_id,
-                    salary_min,
-                    salary_max,
-                )
+            self.db.update_offer_salary(
+                offer_id,
+                salary_min,
+                salary_max,
+                salary_status="estimated",
+            )

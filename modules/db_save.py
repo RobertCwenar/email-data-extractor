@@ -295,7 +295,13 @@ class Database:
 
             return cursor.fetchone()[0]
 
-    def update_offer_salary(self, offer_id: int, salary_min: float, salary_max: float):
+    def update_offer_salary(
+        self,
+        offer_id: int,
+        salary_min: float | None,
+        salary_max: float | None,
+        salary_status: str,
+    ):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
@@ -303,10 +309,16 @@ class Database:
                 """
                 UPDATE Offers
                 SET salary_min = ?,
-                    salary_max = ?
+                    salary_max = ?,
+                    salary_status = ?
                 WHERE id = ?
                 """,
-                (salary_min, salary_max, offer_id),
+                (
+                    salary_min,
+                    salary_max,
+                    salary_status,
+                    offer_id,
+                ),
             )
 
             conn.commit()
