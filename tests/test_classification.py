@@ -1,28 +1,35 @@
+from typing import Any, cast
+
+import pytest
+
 from modules.job_classifier import JobClassifier
 
 
-def test_classify_level():
-    classifier = JobClassifier()
+class MockAIService:
+    async def validate_category_api(self, clean_title, categories):
+        raise AssertionError("AI should not be called in this test")
 
-    print("LEVELS:", classifier.levels)
-    print("CATEGORIES:", classifier.categories)
+
+def test_classify_level():
+    classifier = JobClassifier(cast(Any, MockAIService()))
 
     result = classifier.classify_level("Senior Data Engineer")
 
     assert result == "senior"
 
 
-def test_classify_category():
-    classifier = JobClassifier()
+@pytest.mark.asyncio
+async def test_classify_category():
+    classifier = JobClassifier(cast(Any, MockAIService()))
 
-    result = classifier.classify_category("Starszy specjalista ds. logistyki")
+    result = await classifier.classify_category("Starszy specjalista ds. logistyki")
 
-    assert result == "Logistyka"
+    assert result == "logistics_supply_chain"
 
 
 def test_unknown_level():
-    classifier = JobClassifier()
+    classifier = JobClassifier(cast(Any, MockAIService()))
 
     result = classifier.classify_level("Something Random")
 
-    assert result is None
+    assert result == "unknown"

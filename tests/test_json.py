@@ -26,11 +26,11 @@ def test_json_items_match_model():
         data = json.load(f)
 
     # Check if main keys exist
-    assert "is_job_trigger" in data, "JSON must contain 'is_job_trigger' key"
+    assert "looks_like_job" in data, "JSON must contain 'looks_like_job' key"
 
-    # Check if 'keywords' list exists inside 'is_job_trigger'
-    keywords = data["is_job_trigger"].get("keywords")
-    assert isinstance(keywords, list), "'keywords' in 'is_job_trigger' should be a list"
+    # Check if 'keywords' list exists inside 'looks_like_job'
+    keywords = data["looks_like_job"].get("word_phrases")
+    assert isinstance(keywords, list), "'word_phrases' in 'looks_like_job' should be a list"
 
     # Additional test: check if the list is not empty
-    assert len(keywords) > 0, "Keywords list cannot be empty!"
+    assert len(keywords) > 0, "Word phrases list cannot be empty!"

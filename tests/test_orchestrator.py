@@ -15,11 +15,11 @@ async def test_main():
     # Mock parser
     mock_parser_instance = MagicMock()
     mock_parser_instance.source = "RocketJobs"
-    mock_parser_instance.fetch_offers = AsyncMock(return_value=[mock_offer])
+    mock_parser_instance.fetch_offers = AsyncMock(return_value=[(mock_offer, "salary text", "cache-1")])
 
     # Mock AI
     mock_ai_instance = MagicMock()
-
+    mock_ai_instance.validate_salary_api = AsyncMock(return_value=[])
     # Mock DB
     mock_db_instance = MagicMock()
 
