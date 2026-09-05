@@ -218,6 +218,51 @@ class Database:
 
             return cursor.fetchone()
 
+    def get_job_contracts(self, offer_id: int):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT
+                    contract_type,
+                    salary_currency,
+                    salary_period,
+                    salary_min_offer,
+                    salary_max_offer,
+                    salary_min_monthly,
+                    salary_max_monthly
+                FROM JobContracts
+                WHERE offer_id = ?
+                """,
+                (offer_id,),
+            )
+
+            return cursor.fetchall()
+
+    def update_job_contract_salary(
+        self,
+        contract_id: int,
+        salary_min_monthly: float,
+        salary_max_monthly: float,
+    ):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE JobContracts
+                SET salary_min_monthly = ?,
+                    salary_max_monthly = ?
+                WHERE id = ?
+                """,
+                (
+                    salary_min_monthly,
+                    salary_max_monthly,
+                    contract_id,
+                ),
+            )
+
     # Get jobs for classification from the Offers table
     def get_jobs_for_classification(self):
         with sqlite3.connect(self.db_name) as conn:
@@ -352,7 +397,7 @@ class Database:
                 FROM Offers o
                 LEFT JOIN JobDetails jd 
                     ON jd.offer_id = o.id
-                WHERE o.salary_status = "offer"
+                WHERE o.salary_status IN ("offer", "offer_calculate")
             """)
             return cursor.fetchall()
 
@@ -362,20 +407,29 @@ class Database:
         self.create_job_details_table()
         self.create_job_contracts_table()
 
-    def get_jobs_for_salary_estimator(self):
+    def get_job_contracts_for_salary_estimator(self):
         with sqlite3.connect(self.db_name) as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
-            SELECT o.id, o.title, o.company, o.date, jd.level, jd.category
-            FROM Offers o
-            Join JobDetails jd
+            SELECT
+                jc.id,
+                jc.offer_id,
+                o.title,
+                o.company,
+                o.date,
+                jd.level,
+                jd.category
+            FROM JobContracts jc
+            JOIN Offers o
+                ON o.id = jc.offer_id
+            JOIN JobDetails jd
                 ON jd.offer_id = o.id
-            WHERE o.salary_min IS Null
-                and o.salary_max IS NULL
-                and jd.level IS Not NULL
-                and jd.category IS NOT NULL
-                """)
+            WHERE jc.salary_min_offer IS NULL
+                AND jc.salary_max_offer IS NULL
+                AND jd.level IS NOT NULL
+                AND jd.category IS NOT NULL
+            """)
 
         return cursor.fetchall()
 

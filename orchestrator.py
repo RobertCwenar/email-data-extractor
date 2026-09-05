@@ -14,6 +14,7 @@ from modules.processed_cache import FileCache
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
+from offer import JobContract
 from parsers.email_parser import EmailParser
 from parsers.salary_parsers import SalaryParser
 
@@ -82,7 +83,9 @@ async def main():
         ),
     ]
 
-    classification_service = JobClassificationService(db, classifier, salary_estimator)
+    classification_service = JobClassificationService(db, classifier, salary_estimator, salary_processor)
+
+    offer_ids = set()
 
     for parser in sources:
         logger.info(f"Processing source: {parser.source}")
@@ -95,37 +98,26 @@ async def main():
                     offer,
                     source=parser.source,
                 )
-
+                offer_ids.add(offer_id)
                 contracts = []
 
                 if offer_text:
                     contracts = await ai.validate_salary_api(offer_text)
+
+                if not contracts:
+                    contracts = [JobContract(contract_type="UoP")]
 
                 for contract in contracts:
                     contract.offer_id = offer_id
                     salary_processor.normalize_salary(contract)
                     db.save_job_contract(contract)
 
-                selected_contract = salary_processor.select_contract(contracts)
-
-                if selected_contract:
-                    db.update_offer_salary(
-                        offer_id=offer_id,
-                        salary_min=selected_contract.salary_min_monthly,
-                        salary_max=selected_contract.salary_max_monthly,
-                        salary_status=salary_processor.get_salary_status(selected_contract),
-                    )
-                else:
-                    db.update_offer_salary(
-                        offer_id=offer_id,
-                        salary_min=None,
-                        salary_max=None,
-                        salary_status="estimated",
-                    )
     # Process job classifications and salary estimation
     await classification_service.process_jobs()
 
     await classification_service.process_salary_estimations()
+
+    await classification_service.process_salary_selection(offer_ids)
 
 
 if __name__ == "__main__":

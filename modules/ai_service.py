@@ -46,7 +46,7 @@ class AIService:
 
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.5-flash-lite",
+            model="models/gemini-3.1-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -81,7 +81,7 @@ class AIService:
         await self._wait_before_api_call()
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.5-flash-lite",
+            model="models/gemini-3.1-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",
@@ -120,7 +120,7 @@ class AIService:
         await self._wait_before_api_call()
         response = await asyncio.to_thread(
             self.client.models.generate_content,
-            model="models/gemini-3.5-flash-lite",
+            model="models/gemini-3.1-flash-lite",
             contents=prompt,
             config={
                 "response_mime_type": "application/json",

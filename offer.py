@@ -95,6 +95,8 @@ class JobContract(BaseModel):
     salary_period: (
         Literal[
             "hourly",
+            "daily",
+            "weekly",
             "monthly",
             "yearly",
         ]
@@ -105,8 +107,6 @@ class JobContract(BaseModel):
     salary_max_offer: Optional[float] = None
     salary_min_monthly: Optional[float] = None
     salary_max_monthly: Optional[float] = None
-
-    vat: bool | None = None
 
 
 class JobContractResponse(BaseModel):

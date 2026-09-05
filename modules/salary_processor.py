@@ -10,6 +10,8 @@ ContractType = Literal[
 
 SalaryPeriod = Literal[
     "hourly",
+    "daily",
+    "weekly",
     "monthly",
     "yearly",
 ]
@@ -17,6 +19,8 @@ SalaryPeriod = Literal[
 
 class SalaryProcessor:
     monthly_working_hours = 168
+    weeks_per_year = 52
+    months_per_year = 12
 
     CONTRACT_PRIORITY: list[ContractType] = [
         "UoP",
@@ -44,43 +48,41 @@ class SalaryProcessor:
         contract: JobContract,
     ) -> JobContract:
 
-        if contract.contract_type == "Umowa zlecenie":
-            contract.contract_type = "UZ"
-        elif contract.contract_type == "Umowa o pracę":
-            contract.contract_type = "UoP"
-
-        if contract.contract_type is None:
-            if contract.vat is True:
-                contract.contract_type = "B2B"
-            else:
-                contract.contract_type = "UoP"
-
-        if contract.vat is not True:
-            contract.vat = None
+        if contract.salary_min_offer is None and contract.salary_max_offer is None:
+            return contract
 
         if contract.salary_min_offer is None:
-            return contract
+            contract.salary_min_offer = contract.salary_max_offer
+
+        if contract.salary_max_offer is None:
+            contract.salary_max_offer = contract.salary_min_offer
+
+        if contract.salary_period is None:
+            contract.salary_period = "monthly"
+
+        # Both values are guaranteed to be present after the fallback logic above.
+        assert contract.salary_min_offer is not None
+        assert contract.salary_max_offer is not None
 
         if contract.salary_period == "hourly":
             contract.salary_min_monthly = contract.salary_min_offer * self.monthly_working_hours
 
-            if contract.salary_max_offer is not None:
-                contract.salary_max_monthly = contract.salary_max_offer * self.monthly_working_hours
+            contract.salary_max_monthly = contract.salary_max_offer * self.monthly_working_hours
         elif contract.salary_period == "daily":
             contract.salary_min_monthly = contract.salary_min_offer * (self.monthly_working_hours / 8)
+            contract.salary_max_monthly = contract.salary_max_offer * (self.monthly_working_hours / 8)
 
-            if contract.salary_max_offer is not None:
-                contract.salary_max_monthly = contract.salary_max_offer * (self.monthly_working_hours / 8)
+        elif contract.salary_period == "weekly":
+            contract.salary_min_monthly = contract.salary_min_offer * self.weeks_per_year / self.months_per_year
+            contract.salary_max_monthly = contract.salary_max_offer * self.weeks_per_year / self.months_per_year
 
         elif contract.salary_period == "monthly":
             contract.salary_min_monthly = contract.salary_min_offer
             contract.salary_max_monthly = contract.salary_max_offer
 
         elif contract.salary_period == "yearly":
-            contract.salary_min_monthly = contract.salary_min_offer / 12
-
-            if contract.salary_max_offer is not None:
-                contract.salary_max_monthly = contract.salary_max_offer / 12
+            contract.salary_min_monthly = contract.salary_min_offer / self.months_per_year
+            contract.salary_max_monthly = contract.salary_max_offer / self.months_per_year
 
         return contract
 
