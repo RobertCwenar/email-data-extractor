@@ -35,23 +35,27 @@ The system is designed as a modular ETL pipeline for processing job offers from 
 ### 2.1 Data Flow
 
 ```text
-Email Sources
-     ↓
+Email
+  ↓
 EmailParser
-     ↓
+  ↓
+JobOffer
+  ↓
 Filtering
-     ↓
-Validation (Pydantic)
-     ↓
-SQLite
-     ↓
-AI Classification
-     ↓
-JobDetails
-     ↓
+  ↓
+Offers
+  ↓
+Salary / Contracts
+  ↓
+JobClassification
+  ↓
 Salary Estimation
-     ↓
-Database Update
+  ↓
+Final Salary Selection
+  ↓
+Offers
+  ↓
+SQLite
 ```
 
 ### 2.2 Main Components
@@ -164,117 +168,177 @@ If neither the keyword-based classifier nor AIService can identify a valid categ
 
 ```text
 JobClassificationService
+
         │
         ▼
+
    JobClassifier
+
         │
         ├── Level → keyword matching from filter_keywords.json
         │
-        └── Category → keyword scoring filter_keywords.json
+        └── Category → keyword scoring from filter_keywords.json
                           │
-                          └── no match → AIService
-                                           │
-                                           ▼
-                                    AI classification
+                          ├── match ────────────────┐
+                          │                          │
+                          └── no match → AIService  │
+                                      │             │
+                                      ▼             │
+                               AI classification    │
+                                      │             │
+                                      └─────┬───────┘
+                                            ▼
+                                    JobClassification
+                                            │
+                                            ▼
+                                        JobDetails
 ```
 
 ## 6. Salary Estimator
 
 ```text
-Email
-  │
-  ▼
-JobOffer
-  │
-  ▼
 JobClassificationService
-  │
-  ▼
-JobClassifier
-  ├── Level → keyword matching
-  └── Category → keyword scoring
+
+        │
+        ▼
+process_salary_estimations()
+        │
+
+        ▼
+
+get_job_contracts_for_salary_estimator()
+
+        │
+
+        ▼
+
+JobContract + JobDetails
+
+        │
+
+        ├── salary_min_offer EXISTS
+        │        OR
+        │   salary_max_offer EXISTS
+        │
+        │        └──────────────────────► Skip estimation
+        │
+        └── salary_min_offer = NULL
+            AND
+            salary_max_offer = NULL
                     │
-                    ├── match ────────────────┐
-                    │                         │
-                    └── no match → AIService  │
-                                  │           │
-                                  ▼           │
-                            AI classification │
-                                  │           │
-                                  └────┬──────┘
-                                       ▼
-                                JobClassification
-                                       │
-                                       ▼
-                                Salary Estimator
-                                       │
-                                       ▼
-                                Salary History
-                                       │
-                                       ▼
-                              Find real salary
-                           company + title + date ± 2 months
-                                       │
-                                  ┌────┴────┐
-                                FOUND    NOT FOUND
-                                  │           │
-                                  ▼           ▼
-                             Real Salary  Get Statistics
-                                  │           │
-                                  │           ▼
-                                  │      Category + Level
-                                  │           │
-                                  │           ▼
-                                  │     Median Min / Max
-                                  │           │
-                                  │       ┌───┴───┐
-                                  │     FOUND   NOT FOUND
-                                  │       │         │
-                                  │       ▼         ▼
-                                  │  Statistical  Salary Rules
-                                  │     Salary    in filter_keywords
-                                  │       │         │
-                                  └───────┴─────────┘
-                                          │
-                                          ▼
-                                    Salary Min / Max
-                                          │
-                                          ▼
-                                    Update Database
+                    ▼
+             level + category
+                    │
+                    ▼
+             JobClassification
+                    │
+                    ▼
+             SalaryEstimator
+                    │
+                    ▼
+             salary_logic()
+                    │
+                    ▼
+             SalaryHistory
+                    │
+                    ▼
+             find_real_salary()
+                    │
+             company + title + date
+                    │
+                    │
+              ± 60 days
+                    │
+               ┌────┴────┐
+             FOUND    NOT FOUND
+               │          │
+               ▼          ▼
+          Real Salary   get_salary()
+                            │
+                            ▼
+                     Category + Level
+                            │
+                            ▼
+                       Median Min / Max
+                            │
+                       ┌────┴────┐
+                     FOUND    NOT FOUND
+                       │          │
+                       ▼          ▼
+                 Statistical   Salary Rules
+                    Salary     category + level
+                                  │
+                                  ▼
+                             base + range
+                       │          │
+                       └────┬─────┘
+                            │
+                            ▼
+                       Salary Min / Max
+                            │
+                            ▼
+                 Update JobContract
+                            │
+                            ▼
+                   Update Offers
+                   salary_min / max
+                   salary_status =
+                       "estimated"
 
 ```
 
 ```text
 SalaryEstimator
+
       │
+
       ▼
-SalaryHistory
+
+salary_logic()
+
       │
+
       ▼
+
 find_real_salary()
-company + title + date ± 2 months
+
+company + title + date ± 60 days
+
       │
+
  ┌────┴────┐
 FOUND    NOT FOUND
-  │          │
-  ▼          ▼
+ │           │
+ ▼           ▼
 Real      get_salary()
-Salary        │
-              ▼
+Salary       │
+             ▼
+       Category + Level
+             │
+             ▼
         Median Min / Max
-              │
-         ┌────┴────┐
-       FOUND    NOT FOUND
-         │          │
-         ▼          ▼
-   Statistical   Salary Rules
-      Salary     category + level
-         │       base + range
-         │          │
-         └────┬─────┘
-              ▼
+             │
+        ┌────┴────┐
+      FOUND     NOT FOUND
+        │           │
+        ▼           ▼
+ Statistical   Salary Rules
+    Salary     category + level
+        │       base + range
+        │           │
+        └────┬──────┘
+             │
+             ▼
        Salary Min / Max
-
+             │
+             ▼
+      JobContract update
+             │
+             ▼
+        Offers update
+             │
+             ▼
+    salary_status = estimated
 ```
 
 ## 7. End-to-End Processing Flow
@@ -283,66 +347,164 @@ The complete processing pipeline combines email extraction, data validation, fil
 
 ```text
 
+E## 7. End-to-End Processing Flow
+
 Email Sources
      │
      ▼
 EmailParser
      │
      ▼
-JobOffer
+Fetch unread emails
      │
      ▼
-Pydantic Validation
+FileCache
      │
-     ▼
-Filtering
+     ├── Already processed ───────────────► Skip
      │
-     ├── Rejected → End
-     │
-     ▼
-SQLite - Offers
-     │
-     ▼
-JobClassificationService
-     │
-     ├── Level → Keyword Matching
-     │
-     └── Category → Keyword Scoring
+     └── New email
+             │
+             ▼
+        Extract HTML
+             │
+             ▼
+        HTML → Text
+             │
+             ▼
+        AIService
+        parser_offers_api()
+             │
+             ▼
+          JobOffer[]
+             │
+             ▼
+        Parse email date
+             │
+             ▼
+        SalaryParser
+        extract_offer_text()
+             │
+             ▼
+        offer_text
+             │
+             ▼
+        Orchestrator
+             │
+             ▼
+        FilterService
+        should_save()
+             │
+        ┌────┴────┐
+        │         │
+    REJECTED    ACCEPTED
+        │         │
+        ▼         ▼
+       END    save_offers()
+                  │
+                  ▼
+                Offers
+                  │
+          ┌───────┴────────┐
+          │                │
+          ▼                ▼
+   Salary Processing   Classification
+          │                │
+          ▼                ▼
+ validate_salary_api()  process_jobs()
+          │                │
+          ▼                ▼
+    JobContract[]      JobDetails
+          │                │
+          ▼                │
+ resolve_contract_type()   │
+          │                │
+          ▼                │
+ normalize_salary()        │
+          │                │
+          ▼                │
+    JobContracts           │
+          │                │
+          └────────┬───────┘
+                   ▼
+          Salary Estimation
+                   │
+                   ▼
+   get_job_contracts_for_salary_estimator()
+                   │
+                   ▼
+              JobContract
+                   │
+                   ├── Source salary exists ───────► Skip estimation
+                   │
+                   └── Source salary missing
+                              │
+                              ▼
+                       SalaryEstimator
+                              │
+                              ▼
+                        SalaryHistory
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+             Real salary found     Not found
+                    │                   │
+                    ▼                   ▼
+              Real Salary       Statistical Salary
+                                      │
+                                 ┌────┴────┐
+                                 │         │
+                              Found     Not found
+                                 │         │
+                                 ▼         ▼
+                           Median Min/Max  Salary Rules
+                                             │
+                                             ▼
+                                      Estimated Min/Max
                     │
-                    ├── Reliable match ─────────┐
-                    │                           │
-                    └── No reliable match       │
-                              │                 │
-                              ▼                 │
-                         AIService              │
-                              │                 │
-                              ▼                 │
-                       AI Classification        │
-                              │                 │
-                              └────────┬────────┘
-                                       ▼
-                              JobClassification
-                                       │
-                                       ▼
-                                   JobDetails
-                                       │
-                                       ▼
-                                SalaryEstimator
-                                       │
-                                       ▼
-                                Salary History
-                                       │
-                                       ├── Real Salary
-                                       │
-                                       ├── Statistical Salary
-                                       │
-                                       └── Salary Rules
-                                       │
-                                       ▼
-                                Salary Min / Max
-                                       │
-                                       ▼
-                                Database Update
+                    └──────────────┬──────────────┘
+                                   ▼
+                           Update JobContract
+                                   │
+                                   ▼
+                         Update Offer salary
+                                   │
+                                   ▼
+                         Final Salary Selection
+                                   │
+                                   ▼
+                         get_job_contracts()
+                                   │
+                                   ▼
+                            JobContract[]
+                                   │
+                                   ▼
+                        select_contract()
+                                   │
+                                   ▼
+                          UoP > B2B > UZ
+                                   │
+                                   ▼
+                         Selected Contract
+                                   │
+                                   ▼
+                       get_salary_status()
+                                   │
+                    ┌──────────────┼──────────────┐
+                    │              │              │
+                 monthly       non-monthly     no source
+                    │              │              │
+                    ▼              ▼              ▼
+                  offer      offer_calculate   estimated
+                    │              │              │
+                    └──────────────┼──────────────┘
+                                   ▼
+                         Final Offers update
+                                   │
+                                   ▼
+                                SQLite
+                                   │
+                                   ▼
+                                  END
 
 ```
 

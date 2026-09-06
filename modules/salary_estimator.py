@@ -58,10 +58,10 @@ class SalaryEstimator:
         return None, None
 
     def recalculate_empty_salaries(self, db):
-        jobs = db.get_jobs_for_salary_estimator()
-
+        jobs = db.get_job_contracts_for_salary_estimator()
+        print(f"Salary estimator jobs: {len(jobs)}")
         for job in jobs:
-            offer_id, title, company, date, level, category = job
+            contract_id, offer_id, title, company, date, level, category = job
 
             classification = JobClassification(
                 offer_id=offer_id,
@@ -80,4 +80,13 @@ class SalaryEstimator:
                 salary_min,
                 salary_max,
                 salary_status="estimated",
+            )
+
+            db.update_job_contract_salary(
+                contract_id,
+                "UoP",
+                "PLN",
+                "monthly",
+                salary_min,
+                salary_max,
             )

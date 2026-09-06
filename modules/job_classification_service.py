@@ -69,8 +69,18 @@ class JobClassificationService:
 
             logger.info(f"Salary re-estimation for: {offer_id} {salary_min} {salary_max}")
 
+            self.db.update_offer_salary(
+                offer_id,
+                salary_min,
+                salary_max,
+                salary_status="estimated",
+            )
+
             self.db.update_job_contract_salary(
                 contract_id,
+                "UoP",
+                "PLN",
+                "monthly",
                 salary_min,
                 salary_max,
             )

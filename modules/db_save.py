@@ -240,9 +240,26 @@ class Database:
 
             return cursor.fetchall()
 
+    def get_job_contract_offer_ids(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT DISTINCT offer_id
+                FROM JobContracts
+                WHERE offer_id IS NOT NULL
+                """
+            )
+
+            return [row[0] for row in cursor.fetchall()]
+
     def update_job_contract_salary(
         self,
         contract_id: int,
+        contract_type: str,
+        salary_currency: str,
+        salary_period: str,
         salary_min_monthly: float,
         salary_max_monthly: float,
     ):
@@ -252,11 +269,17 @@ class Database:
             cursor.execute(
                 """
                 UPDATE JobContracts
-                SET salary_min_monthly = ?,
-                    salary_max_monthly = ?
-                WHERE id = ?
+                SET contract_type = ?,
+                salary_currency = ?,
+                salary_period = ?,
+                salary_min_monthly = ?,
+                salary_max_monthly = ?
+            WHERE id = ?
                 """,
                 (
+                    contract_type,
+                    salary_currency,
+                    salary_period,
                     salary_min_monthly,
                     salary_max_monthly,
                     contract_id,

@@ -43,6 +43,22 @@ class SalaryProcessor:
 
         return None
 
+    def resolve_contract_type(self, contract: JobContract, salary_text: str) -> JobContract:
+        text = salary_text.lower()
+
+        if "netto" in text and "vat" in text:
+            contract.contract_type = "B2B"
+        elif "brutto" in text:
+            contract.contract_type = "UoP"
+        elif "uz" in text and "umowa zlecenie" in text:
+            contract.contract_type = "UZ"
+        elif "zależnie od umowy" in text:
+            contract.contract_type = "UoP"
+        elif contract.contract_type is None:
+            contract.contract_type = "UoP"
+
+        return contract
+
     def normalize_salary(
         self,
         contract: JobContract,
@@ -83,6 +99,10 @@ class SalaryProcessor:
         elif contract.salary_period == "yearly":
             contract.salary_min_monthly = contract.salary_min_offer / self.months_per_year
             contract.salary_max_monthly = contract.salary_max_offer / self.months_per_year
+
+        if contract.salary_min_monthly is not None and contract.salary_min_monthly < 500:
+            contract.salary_min_monthly = None
+            contract.salary_max_monthly = None
 
         return contract
 

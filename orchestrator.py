@@ -109,6 +109,7 @@ async def main():
 
                 for contract in contracts:
                     contract.offer_id = offer_id
+                    contract = salary_processor.resolve_contract_type(contract, offer_text)
                     salary_processor.normalize_salary(contract)
                     db.save_job_contract(contract)
 
@@ -116,6 +117,7 @@ async def main():
     await classification_service.process_jobs()
 
     await classification_service.process_salary_estimations()
+    offer_ids.update(db.get_job_contract_offer_ids())
 
     await classification_service.process_salary_selection(offer_ids)
 
