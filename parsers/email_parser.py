@@ -26,7 +26,7 @@ class EmailParser(BaseParser):
         source: str,
         cache: FileCache,
         salary_parser: SalaryParser,
-    ):
+    ) -> None:
         super().__init__(ai_service, db_service, filter_service, cache)
         self.email_config = email_config
         self.folder_name = folder_name
@@ -34,7 +34,7 @@ class EmailParser(BaseParser):
         self.cache = cache
         self.salary_parser = salary_parser
 
-    def _connect(self):
+    def _connect(self) -> imaplib.IMAP4_SSL:
         mail = imaplib.IMAP4_SSL(
             self.email_config["host"],
             self.email_config["port"],
@@ -45,7 +45,7 @@ class EmailParser(BaseParser):
         )
         return mail
 
-    def _get_mail_ids(self, mail):
+    def _get_mail_ids(self, mail) -> list[bytes]:
         mail.select(self.folder_name)
 
         status, response = mail.search(None, "UNSEEN")
@@ -55,14 +55,14 @@ class EmailParser(BaseParser):
 
         return response[0].split()
 
-    def _fetch_mail(self, mail, mail_id):
+    def _fetch_mail(self, mail: imaplib.IMAP4_SSL, mail_id: bytes) -> Message | None:
         status, msg_data = mail.fetch(mail_id, "(RFC822)")
         if status != "OK":
             return None
 
         return email.message_from_bytes(msg_data[0][1])
 
-    def _get_html(self, msg: Message) -> Optional[str]:
+    def _get_html(self, msg: Message) -> str | None:
         if msg.is_multipart():
             for part in msg.walk():
                 if part.get_content_type() == "text/html":

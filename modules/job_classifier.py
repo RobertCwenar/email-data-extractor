@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class JobClassifier:
-    def __init__(self, ai_service: AIService):
+    def __init__(self, ai_service: AIService) -> None:
         self.ai_service = ai_service
         self.levels = config.get_dict(["job_classification", "level"])
         self.categories = config.get_dict(["job_classification", "category"])
@@ -19,7 +19,7 @@ class JobClassifier:
     def _normalize_title(self, title: str) -> str:
         return " ".join(title.lower().strip().split())
 
-    def classify_level(self, clean_title: str):
+    def classify_level(self, clean_title: str) -> str:
         title = clean_title.lower()
 
         Priority = Literal[

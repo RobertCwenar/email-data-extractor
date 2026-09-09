@@ -7,14 +7,14 @@ logger = logging.getLogger(__name__)
 
 class JobClassificationService:
     # Initialize the JobClassificationServce with database and classifier instances
-    def __init__(self, db, classifier, salary_estimator, salary_processor):
+    def __init__(self, db, classifier, salary_estimator, salary_processor) -> None:
         self.db = db
         self.classifier = classifier
         self.salary_estimator = salary_estimator
         self.salary_processor = salary_processor
 
     # Process jobs for classification and save the results to the database
-    async def process_jobs(self):
+    async def process_jobs(self) -> None:
 
         jobs = self.db.get_jobs_for_classification()
 
@@ -47,7 +47,7 @@ class JobClassificationService:
                     category,
                 )
 
-    async def process_salary_estimations(self):
+    async def process_salary_estimations(self) -> None:
         contracts = self.db.get_job_contracts_for_salary_estimator()
 
         logger.info(f"Contracts for salary estimation: {len(contracts)}")
@@ -85,7 +85,7 @@ class JobClassificationService:
                 salary_max,
             )
 
-    async def process_salary_selection(self, offer_ids: set[int]):
+    async def process_salary_selection(self, offer_ids: set[int]) -> None:
         for offer_id in offer_ids:
             rows = self.db.get_job_contracts(offer_id)
 

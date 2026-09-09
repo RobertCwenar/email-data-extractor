@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class FilterService:
-    def __init__(self, config):
+    def __init__(self, config) -> None:
         self.config = config
 
     def is_valid_offer(self, offer: JobOffer) -> bool:

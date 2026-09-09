@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class SalaryHistory:
-    def __init__(self, db):
+    def __init__(self, db) -> None:
         self.db = db
         self.statistics: dict[
             tuple[str | None, str | None],
@@ -17,7 +17,7 @@ class SalaryHistory:
         self.salary_statistics = SalaryStatistics()
         self.history: list[SalaryHistoryRecord] = []
 
-    def process_history(self):
+    def process_history(self) -> None:
         history_data = self.db.get_salary_history()
 
         logger.info(f"Salary history records: {len(history_data)}")
@@ -98,7 +98,11 @@ class SalaryHistory:
             std_dev_max=standard_deviation_max,
         )
 
-    def group_history(self, history: list[SalaryHistoryRecord]):
+    def group_history(self, history: list[SalaryHistoryRecord]
+                      ) -> dict[
+                tuple[str | None, str | None],
+                list[tuple[float | None, float | None]],
+                    ]:
         groups: dict[tuple[str | None, str | None], list[tuple[float | None, float | None]]] = {}
 
         for offer in history:

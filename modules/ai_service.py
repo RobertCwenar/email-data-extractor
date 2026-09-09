@@ -13,13 +13,13 @@ logger = logging.getLogger(__name__)
 
 # Function to parse job offers from text using the API
 class AIService:
-    def __init__(self, api_key: str):
+    def __init__(self, api_key: str) -> None:
         self.client = genai.Client(api_key=api_key)
         self._api_lock = asyncio.Lock()
         self._last_api_call = 0.0
         self._api_delay = 4.0
 
-    async def _wait_before_api_call(self):
+    async def _wait_before_api_call(self) -> None:
         async with self._api_lock:
             now = time.monotonic()
             elapsed = now - self._last_api_call

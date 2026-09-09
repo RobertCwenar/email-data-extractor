@@ -7,7 +7,7 @@ logger = logging.getLogger(__name__)
 
 
 class SalaryEstimator:
-    def __init__(self, salary_history):
+    def __init__(self, salary_history) -> None:
         salary_rules = config.get_dict(["salary_rules"])
 
         self.salary_rules = {
@@ -16,7 +16,7 @@ class SalaryEstimator:
         }
         self.salary_history = salary_history
 
-    def salary_logic(self, job: JobClassification, company, title, date):
+    def salary_logic(self, job: JobClassification, company: str, title: str, date: str) -> tuple[float | None, float | None]:
         logger.info(f"Salary estimation started: {job.category}, {job.level}")
 
         history = self.salary_history.find_real_salary(
@@ -57,7 +57,7 @@ class SalaryEstimator:
 
         return None, None
 
-    def recalculate_empty_salaries(self, db):
+    def recalculate_empty_salaries(self, db) -> None:
         jobs = db.get_job_contracts_for_salary_estimator()
         print(f"Salary estimator jobs: {len(jobs)}")
         for job in jobs:

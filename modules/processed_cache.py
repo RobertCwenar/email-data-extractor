@@ -2,7 +2,7 @@ from pathlib import Path
 
 
 class FileCache:
-    def __init__(self, path: str):
+    def __init__(self, path: str)-> None:
         self.path = Path(path)
 
         if not self.path.exists():
@@ -17,7 +17,7 @@ class FileCache:
     def contains(self, value: str) -> bool:
         return value in self._cache
 
-    def add(self, value: str):
+    def add(self, value: str) -> None:
         if value in self._cache:
             return
 

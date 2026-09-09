@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 # Class responsible for loading and accessing application configuration.
 class AppConfig:
-    def __init__(self):
+    def __init__(self) -> None:
         self.path = Path("filter_keywords.json")
 
         if not self.path.exists():
@@ -19,7 +19,7 @@ class AppConfig:
         self._data = self._load()
 
     # Loads configuration data from a JSON file.
-    def _load(self):
+    def _load(self) -> dict:
         with open(self.path, "r", encoding="utf-8") as f:
             return json.load(f)
 
