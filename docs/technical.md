@@ -347,8 +347,6 @@ The complete processing pipeline combines email extraction, data validation, fil
 
 ```text
 
-E## 7. End-to-End Processing Flow
-
 Email Sources
      │
      ▼

@@ -225,6 +225,7 @@ class Database:
             cursor.execute(
                 """
                 SELECT
+                    id,
                     contract_type,
                     salary_currency,
                     salary_period,
@@ -468,6 +469,31 @@ class Database:
             )
 
             return cursor.fetchall()
+
+    def update_job_contract_monthly(
+        self,
+        contract_id: int,
+        salary_min_monthly: float | None,
+        salary_max_monthly: float | None,
+    ):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE JobContracts
+                SET salary_min_monthly = ?,
+                    salary_max_monthly = ?
+                WHERE id = ?
+                """,
+                (
+                    salary_min_monthly,
+                    salary_max_monthly,
+                    contract_id,
+                ),
+            )
+
+            conn.commit()
 
 
 # Normalize date to a standard format

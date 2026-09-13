@@ -89,19 +89,33 @@ class JobClassificationService:
         for offer_id in offer_ids:
             rows = self.db.get_job_contracts(offer_id)
 
-            contracts = [
-                JobContract(
+            contracts = []
+
+            for row in rows:
+                contract_id = row[0]
+                contract = JobContract(
                     offer_id=offer_id,
-                    contract_type=row[0],
-                    salary_currency=row[1],
-                    salary_period=row[2],
-                    salary_min_offer=row[3],
-                    salary_max_offer=row[4],
-                    salary_min_monthly=row[5],
-                    salary_max_monthly=row[6],
+                    contract_type=row[1],
+                    salary_currency=row[2],
+                    salary_period=row[3],
+                    salary_min_offer=row[4],
+                    salary_max_offer=row[5],
+                    salary_min_monthly=row[6],
+                    salary_max_monthly=row[7],
                 )
-                for row in rows
-            ]
+                old_min_monthly = contract.salary_min_monthly
+                old_max_monthly = contract.salary_max_monthly
+
+                contract = self.salary_processor.normalize_salary(contract)
+
+                if contract.salary_min_monthly != old_min_monthly or contract.salary_max_monthly != old_max_monthly:
+                    self.db.update_job_contract_monthly(
+                        contract_id,
+                        contract.salary_min_monthly,
+                        contract.salary_max_monthly,
+                    )
+
+                contracts.append(contract)
 
             selected_contract = self.salary_processor.select_contract(contracts)
 
