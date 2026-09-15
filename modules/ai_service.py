@@ -32,7 +32,7 @@ class AIService:
     @retry(
         retry=retry_if_exception_type(ServerError),
         wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(180),
     )
     async def parser_offers_api(self, text: str) -> list[JobOffer]:
         prompt = (
@@ -68,6 +68,11 @@ class AIService:
 
         return parsed_response.offers
 
+    @retry(
+        retry=retry_if_exception_type(ServerError),
+        wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
+        stop=stop_after_attempt(180),
+    )
     async def validate_category_api(self, clean_title: str, categories: list[str]) -> CategoryValidationResponse:
         """Validate/classify a job title into a category using the AI API.
 
@@ -103,7 +108,7 @@ class AIService:
     @retry(
         retry=retry_if_exception_type(ServerError),
         wait=wait_exponential(multiplier=1, min=4, max=60),  # Wait: 4s, 8s, 16s...
-        stop=stop_after_attempt(5),
+        stop=stop_after_attempt(180),
     )
     async def validate_salary_api(
         self,
