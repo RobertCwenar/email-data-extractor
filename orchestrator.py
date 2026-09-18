@@ -29,6 +29,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Main function to orchestrate the job offer processing
 async def main() -> None:
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
@@ -50,6 +51,7 @@ async def main() -> None:
     salary_parser = SalaryParser()
     classifier = JobClassifier(ai)
 
+    # Define the sources to process job offers from mailboxes.
     sources = [
         EmailParser(
             ai,
@@ -79,6 +81,26 @@ async def main() -> None:
             "Link",
             cache=FileCache("mail_records/processed_linkedin_mails.txt"),
             source="Linkedin",
+            salary_parser=salary_parser,
+        ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "justjoinit",
+            cache=FileCache("mail_records/processed_justjoinit_mails.txt"),
+            source="justjoin.it",
+            salary_parser=salary_parser,
+        ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "theprotocol",
+            cache=FileCache("mail_records/processed_theprotocolit_mails.txt"),
+            source="theprotocol.it",
             salary_parser=salary_parser,
         ),
     ]
@@ -122,5 +144,6 @@ async def main() -> None:
     await classification_service.process_salary_selection(offer_ids)
 
 
+# Run the main funct
 if __name__ == "__main__":
     asyncio.run(main())
