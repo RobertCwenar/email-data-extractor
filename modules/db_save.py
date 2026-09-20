@@ -23,8 +23,11 @@ class Database:
 
             cursor.execute(
                 """
-                    INSERT INTO Offers (title, company, location, salary_min, salary_max, date, source, salary_status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO Offers (
+                        title, company, location, salary_min, salary_max,
+                        date, source, salary_status, offer_status
+                    )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job.title,
@@ -35,6 +38,7 @@ class Database:
                     job.date,
                     source,
                     job.salary_status,
+                    job.offer_status,
                 ),
             )
 
@@ -491,6 +495,51 @@ class Database:
                     salary_max_monthly,
                     contract_id,
                 ),
+            )
+
+            conn.commit()
+
+    def get_offer_history(self, title: str, company: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT date
+                FROM Offers
+                WHERE title = ? AND company = ?
+                """,
+                (title, company),
+            )
+
+            return [row[0] for row in cursor.fetchall()]
+
+    def get_offers_for_status(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT id, title, company, date, offer_status
+                FROM Offers
+                WHERE date IS NOT NULL
+                ORDER BY company, title, date
+                """
+            )
+
+            return cursor.fetchall()
+
+    def update_offer_status(self, rowids: list[int], status: str) -> None:
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.executemany(
+                """
+                UPDATE Offers
+                SET offer_status = ?
+                WHERE id = ?
+                """,
+                [(status, id) for id in rowids],
             )
 
             conn.commit()
