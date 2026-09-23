@@ -9,15 +9,15 @@ class OfferStatus:
         self.db = db
 
     def get_offer_status(self, job: JobOffer) -> str:
+        if job.date is None:
+            return "process"
+
         offers = self.db.get_offer_history(job.title, job.company)
 
         if not offers:
             return "new"
 
         last_date = max(datetime.strptime(date, "%Y-%m-%d") for date in offers)
-
-        if job.date is None:
-            return "process"
 
         job_date = datetime.strptime(job.date, "%Y-%m-%d")
 
@@ -27,7 +27,6 @@ class OfferStatus:
         return "process"
 
     def update_ended_offers(self) -> None:
-        # ``Database`` exposes all offers; only active offers can become ended.
         offers = [offer for offer in self.db.get_offers_for_status() if offer[4] != "ended"]
 
         grouped_offers: dict[tuple[str, str], list[tuple[int, datetime, str]]] = {}
