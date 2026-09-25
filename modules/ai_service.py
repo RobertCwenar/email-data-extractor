@@ -3,7 +3,7 @@ import logging
 import time
 
 from google import genai
-from google.genai.errors import ServerError
+from google.genai.errors import ClientError, ServerError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from offer import CategoryValidationResponse, JobContract, JobContractResponse, JobOffer, OffersResponse
@@ -21,9 +21,6 @@ class AIService:
         self._models = [
             "models/gemini-3.1-flash-lite",
             "models/gemini-3.5-flash-lite",
-            "models/gemini-2.5-flash-lite",
-            "models/gemini-2.5-flash",
-            "models/gemini-3-flash",
             "models/gemini-3.5-flash",
             "models/gemini-3.6-flash",
             "models/gemini-3.7-flash",
@@ -74,7 +71,8 @@ class AIService:
                 logger.info(f"AI request successful with model: {model}")
                 break
 
-            except ServerError as error:
+            except (ServerError, ClientError) as error:
+                last_error = error
                 logger.warning(
                     "AI request failed with model %s: %s",
                     model,
@@ -82,7 +80,7 @@ class AIService:
                 )
 
         if response is None:
-            raise RuntimeError("All AI models failed")
+            raise last_error
 
         logger.debug(f"AI OFFERS RAW RESPONSE: {response.text}")
 
@@ -137,7 +135,8 @@ class AIService:
                 logger.info(f"AI request successful with model: {model}")
                 break
 
-            except ServerError as error:
+            except (ServerError, ClientError) as error:
+                last_error = error
                 logger.warning(
                     "AI request failed with model %s: %s",
                     model,
@@ -145,7 +144,7 @@ class AIService:
                 )
 
         if response is None:
-            raise RuntimeError("All AI models failed")
+            raise last_error
 
         logger.info(f"CATEGORY RAW RESPONSE: {response.text}")
 
@@ -192,11 +191,12 @@ class AIService:
                 )
                 logger.info("AI request successful with model: %s", model)
                 break
-            except ServerError as error:
+            except (ServerError, ClientError) as error:
+                last_error = error
                 logger.warning("AI request failed with model %s: %s", model, error)
 
         if response is None:
-            raise RuntimeError("All AI models failed")
+            raise last_error
 
         if not response.parsed:
             return []
