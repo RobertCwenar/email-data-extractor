@@ -25,13 +25,6 @@ class Company(BaseModel):
     name: str
 
 
-class JobLink(BaseModel):
-    offer_id: int
-    url: str
-    source: str
-    created_at: str
-
-
 class JobDetails(BaseModel):
     offer_id: int
 

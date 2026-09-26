@@ -78,43 +78,6 @@ class Database:
             )
             return cursor.fetchone()[0]
 
-    # Create the JobLinks table
-    def create_job_links_table(self):
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS JobLinks(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                offer_id INTEGER NOT NULL,
-                title TEXT,
-                url TEXT NOT NULL,
-                source TEXT,
-                filter_keywords TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-            """)
-
-    # Save job link to the JobLinks table
-    def save_job_link(self, offer_id: int, title: str, url: str, source: str, filter_keywords: str):
-
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute(
-                """
-            INSERT INTO JobLinks
-            (   offer_id,
-                title,
-                url,
-                source,
-                filter_keywords
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-                (offer_id, title, url, source, filter_keywords),
-            )
-
     # Create the JobDetails table
     def create_job_details_table(self):
         with sqlite3.connect(self.db_name) as conn:
@@ -431,7 +394,6 @@ class Database:
 
     def create_tables(self):
         self.create_companies_table()
-        self.create_job_links_table()
         self.create_job_details_table()
         self.create_job_contracts_table()
 
@@ -543,6 +505,26 @@ class Database:
             )
 
             conn.commit()
+
+    def get_previous_offer(self, offer_id: int, title: str, company: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+            SELECT id
+            FROM Offers
+            WHERE title = ?
+              AND company = ?
+              AND id != ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+                (title, company, offer_id),
+            )
+
+        row = cursor.fetchone()
+        return row[0] if row else None
 
 
 # Normalize date to a standard format
