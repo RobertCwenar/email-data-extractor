@@ -23,8 +23,11 @@ class Database:
 
             cursor.execute(
                 """
-                    INSERT INTO Offers (title, company, location, salary_min, salary_max, date, source, salary_status)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO Offers (
+                        title, company, location, salary_min, salary_max,
+                        date, source, salary_status, offer_status
+                    )
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     job.title,
@@ -35,6 +38,7 @@ class Database:
                     job.date,
                     source,
                     job.salary_status,
+                    job.offer_status,
                 ),
             )
 
@@ -73,43 +77,6 @@ class Database:
                 (company_name,),
             )
             return cursor.fetchone()[0]
-
-    # Create the JobLinks table
-    def create_job_links_table(self):
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute("""
-            CREATE TABLE IF NOT EXISTS JobLinks(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                offer_id INTEGER NOT NULL,
-                title TEXT,
-                url TEXT NOT NULL,
-                source TEXT,
-                filter_keywords TEXT,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
-            )
-            """)
-
-    # Save job link to the JobLinks table
-    def save_job_link(self, offer_id: int, title: str, url: str, source: str, filter_keywords: str):
-
-        with sqlite3.connect(self.db_name) as conn:
-            cursor = conn.cursor()
-
-            cursor.execute(
-                """
-            INSERT INTO JobLinks
-            (   offer_id,
-                title,
-                url,
-                source,
-                filter_keywords
-            )
-            VALUES (?, ?, ?, ?, ?)
-            """,
-                (offer_id, title, url, source, filter_keywords),
-            )
 
     # Create the JobDetails table
     def create_job_details_table(self):
@@ -427,7 +394,6 @@ class Database:
 
     def create_tables(self):
         self.create_companies_table()
-        self.create_job_links_table()
         self.create_job_details_table()
         self.create_job_contracts_table()
 
@@ -494,6 +460,71 @@ class Database:
             )
 
             conn.commit()
+
+    def get_offer_history(self, title: str, company: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT date
+                FROM Offers
+                WHERE title = ? AND company = ?
+                """,
+                (title, company),
+            )
+
+            return [row[0] for row in cursor.fetchall()]
+
+    def get_offers_for_status(self):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                SELECT id, title, company, date, offer_status
+                FROM Offers
+                WHERE date IS NOT NULL
+                ORDER BY company, title, date
+                """
+            )
+
+            return cursor.fetchall()
+
+    def update_offer_status(self, rowids: list[int], status: str) -> None:
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.executemany(
+                """
+                UPDATE Offers
+                SET offer_status = ?
+                WHERE id = ?
+                """,
+                [(status, id) for id in rowids],
+            )
+
+            conn.commit()
+
+    def get_previous_offer(self, offer_id: int, title: str, company: str):
+        with sqlite3.connect(self.db_name) as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+            SELECT id
+            FROM Offers
+            WHERE title = ?
+              AND company = ?
+              AND id != ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+                (title, company, offer_id),
+            )
+
+        row = cursor.fetchone()
+        return row[0] if row else None
 
 
 # Normalize date to a standard format

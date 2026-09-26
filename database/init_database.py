@@ -32,16 +32,6 @@ def init_db(db_name="new_offers.db"):
         )
         """)
 
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS JobLinks(
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            offer_id INTEGER NOT NULL,
-            url TEXT NOT NULL,
-            source TEXT,
-            created_at TEXT DEFAULT CURRENT_TIMESTAMP
-        )
-        """)
-
         conn.commit()
 
         cursor.execute("""

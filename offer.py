@@ -13,6 +13,7 @@ class JobOffer(BaseModel):
     salary_max: Optional[float] = None
     date: Optional[str] = None
     salary_status: Optional[str] = None
+    offer_status: Optional[str] = None
 
 
 class OffersResponse(BaseModel):
@@ -22,13 +23,6 @@ class OffersResponse(BaseModel):
 class Company(BaseModel):
     id: Optional[int] = None
     name: str
-
-
-class JobLink(BaseModel):
-    offer_id: int
-    url: str
-    source: str
-    created_at: str
 
 
 class JobDetails(BaseModel):

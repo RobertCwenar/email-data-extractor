@@ -10,6 +10,7 @@ from modules.db_save import Database
 from modules.filter_service import FilterService
 from modules.job_classification_service import JobClassificationService
 from modules.job_classifier import JobClassifier
+from modules.offer_status import OfferStatus
 from modules.processed_cache import FileCache
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
@@ -29,11 +30,14 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+# Main function to orchestrate the job offer processing
 async def main() -> None:
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database("new_offers.db")
     db.create_tables()
+    offer_status = OfferStatus(db)
+    offer_status.update_ended_offers()
     filter_service = FilterService(config)
     email_config = {
         "host": os.getenv("EMAIL_HOST"),
@@ -50,6 +54,7 @@ async def main() -> None:
     salary_parser = SalaryParser()
     classifier = JobClassifier(ai)
 
+    # Define the sources to process job offers from mailboxes.
     sources = [
         EmailParser(
             ai,
@@ -81,6 +86,26 @@ async def main() -> None:
             source="Linkedin",
             salary_parser=salary_parser,
         ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "justjoinit",
+            cache=FileCache("mail_records/processed_justjoinit_mails.txt"),
+            source="justjoin.it",
+            salary_parser=salary_parser,
+        ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "theprotocol",
+            cache=FileCache("mail_records/processed_theprotocolit_mails.txt"),
+            source="theprotocol.it",
+            salary_parser=salary_parser,
+        ),
     ]
 
     classification_service = JobClassificationService(db, classifier, salary_estimator, salary_processor)
@@ -94,6 +119,7 @@ async def main() -> None:
 
         for offer, offer_text, cache_id in offers:
             if filter_service.should_save(offer):
+                offer.offer_status = offer_status.get_offer_status(offer)
                 offer_id = db.save_offers(
                     offer,
                     source=parser.source,
@@ -122,5 +148,6 @@ async def main() -> None:
     await classification_service.process_salary_selection(offer_ids)
 
 
+# Run the main funct
 if __name__ == "__main__":
     asyncio.run(main())
