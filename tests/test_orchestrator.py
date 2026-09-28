@@ -36,6 +36,7 @@ async def test_main():
         patch("orchestrator.Database", return_value=mock_db_instance),
         patch("orchestrator.FilterService", return_value=mock_filter_instance),
         patch("orchestrator.EmailParser", return_value=mock_parser_instance),
+        patch("orchestrator.FileCache"),
     ):
         await main()
 
