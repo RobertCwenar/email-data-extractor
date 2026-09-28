@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Any, Literal
 
 from offer import JobContract
 
@@ -27,6 +27,9 @@ class SalaryProcessor:
         "B2B",
         "UZ",
     ]
+
+    def __init__(self, db: Any = None) -> None:
+        self.db = db
 
     def select_contract(
         self,
@@ -115,3 +118,54 @@ class SalaryProcessor:
             return "offer"
 
         return "offer_calculate"
+
+    def backfill_salary_from_previous_offer(
+        self,
+        offer_id: int,
+        title: str,
+        company: str,
+    ):
+        if self.db is None:
+            return
+
+        if self.db.get_job_contracts(offer_id):
+            return
+
+        previous_offer_id = self.db.get_previous_offer(
+            offer_id,
+            title,
+            company,
+        )
+
+        if previous_offer_id is None:
+            return
+
+        previous_contracts = self.db.get_job_contracts(previous_offer_id)
+
+        if not previous_contracts:
+            return
+
+        previous_contract = previous_contracts[0]
+
+        if previous_contract[4] is None and previous_contract[5] is None:
+            return
+
+        contract = JobContract(
+            offer_id=offer_id,
+            contract_type=previous_contract[1],
+            salary_currency=previous_contract[2],
+            salary_period=previous_contract[3],
+            salary_min_offer=previous_contract[4],
+            salary_max_offer=previous_contract[5],
+            salary_min_monthly=previous_contract[6],
+            salary_max_monthly=previous_contract[7],
+        )
+
+        self.db.save_job_contract(contract)
+
+        self.db.update_offer_salary(
+            offer_id,
+            contract.salary_min_monthly,
+            contract.salary_max_monthly,
+            self.get_salary_status(contract),
+        )

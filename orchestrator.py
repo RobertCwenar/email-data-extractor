@@ -148,6 +148,6 @@ async def main() -> None:
     await classification_service.process_salary_selection(offer_ids)
 
 
-# Run the main funct
+# Run the main function
 if __name__ == "__main__":
     asyncio.run(main())

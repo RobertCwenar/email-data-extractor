@@ -516,7 +516,7 @@ class Database:
             FROM Offers
             WHERE title = ?
               AND company = ?
-              AND id != ?
+              AND id < ?
             ORDER BY id DESC
             LIMIT 1
             """,
