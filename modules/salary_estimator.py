@@ -16,7 +16,9 @@ class SalaryEstimator:
         }
         self.salary_history = salary_history
 
-    def salary_logic(self, job: JobClassification, company: str, title: str, date: str) -> tuple[float | None, float | None]:
+    def salary_logic(
+        self, job: JobClassification, company: str, title: str, date: str
+    ) -> tuple[float | None, float | None]:
         logger.info(f"Salary estimation started: {job.category}, {job.level}")
 
         history = self.salary_history.find_real_salary(

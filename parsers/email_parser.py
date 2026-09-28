@@ -2,7 +2,6 @@ import email
 import imaplib
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from typing import Optional
 
 from bs4 import BeautifulSoup
 
@@ -56,7 +55,7 @@ class EmailParser(BaseParser):
         return response[0].split()
 
     def _fetch_mail(self, mail: imaplib.IMAP4_SSL, mail_id: bytes) -> Message | None:
-        status, msg_data = mail.fetch(mail_id, "(RFC822)")
+        status, msg_data = mail.fetch(mail_id.decode(), "(RFC822)")
         if status != "OK":
             return None
 
