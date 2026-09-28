@@ -106,6 +106,16 @@ async def main() -> None:
             source="theprotocol.it",
             salary_parser=salary_parser,
         ),
+        EmailParser(
+            ai,
+            db,
+            filter_service,
+            email_config,
+            "Jooble",
+            cache=FileCache("mail_records/processed_jooble_mails.txt"),
+            source="Jooble",
+            salary_parser=salary_parser,
+        ),
     ]
 
     classification_service = JobClassificationService(db, classifier, salary_estimator, salary_processor)
