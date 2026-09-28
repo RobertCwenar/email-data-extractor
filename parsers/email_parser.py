@@ -2,6 +2,7 @@ import email
 import imaplib
 from email.message import Message
 from email.utils import parsedate_to_datetime
+from typing import cast
 
 from bs4 import BeautifulSoup
 
@@ -59,7 +60,10 @@ class EmailParser(BaseParser):
         if status != "OK":
             return None
 
-        return email.message_from_bytes(msg_data[0][1])
+        if not msg_data or not msg_data[0]:
+            return None
+
+        return email.message_from_bytes(cast(bytes, msg_data[0][1]))
 
     def _get_html(self, msg: Message) -> str | None:
         if msg.is_multipart():
