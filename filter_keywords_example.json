@@ -1,0 +1,244 @@
+{
+  "company_normalization": {
+    "remove_legal_forms": [
+      "spółka z ograniczoną odpowiedzialnością",
+      "spółka akcyjna",
+      "sp. z o.o.",
+      "sp. z o.o",
+      "s.a."
+    ]
+  },
+  "process_block": {
+    "bad_titles": [
+      "Zobacz oferty",
+      "aktywnie rekrutuje",
+      "zobacz więcej",
+      "logo"
+    ],
+    "skip": [
+      "zobacz oferty",
+      "zobacz więcej",
+      "logo",
+      "rekrutuje"
+    ]
+  },
+  "looks_like_job": {
+    "junk_phrases": [
+      "aktywnie rekrutuje",
+      "zobacz oferty",
+      "jak oceniasz ten e-mail"
+    ],
+    "word_phrases": [
+      "data",
+      "analyst",
+      "developer",
+      "sql",
+      "logist",
+      "specjalista"
+    ],
+    "excluded_phrases": [
+      "sp. z o.o",
+      "s.a."
+    ]
+  },
+  "is_valid_offer": {
+    "bad_markers": [
+      "zobacz",
+      "rekrutuje",
+      "więcej"
+    ]
+  },
+  "job_classification": {
+    "level": {
+      "intern": [
+        "staż",
+        "intern",
+        "trainee"
+      ],
+      "junior": [
+        "junior",
+        "młodszy",
+        "entry"
+      ],
+      "mid": [
+        "mid",
+        "specjalista",
+        "analyst"
+      ],
+      "senior": [
+        "senior",
+        "starszy",
+        "lead"
+      ],
+      "manager": [
+        "manager",
+        "kierownik",
+        "director"
+      ]
+    },
+    "category": {
+      "data_analytics": [
+        "data analyst",
+        "data scientist",
+        "data analytics",
+        "business intelligence",
+        "analityk danych",
+        "power bi"
+      ],
+      "environment": [
+        "ochrona środowiska",
+        "ekolog"
+      ],
+      "software_it": [
+        "developer",
+        "programista",
+        "software engineer",
+        "python",
+        "java",
+        "devops"
+      ],
+      "it_support": [
+        "helpdesk",
+        "service desk",
+        "it support"
+      ],
+      "finance_accounting": [
+        "księgowość",
+        "accounting",
+        "finance",
+        "controller"
+      ],
+      "hr": [
+        "hr",
+        "human resources",
+        "kadry",
+        "rekrutacja"
+      ],
+      "logistics_supply_chain": [
+        "logist",
+        "logistics",
+        "supply chain",
+        "transport",
+        "magazyn",
+        "planista"
+      ],
+      "administration": [
+        "administr",
+        "office",
+        "back office"
+      ],
+      "sales_customer_service": [
+        "sales",
+        "sprzedaż",
+        "customer",
+        "obsługa klienta"
+      ],
+      "marketing": [
+        "marketing",
+        "seo",
+        "content"
+      ],
+      "project_management": [
+        "project manager",
+        "project management",
+        "project coordinator"
+      ],
+      "engineering_production": [
+        "inżynier",
+        "production",
+        "manufacturing",
+        "quality"
+      ],
+      "legal_compliance_risk": [
+        "prawnik",
+        "legal",
+        "compliance",
+        "risk"
+      ],
+      "procurement": [
+        "procurement",
+        "zakupy",
+        "purchasing",
+        "buyer"
+      ],
+      "customer_operations": [
+        "operations",
+        "business operations",
+        "customer operations"
+      ],
+      "medical": [
+        "medical",
+        "medycz",
+        "lekarz",
+        "pielęgniarka"
+      ],
+      "Category_Literal": [
+        "data_analytics",
+        "environment",
+        "software_it",
+        "it_support",
+        "finance_accounting",
+        "hr",
+        "logistics_supply_chain",
+        "administration",
+        "sales_customer_service",
+        "marketing",
+        "project_management",
+        "engineering_production",
+        "legal_compliance_risk",
+        "procurement",
+        "customer_operations",
+        "medical",
+        "unknown"
+      ]
+    }
+  },
+  "settings": {
+    "min_samples_category_level": 30,
+    "min_samples_level": 30
+  },
+  "salary_rules": {
+    "data_analytics": {
+      "junior": {
+        "base": 6000,
+        "range": 1500
+      },
+      "mid": {
+        "base": 8000,
+        "range": 2000
+      },
+      "senior": {
+        "base": 11000,
+        "range": 2500
+      }
+    },
+    "software_it": {
+      "junior": {
+        "base": 7000,
+        "range": 2000
+      },
+      "mid": {
+        "base": 10000,
+        "range": 3000
+      },
+      "senior": {
+        "base": 15000,
+        "range": 4000
+      }
+    },
+    "unknown": {
+      "junior": {
+        "base": 5000,
+        "range": 1000
+      },
+      "mid": {
+        "base": 6500,
+        "range": 1500
+      },
+      "senior": {
+        "base": 8500,
+        "range": 2000
+      }
+    }
+  }
+}
