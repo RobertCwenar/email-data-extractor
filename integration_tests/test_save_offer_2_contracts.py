@@ -23,7 +23,8 @@ def create_test_offer_db(db_name: str):
                 salary_max REAL,
                 date TEXT,
                 source TEXT,
-                salary_status TEXT
+                salary_status TEXT, 
+                offer_status TEXT
             )
         """)
 

@@ -11,6 +11,8 @@ async def test_main():
     # Mock offers
     mock_offer = MagicMock()
     mock_offer.title = "Python Developer"
+    mock_offer.company = "Krzysiumo"
+    mock_offer.date = "2026-09-28"
 
     # Mock parser
     mock_parser_instance = MagicMock()
@@ -20,8 +22,10 @@ async def test_main():
     # Mock AI
     mock_ai_instance = MagicMock()
     mock_ai_instance.validate_salary_api = AsyncMock(return_value=[])
+
     # Mock DB
     mock_db_instance = MagicMock()
+    mock_db_instance.get_offer_history.return_value = []
 
     # Mock filter
     mock_filter_instance = MagicMock()
@@ -36,10 +40,10 @@ async def test_main():
         await main()
 
     # Verify that offers were fetched from the parser
-    assert mock_parser_instance.fetch_offers.call_count == 3
+    assert mock_parser_instance.fetch_offers.call_count == 6
 
     # Verify that the offer passed the filtering rules
-    assert mock_filter_instance.should_save.call_count == 3
+    assert mock_filter_instance.should_save.call_count == 6
 
     # Verify that the accepted offer was saved to the database
-    assert mock_db_instance.save_offers.call_count == 3
+    assert mock_db_instance.save_offers.call_count == 6
