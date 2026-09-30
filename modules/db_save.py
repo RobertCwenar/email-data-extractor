@@ -12,13 +12,16 @@ class Database:
     def __init__(self, db_name: str = "new_offers.db"):
         self.db_name = db_name
 
+    def _connect(self):
+        return sqlite3.connect(self.db_name, timeout=40)
+
     # Save job offer to the database
     def save_offers(self, job: JobOffer, source: str, contract: JobContract | None = None):
         self.save_company(job.company)
         logger.debug(f"SAVING TO DB: {job.title} {source}")
 
         job.date = normalize_date(job.date)
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -46,7 +49,7 @@ class Database:
 
     # Create the Companies table
     def create_companies_table(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -60,7 +63,7 @@ class Database:
         if not company_name:
             return None
 
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -80,7 +83,7 @@ class Database:
 
     # Create the JobDetails table
     def create_job_details_table(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -96,7 +99,7 @@ class Database:
             conn.commit()
 
     def create_job_contracts_table(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -116,7 +119,7 @@ class Database:
             conn.commit()
 
     def save_job_contract(self, contract: JobContract):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -153,7 +156,7 @@ class Database:
         level: str,
         category: str,
     ):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 """
@@ -171,7 +174,7 @@ class Database:
             conn.commit()
 
     def get_job_contract(self, offer_id: int):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -186,7 +189,7 @@ class Database:
             return cursor.fetchone()
 
     def get_job_contracts(self, offer_id: int):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -209,7 +212,7 @@ class Database:
             return cursor.fetchall()
 
     def get_job_contract_offer_ids(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -231,7 +234,7 @@ class Database:
         salary_min_monthly: float,
         salary_max_monthly: float,
     ):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -256,7 +259,7 @@ class Database:
 
     # Get jobs for classification from the Offers table
     def get_jobs_for_classification(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -270,7 +273,7 @@ class Database:
             return cursor.fetchall()
 
     def get_classification_by_title(self, clean_title: str):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -286,7 +289,7 @@ class Database:
             return cursor.fetchone()
 
     def update_job_category(self, offer_id: int, category: str):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -301,7 +304,7 @@ class Database:
             conn.commit()
 
     def job_details_exists(self, offer_id: int) -> bool:
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -317,7 +320,7 @@ class Database:
             return cursor.fetchone() is not None
 
     def get_salary_status(self, offer_id: int) -> str:
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -338,7 +341,7 @@ class Database:
         salary_max: float | None,
         salary_status: str,
     ):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -365,7 +368,7 @@ class Database:
         level: str,
         category: str,
     ):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -381,7 +384,7 @@ class Database:
             conn.commit()
 
     def get_salary_history(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 SELECT o.id, o.title, o.company, o.salary_min, o.salary_max, o.date, jd.category, jd.level
@@ -398,7 +401,7 @@ class Database:
         self.create_job_contracts_table()
 
     def get_job_contracts_for_salary_estimator(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
@@ -424,7 +427,7 @@ class Database:
         return cursor.fetchall()
 
     def get_all_job_details_for_migration(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -442,7 +445,7 @@ class Database:
         salary_min_monthly: float | None,
         salary_max_monthly: float | None,
     ):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -462,7 +465,7 @@ class Database:
             conn.commit()
 
     def get_offer_history(self, title: str, company: str):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -477,7 +480,7 @@ class Database:
             return [row[0] for row in cursor.fetchall()]
 
     def get_offers_for_status(self):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(
@@ -492,7 +495,7 @@ class Database:
             return cursor.fetchall()
 
     def update_offer_status(self, rowids: list[int], status: str) -> None:
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.executemany(
@@ -507,7 +510,7 @@ class Database:
             conn.commit()
 
     def get_previous_offer(self, offer_id: int, title: str, company: str):
-        with sqlite3.connect(self.db_name) as conn:
+        with self._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute(

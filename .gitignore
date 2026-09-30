@@ -15,3 +15,4 @@ mail_records/
 *.json
 Structure_parser.txt
 !filter_keywords_example.json
+*.pbix

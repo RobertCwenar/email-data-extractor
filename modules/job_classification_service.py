@@ -25,17 +25,17 @@ class JobClassificationService:
             cached = self.db.get_classification_by_title(title)
 
             if cached and cached[1]:
-                logger.info(f"Classification cache: {title}")
+                logger.debug(f"Classification cache: {title}")
                 level, category = cached
 
             else:
-                logger.info(f"New Classification: {title}")
+                logger.debug(f"New Classification: {title}")
                 level = self.classifier.classify_level(title)
                 category = await self.classifier.classify_category(title)
 
             salary_status = self.db.get_salary_status(offer_id)
 
-            logger.info(f"Salary status for: {offer_id}, {salary_status}")
+            logger.debug(f"Salary status for: {offer_id}, {salary_status}")
 
             if self.db.job_details_exists(offer_id):
                 self.db.update_job_category(offer_id, category)
@@ -50,7 +50,7 @@ class JobClassificationService:
     async def process_salary_estimations(self) -> None:
         contracts = self.db.get_job_contracts_for_salary_estimator()
 
-        logger.info(f"Contracts for salary estimation: {len(contracts)}")
+        logger.debug(f"Contracts for salary estimation: {len(contracts)}")
 
         for contract_id, offer_id, title, company, date, level, category in contracts:
             classification = JobClassification(
@@ -67,7 +67,7 @@ class JobClassificationService:
                 date,
             )
 
-            logger.info(f"Salary re-estimation for: {offer_id} {salary_min} {salary_max}")
+            logger.debug(f"Salary re-estimation for: {offer_id} {salary_min} {salary_max}")
 
             self.db.update_offer_salary(
                 offer_id,

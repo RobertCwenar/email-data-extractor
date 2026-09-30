@@ -19,7 +19,7 @@ class SalaryEstimator:
     def salary_logic(
         self, job: JobClassification, company: str, title: str, date: str
     ) -> tuple[float | None, float | None]:
-        logger.info(f"Salary estimation started: {job.category}, {job.level}")
+        logger.debug(f"Salary estimation started: {job.category}, {job.level}")
 
         history = self.salary_history.find_real_salary(
             company=company,
@@ -27,18 +27,18 @@ class SalaryEstimator:
             date=date,
         )
 
-        logger.info(f"Real salary history result: {history}")
+        logger.debug(f"Real salary history result: {history}")
 
         if history:
-            logger.info(f"Using real salary from history: {history}")
+            logger.debug(f"Using real salary from history: {history}")
             return history
 
         history = self.salary_history.get_salary(job.category, job.level)
 
-        logger.info(f"Statistical salary history result: {history}")
+        logger.debug(f"Statistical salary history result: {history}")
 
         if history and history[0] is not None and history[1] is not None:
-            logger.info(f"Using statistical salary history: {history}")
+            logger.debug(f"Using statistical salary history: {history}")
             return history
 
         for category, levels in self.salary_rules.items():
@@ -51,17 +51,17 @@ class SalaryEstimator:
                         salary_min = base_salary
                         salary_max = base_salary + salary_range
 
-                        logger.info(f"Using salary rules for {job.category}, {job.level}: {salary_min}, {salary_max}")
+                        logger.debug(f"Using salary rules for {job.category}, {job.level}: {salary_min}, {salary_max}")
 
                         return salary_min, salary_max
 
-        logger.info(f"No salary rules found for {job.category}, {job.level}")
+        logger.debug(f"No salary rules found for {job.category}, {job.level}")
 
         return None, None
 
     def recalculate_empty_salaries(self, db) -> None:
         jobs = db.get_job_contracts_for_salary_estimator()
-        print(f"Salary estimator jobs: {len(jobs)}")
+        logger.debug(f"Salary estimator jobs: {len(jobs)}")
         for job in jobs:
             contract_id, offer_id, title, company, date, level, category = job
 

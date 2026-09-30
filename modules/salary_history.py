@@ -19,17 +19,8 @@ class SalaryHistory:
 
     def process_history(self) -> None:
         history_data = self.db.get_salary_history()
-
-        logger.info(f"Salary history records: {len(history_data)}")
-
         self.history = self.get_history(history_data)
-
-        logger.info(f"Processed salary history: {len(self.history)}")
-
         groups = self.group_history(self.history)
-
-        logger.info(f"History groups: {len(groups)}")
-
         self.statistics = {}
 
         for key, data in groups.items():
@@ -39,7 +30,6 @@ class SalaryHistory:
                 continue
 
             self.statistics[key] = statistics
-            logger.info(f"Salary history: {key}, {statistics}")
 
     def _to_float(self, value) -> float | None:
         try:
@@ -98,11 +88,12 @@ class SalaryHistory:
             std_dev_max=standard_deviation_max,
         )
 
-    def group_history(self, history: list[SalaryHistoryRecord]
-                      ) -> dict[
-                tuple[str | None, str | None],
-                list[tuple[float | None, float | None]],
-                    ]:
+    def group_history(
+        self, history: list[SalaryHistoryRecord]
+    ) -> dict[
+        tuple[str | None, str | None],
+        list[tuple[float | None, float | None]],
+    ]:
         groups: dict[tuple[str | None, str | None], list[tuple[float | None, float | None]]] = {}
 
         for offer in history:
@@ -118,11 +109,9 @@ class SalaryHistory:
     def get_salary(self, category: str, level: str) -> tuple[float | None, float | None] | None:
         key = (category, level)
 
-        logger.info(f"Looking for salary history:, {key}")
+        logger.debug(f"Looking for salary history:, {key}")
 
         statistics = self.statistics.get((category, level))
-
-        logger.info(f"Salary lookup: {key}, {statistics}")
 
         if not statistics:
             return None

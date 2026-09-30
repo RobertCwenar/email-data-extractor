@@ -91,7 +91,7 @@ class AIService:
         parsed_response = OffersResponse.model_validate(response.parsed)
 
         if not parsed_response.offers:
-            logger.info("No job offers found")
+            logger.debug("No job offers found")
 
         return parsed_response.offers
 
@@ -146,7 +146,7 @@ class AIService:
         if response is None:
             raise last_error
 
-        logger.info(f"CATEGORY RAW RESPONSE: {response.text}")
+        logger.debug(f"CATEGORY RAW RESPONSE: {response.text}")
 
         if not response.parsed:
             logger.warning(f"Gemini returned no parsed response for category validation. Raw: {response.text}")

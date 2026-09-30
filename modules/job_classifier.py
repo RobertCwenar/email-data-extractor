@@ -45,13 +45,13 @@ class JobClassifier:
         if cache_key in self.category_cache:
             category = self.category_cache[cache_key]
 
-            logger.info(f"Category cache HIT: '{clean_title}' -> '{category}'")
+            logger.debug(f"Category cache HIT: '{clean_title}' -> '{category}'")
 
             return category
 
         title = clean_title.lower()
 
-        logger.info(f"Classify category input: {clean_title}")
+        logger.debug(f"Classify category input: {clean_title}")
 
         scores: dict[str, int] = {}
         matches_by_category: dict[str, list[tuple[str, int]]] = {}
@@ -87,9 +87,9 @@ class JobClassifier:
                 key=lambda category: scores[category],
             )
 
-            logger.info(f"Category scores for {clean_title}: {scores}")
+            logger.debug(f"Category scores for {clean_title}: {scores}")
 
-            logger.info(
+            logger.debug(
                 f"Category match: '{clean_title}' -> '{best_category}' "
                 f"[score={scores[best_category]}, matches={matches_by_category[best_category]}]"
             )
@@ -99,11 +99,11 @@ class JobClassifier:
             if best_score >= 1:
                 self.category_cache[cache_key] = best_category
 
-                logger.info(f"Category cache SAVE: {clean_title} -> {best_category}")
+                logger.debug(f"Category cache SAVE: {clean_title} -> {best_category}")
 
                 return best_category
 
-        logger.info(f"AI Category: {clean_title}")
+        logger.debug(f"AI Category: {clean_title}")
 
         await asyncio.sleep(2)
 
@@ -112,10 +112,10 @@ class JobClassifier:
             self.categories["Category_Literal"],
         )
 
-        logger.info(f"AI Category result: {clean_title} -> {result.category}")
+        logger.debug(f"AI Category result: {clean_title} -> {result.category}")
 
         self.category_cache[cache_key] = result.category
 
-        logger.info(f"Category cache SAVE: {clean_title} -> {result.category}")
+        logger.debug(f"Category cache SAVE: {clean_title} -> {result.category}")
 
         return result.category

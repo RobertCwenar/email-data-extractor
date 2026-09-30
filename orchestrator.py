@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -26,12 +27,20 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    handlers=[
+        logging.FileHandler("etl.log"),
+        logging.StreamHandler(),
+    ],
+    force=True,
 )
 logger = logging.getLogger(__name__)
+
+print(Path("etl.log").resolve())
 
 
 # Main function to orchestrate the job offer processing
 async def main() -> None:
+    logger.info("ETL started")
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database("new_offers.db")
@@ -156,6 +165,8 @@ async def main() -> None:
     offer_ids.update(db.get_job_contract_offer_ids())
 
     await classification_service.process_salary_selection(offer_ids)
+
+    logger.info("ETL finished successfully")
 
 
 # Run the main function
