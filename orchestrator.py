@@ -6,8 +6,12 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from config import config
+from database.database import Database
+from database.db_read import DatabaseRead
+from database.db_save import DatabaseSave
+from database.db_tables import DatabaseTables
+from database.db_update import DatabaseUpdate
 from modules.ai_service import AIService
-from modules.db_save import Database
 from modules.filter_service import FilterService
 from modules.job_classification_service import JobClassificationService
 from modules.job_classifier import JobClassifier
@@ -43,9 +47,15 @@ async def main() -> None:
     logger.info("ETL started")
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
-    db = Database("new_offers.db")
-    db.create_tables()
-    offer_status = OfferStatus(db)
+    db = Database()
+
+    db_save = DatabaseSave(db)
+    db_read = DatabaseRead(db)
+    db_update = DatabaseUpdate(db)
+    db_tables = DatabaseTables(db)
+
+    db_tables.create_tables()
+    offer_status = OfferStatus(db_read, db_update)
     offer_status.update_ended_offers()
     filter_service = FilterService(config)
     email_config = {
@@ -55,7 +65,7 @@ async def main() -> None:
         "password": os.getenv("PASSWORD"),
     }
 
-    salary_history = SalaryHistory(db)
+    salary_history = SalaryHistory(db_read)
     salary_history.process_history()
 
     salary_estimator = SalaryEstimator(salary_history)
@@ -127,7 +137,9 @@ async def main() -> None:
         ),
     ]
 
-    classification_service = JobClassificationService(db, classifier, salary_estimator, salary_processor)
+    classification_service = JobClassificationService(
+        db_read, db_update, db_save, classifier, salary_estimator, salary_processor
+    )
 
     offer_ids = set()
 
@@ -139,7 +151,7 @@ async def main() -> None:
         for offer, offer_text, cache_id in offers:
             if filter_service.should_save(offer):
                 offer.offer_status = offer_status.get_offer_status(offer)
-                offer_id = db.save_offers(
+                offer_id = db_save.save_offers(
                     offer,
                     source=parser.source,
                 )
@@ -156,13 +168,13 @@ async def main() -> None:
                     contract.offer_id = offer_id
                     contract = salary_processor.resolve_contract_type(contract, offer_text)
                     salary_processor.normalize_salary(contract)
-                    db.save_job_contract(contract)
+                    db_save.save_job_contract(contract)
 
     # Process job classifications and salary estimation
     await classification_service.process_jobs()
 
     await classification_service.process_salary_estimations()
-    offer_ids.update(db.get_job_contract_offer_ids())
+    offer_ids.update(db_read.get_job_contract_offer_ids())
 
     await classification_service.process_salary_selection(offer_ids)
 

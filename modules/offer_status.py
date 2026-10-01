@@ -1,18 +1,20 @@
 from datetime import datetime, timedelta
 
-from modules.db_save import Database
+from database.db_read import DatabaseRead
+from database.db_update import DatabaseUpdate
 from offer import JobOffer
 
 
 class OfferStatus:
-    def __init__(self, db: Database) -> None:
-        self.db = db
+    def __init__(self, db_read: DatabaseRead, db_update: DatabaseUpdate) -> None:
+        self.db_read = db_read
+        self.db_update = db_update
 
     def get_offer_status(self, job: JobOffer) -> str:
         if job.date is None:
             return "process"
 
-        offers = self.db.get_offer_history(job.title, job.company)
+        offers = self.db_read.get_offer_history(job.title, job.company)
 
         if not offers:
             return "new"
@@ -27,7 +29,7 @@ class OfferStatus:
         return "process"
 
     def update_ended_offers(self) -> None:
-        offers = [offer for offer in self.db.get_offers_for_status() if offer[4] != "ended"]
+        offers = [offer for offer in self.db_read.get_offers_for_status() if offer[4] != "ended"]
 
         grouped_offers: dict[tuple[str, str], list[tuple[int, datetime, str]]] = {}
 
@@ -61,7 +63,7 @@ class OfferStatus:
 
             for cycle in cycles:
                 if today - cycle[-1][1] >= timedelta(days=30):
-                    self.db.update_offer_status(
+                    self.db_update.update_offer_status(
                         [offer[0] for offer in cycle],
                         "ended",
                     )

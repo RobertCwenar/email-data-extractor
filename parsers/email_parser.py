@@ -7,8 +7,8 @@ from typing import cast
 from bs4 import BeautifulSoup
 
 from core.base_parser import BaseParser
+from database.db_save import Database
 from modules.ai_service import AIService
-from modules.db_save import Database
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from offer import JobOffer

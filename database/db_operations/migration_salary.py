@@ -35,9 +35,7 @@ def migrate_job_salary():
                 )
 
             except sqlite3.Error as e:
-                logger.warning(
-                    f"Could not save JobContracts for offer {offer_id}: {e}"
-                )
+                logger.warning(f"Could not save JobContracts for offer {offer_id}: {e}")
 
         cursor.execute("""
             SELECT COUNT(*)
