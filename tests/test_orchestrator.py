@@ -24,8 +24,16 @@ async def test_main():
     mock_ai_instance.validate_salary_api = AsyncMock(return_value=[])
 
     # Mock DB
-    mock_db_instance = MagicMock()
-    mock_db_instance.get_offer_history.return_value = []
+    mock_db = MagicMock()
+    mock_db_save = MagicMock()
+    mock_db_read = MagicMock()
+    mock_db_update = MagicMock()
+    mock_db_tables = MagicMock()
+
+    mock_db_read.get_offer_history.return_value = []
+    mock_db_read.get_offers_for_status.return_value = []
+    mock_db_read.get_salary_history.return_value = []
+    mock_db_read.get_job_contract_offer_ids.return_value = []
 
     # Mock filter
     mock_filter_instance = MagicMock()
@@ -33,7 +41,11 @@ async def test_main():
 
     with (
         patch("orchestrator.AIService", return_value=mock_ai_instance),
-        patch("orchestrator.Database", return_value=mock_db_instance),
+        patch("orchestrator.Database", return_value=mock_db),
+        patch("orchestrator.DatabaseSave", return_value=mock_db_save),
+        patch("orchestrator.DatabaseRead", return_value=mock_db_read),
+        patch("orchestrator.DatabaseUpdate", return_value=mock_db_update),
+        patch("orchestrator.DatabaseTables", return_value=mock_db_tables),
         patch("orchestrator.FilterService", return_value=mock_filter_instance),
         patch("orchestrator.EmailParser", return_value=mock_parser_instance),
         patch("orchestrator.FileCache"),
@@ -47,4 +59,4 @@ async def test_main():
     assert mock_filter_instance.should_save.call_count == 6
 
     # Verify that the accepted offer was saved to the database
-    assert mock_db_instance.save_offers.call_count == 6
+    assert mock_db_save.save_offers.call_count == 6

@@ -35,6 +35,7 @@ def test_select_uop_over_b2b():
     assert selected_contract.salary_max_monthly == 9000
     assert processor.get_salary_status(selected_contract) == "offer"
 
+
 def test_select_contract_uop():
     processor = SalaryProcessor()
 

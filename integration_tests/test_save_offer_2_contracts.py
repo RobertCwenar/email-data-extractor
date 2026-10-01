@@ -1,6 +1,7 @@
 import sqlite3
 
-from modules.db_save import Database
+from database.database import Database
+from database.db_save import DatabaseSave
 from offer import JobContract, JobOffer
 
 
@@ -48,7 +49,7 @@ def test_save_offer_with_uop_and_b2b(tmp_path):
 
     create_test_offer_db(db_path)
 
-    db = Database(db_path)
+    db = DatabaseSave(Database(db_path))
 
     offer = JobOffer(
         title="Analityk Danych",

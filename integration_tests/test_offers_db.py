@@ -1,6 +1,7 @@
 import sqlite3
 
-from modules.db_save import Database
+from database.database import Database
+from database.db_save import DatabaseSave
 from offer import JobOffer
 
 
@@ -32,7 +33,7 @@ def create_test_tables(db_name: str):
 def test_save_same_offer_twice_creates_duplicate(tmp_path):
     db_path = tmp_path / "test.db"
 
-    db = Database(str(db_path))
+    db = DatabaseSave(Database(str(db_path)))
 
     create_test_tables(str(db_path))
 
