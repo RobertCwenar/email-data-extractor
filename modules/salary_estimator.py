@@ -1,8 +1,8 @@
 import logging
 
 from config import config
-from database.db_read import DatabaseRead
-from database.db_update import DatabaseUpdate
+from database.queries import QueryDB
+from database.updates import UpdateDB
 from offer import JobClassification, SalaryRule
 
 logger = logging.getLogger(__name__)
@@ -61,7 +61,7 @@ class SalaryEstimator:
 
         return None, None
 
-    def recalculate_empty_salaries(self, db_read: DatabaseRead, db_update: DatabaseUpdate) -> None:
+    def recalculate_empty_salaries(self, db_read: QueryDB, db_update: UpdateDB) -> None:
         jobs = db_read.get_job_contracts_for_salary_estimator()
         logger.debug(f"Salary estimator jobs: {len(jobs)}")
         for job in jobs:

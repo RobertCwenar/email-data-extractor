@@ -1,7 +1,7 @@
 import logging
 from datetime import datetime
 
-from database.db_read import DatabaseRead
+from database.queries import QueryDB
 from modules.statistics_salary import SalaryStatistics
 from offer import SalaryHistoryRecord, SalaryStatisticsOffer
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 
 
 class SalaryHistory:
-    def __init__(self, db_read: DatabaseRead) -> None:
+    def __init__(self, db_read: QueryDB) -> None:
         self.db_read = db_read
         self.statistics: dict[
             tuple[str | None, str | None],

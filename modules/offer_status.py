@@ -1,12 +1,12 @@
 from datetime import datetime, timedelta
 
-from database.db_read import DatabaseRead
-from database.db_update import DatabaseUpdate
+from database.queries import QueryDB
+from database.updates import UpdateDB
 from offer import JobOffer
 
 
 class OfferStatus:
-    def __init__(self, db_read: DatabaseRead, db_update: DatabaseUpdate) -> None:
+    def __init__(self, db_read: QueryDB, db_update: UpdateDB) -> None:
         self.db_read = db_read
         self.db_update = db_update
 
@@ -20,7 +20,6 @@ class OfferStatus:
             return "new"
 
         last_date = max(datetime.strptime(date, "%Y-%m-%d") for date in offers)
-
         job_date = datetime.strptime(job.date, "%Y-%m-%d")
 
         if (job_date - last_date).days >= 30:
@@ -34,23 +33,26 @@ class OfferStatus:
         grouped_offers: dict[tuple[str, str], list[tuple[int, datetime, str]]] = {}
 
         for offer in offers:
-            id, title, company, date, status = offer
+            offer_id, title, company, date, status = offer
 
             key = (title, company)
-            grouped_offers.setdefault(key, []).append((id, datetime.strptime(date, "%Y-%m-%d"), status))
+            grouped_offers.setdefault(key, []).append((offer_id, datetime.strptime(date, "%Y-%m-%d"), status))
 
         today = datetime.today()
 
-        for offers in grouped_offers.values():
+        for company_offers in grouped_offers.values():
             cycles = []
             current_cycle: list[tuple[int, datetime, str]] = []
 
-            for offer in offers:
+            for offer in company_offers:
                 if not current_cycle:
                     current_cycle.append(offer)
                     continue
 
-                days = (offer[1] - current_cycle[-1][1]).days
+                offer_date = offer[1]
+                previous_offer_date = current_cycle[-1][1]
+
+                days = (offer_date - previous_offer_date).days
 
                 if days >= 30:
                     cycles.append(current_cycle)
@@ -62,8 +64,10 @@ class OfferStatus:
                 cycles.append(current_cycle)
 
             for cycle in cycles:
-                if today - cycle[-1][1] >= timedelta(days=30):
+                last_offer_date = cycle[-1][1]
+                if today - last_offer_date >= timedelta(days=30):
+                    offer_ids = [offer_id for offer_id, _, _ in cycle]
                     self.db_update.update_offer_status(
-                        [offer[0] for offer in cycle],
+                        offer_ids,
                         "ended",
                     )

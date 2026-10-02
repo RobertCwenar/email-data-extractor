@@ -7,21 +7,20 @@ from dotenv import load_dotenv
 
 from config import config
 from database.database import Database
-from database.db_read import DatabaseRead
-from database.db_save import DatabaseSave
-from database.db_tables import DatabaseTables
-from database.db_update import DatabaseUpdate
+from database.inserts import InsertDB
+from database.queries import QueryDB
+from database.schema import DBSchema
+from database.updates import UpdateDB
 from modules.ai_service import AIService
+from modules.email_sources import build_email_parsers
 from modules.filter_service import FilterService
 from modules.job_classification_service import JobClassificationService
 from modules.job_classifier import JobClassifier
 from modules.offer_status import OfferStatus
-from modules.processed_cache import FileCache
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
 from offer import JobContract
-from parsers.email_parser import EmailParser
 from parsers.salary_parsers import SalaryParser
 
 # Load environment variables from .env file
@@ -49,13 +48,13 @@ async def main() -> None:
     ai = AIService(api_key)
     db = Database()
 
-    db_save = DatabaseSave(db)
-    db_read = DatabaseRead(db)
-    db_update = DatabaseUpdate(db)
-    db_tables = DatabaseTables(db)
+    db_insert = InsertDB(db)
+    db_query = QueryDB(db)
+    db_update = UpdateDB(db)
+    db_schema = DBSchema(db)
 
-    db_tables.create_tables()
-    offer_status = OfferStatus(db_read, db_update)
+    db_schema.create_tables()
+    offer_status = OfferStatus(db_query, db_update)
     offer_status.update_ended_offers()
     filter_service = FilterService(config)
     email_config = {
@@ -65,7 +64,7 @@ async def main() -> None:
         "password": os.getenv("PASSWORD"),
     }
 
-    salary_history = SalaryHistory(db_read)
+    salary_history = SalaryHistory(db_query)
     salary_history.process_history()
 
     salary_estimator = SalaryEstimator(salary_history)
@@ -73,72 +72,16 @@ async def main() -> None:
     salary_parser = SalaryParser()
     classifier = JobClassifier(ai)
 
-    # Define the sources to process job offers from mailboxes.
-    sources = [
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "RocketJobs",
-            cache=FileCache("mail_records/processed_rocketjobs_mails.txt"),
-            source="RocketJobs",
-            salary_parser=salary_parser,
-        ),
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "PRACA",
-            cache=FileCache("mail_records/processed_praca_mails.txt"),
-            source="Pracuj.pl",
-            salary_parser=salary_parser,
-        ),
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "Link",
-            cache=FileCache("mail_records/processed_linkedin_mails.txt"),
-            source="Linkedin",
-            salary_parser=salary_parser,
-        ),
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "justjoinit",
-            cache=FileCache("mail_records/processed_justjoinit_mails.txt"),
-            source="justjoin.it",
-            salary_parser=salary_parser,
-        ),
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "theprotocol",
-            cache=FileCache("mail_records/processed_theprotocolit_mails.txt"),
-            source="theprotocol.it",
-            salary_parser=salary_parser,
-        ),
-        EmailParser(
-            ai,
-            db,
-            filter_service,
-            email_config,
-            "Jooble",
-            cache=FileCache("mail_records/processed_jooble_mails.txt"),
-            source="Jooble",
-            salary_parser=salary_parser,
-        ),
-    ]
+    sources = build_email_parsers(
+        ai=ai,
+        db_insert=db_insert,
+        filter_service=filter_service,
+        email_config=email_config,
+        salary_parser=salary_parser,
+    )
 
     classification_service = JobClassificationService(
-        db_read, db_update, db_save, classifier, salary_estimator, salary_processor
+        db_query, db_update, db_insert, classifier, salary_estimator, salary_processor
     )
 
     offer_ids = set()
@@ -151,7 +94,7 @@ async def main() -> None:
         for offer, offer_text, cache_id in offers:
             if filter_service.should_save(offer):
                 offer.offer_status = offer_status.get_offer_status(offer)
-                offer_id = db_save.save_offers(
+                offer_id = db_insert.save_offers(
                     offer,
                     source=parser.source,
                 )
@@ -168,13 +111,13 @@ async def main() -> None:
                     contract.offer_id = offer_id
                     contract = salary_processor.resolve_contract_type(contract, offer_text)
                     salary_processor.normalize_salary(contract)
-                    db_save.save_job_contract(contract)
+                    db_insert.save_job_contract(contract)
 
     # Process job classifications and salary estimation
     await classification_service.process_jobs()
 
     await classification_service.process_salary_estimations()
-    offer_ids.update(db_read.get_job_contract_offer_ids())
+    offer_ids.update(db_query.get_job_contract_offer_ids())
 
     await classification_service.process_salary_selection(offer_ids)
 

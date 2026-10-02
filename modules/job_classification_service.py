@@ -7,10 +7,10 @@ logger = logging.getLogger(__name__)
 
 class JobClassificationService:
     # Initialize the JobClassificationServce with database and classifier instances
-    def __init__(self, db_read, db_update, db_save, classifier, salary_estimator, salary_processor) -> None:
-        self.db_read = db_read
-        self.db_update = db_update
-        self.db_save = db_save
+    def __init__(self, queries, updates, inserts, classifier, salary_estimator, salary_processor) -> None:
+        self.db_query = queries
+        self.db_update = updates
+        self.db_insert = inserts
         self.classifier = classifier
         self.salary_estimator = salary_estimator
         self.salary_processor = salary_processor
@@ -18,13 +18,13 @@ class JobClassificationService:
     # Process jobs for classification and save the results to the database
     async def process_jobs(self) -> None:
 
-        jobs = self.db_read.get_jobs_for_classification()
+        jobs = self.db_query.get_jobs_for_classification()
 
         for offer_id, title, company, date in jobs:
             if not title:
                 continue
 
-            cached = self.db_read.get_classification_by_title(title)
+            cached = self.db_query.get_classification_by_title(title)
 
             if cached and cached[1]:
                 logger.debug(f"Classification cache: {title}")
@@ -35,14 +35,14 @@ class JobClassificationService:
                 level = self.classifier.classify_level(title)
                 category = await self.classifier.classify_category(title)
 
-            salary_status = self.db_read.get_salary_status(offer_id)
+            salary_status = self.db_query.get_salary_status(offer_id)
 
             logger.debug(f"Salary status for: {offer_id}, {salary_status}")
 
-            if self.db_read.job_details_exists(offer_id):
+            if self.db_query.job_details_exists(offer_id):
                 self.db_update.update_job_category(offer_id, category)
             else:
-                self.db_save.save_job_details(
+                self.db_insert.save_job_details(
                     offer_id,
                     title,
                     level,
@@ -50,7 +50,7 @@ class JobClassificationService:
                 )
 
     async def process_salary_estimations(self) -> None:
-        contracts = self.db_read.get_job_contracts_for_salary_estimator()
+        contracts = self.db_query.get_job_contracts_for_salary_estimator()
 
         logger.debug(f"Contracts for salary estimation: {len(contracts)}")
 
@@ -89,7 +89,7 @@ class JobClassificationService:
 
     async def process_salary_selection(self, offer_ids: set[int]) -> None:
         for offer_id in offer_ids:
-            rows = self.db_read.get_job_contracts(offer_id)
+            rows = self.db_query.get_job_contracts(offer_id)
 
             contracts = []
 
