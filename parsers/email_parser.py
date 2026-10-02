@@ -7,7 +7,7 @@ from typing import cast
 from bs4 import BeautifulSoup
 
 from core.base_parser import BaseParser
-from database.db_save import Database
+from database.inserts import InsertDB
 from modules.ai_service import AIService
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
@@ -19,7 +19,7 @@ class EmailParser(BaseParser):
     def __init__(
         self,
         ai_service: AIService,
-        db_service: Database,
+        db_service: InsertDB,
         filter_service: FilterService,
         email_config,
         folder_name: str,

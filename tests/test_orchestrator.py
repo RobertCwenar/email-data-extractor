@@ -25,15 +25,15 @@ async def test_main():
 
     # Mock DB
     mock_db = MagicMock()
-    mock_db_save = MagicMock()
-    mock_db_read = MagicMock()
+    mock_db_insert = MagicMock()
+    mock_db_queries = MagicMock()
     mock_db_update = MagicMock()
-    mock_db_tables = MagicMock()
+    mock_db_schema = MagicMock()
 
-    mock_db_read.get_offer_history.return_value = []
-    mock_db_read.get_offers_for_status.return_value = []
-    mock_db_read.get_salary_history.return_value = []
-    mock_db_read.get_job_contract_offer_ids.return_value = []
+    mock_db_queries.get_offer_history.return_value = []
+    mock_db_queries.get_offers_for_status.return_value = []
+    mock_db_queries.get_salary_history.return_value = []
+    mock_db_queries.get_job_contract_offer_ids.return_value = []
 
     # Mock filter
     mock_filter_instance = MagicMock()
@@ -42,21 +42,18 @@ async def test_main():
     with (
         patch("orchestrator.AIService", return_value=mock_ai_instance),
         patch("orchestrator.Database", return_value=mock_db),
-        patch("orchestrator.DatabaseSave", return_value=mock_db_save),
-        patch("orchestrator.DatabaseRead", return_value=mock_db_read),
-        patch("orchestrator.DatabaseUpdate", return_value=mock_db_update),
-        patch("orchestrator.DatabaseTables", return_value=mock_db_tables),
+        patch("orchestrator.InsertDB", return_value=mock_db_insert),
+        patch("orchestrator.QueryDB", return_value=mock_db_queries),
+        patch("orchestrator.UpdateDB", return_value=mock_db_update),
+        patch("orchestrator.DBSchema", return_value=mock_db_schema),
         patch("orchestrator.FilterService", return_value=mock_filter_instance),
-        patch("orchestrator.EmailParser", return_value=mock_parser_instance),
-        patch("orchestrator.FileCache"),
+        patch(
+            "orchestrator.build_email_parsers",
+            return_value=[mock_parser_instance],
+        ),
     ):
         await main()
 
-    # Verify that offers were fetched from the parser
-    assert mock_parser_instance.fetch_offers.call_count == 6
-
-    # Verify that the offer passed the filtering rules
-    assert mock_filter_instance.should_save.call_count == 6
-
-    # Verify that the accepted offer was saved to the database
-    assert mock_db_save.save_offers.call_count == 6
+    assert mock_parser_instance.fetch_offers.call_count == 1
+    assert mock_filter_instance.should_save.call_count == 1
+    assert mock_db_insert.save_offers.call_count == 1

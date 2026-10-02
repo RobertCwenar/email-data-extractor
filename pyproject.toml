@@ -11,6 +11,8 @@ dependencies = [
     "pandas>=3.0.3",
     "playwright>=1.62.0",
     "python-dotenv>=1.2.2",
+    "requests>=2.34.2",
+    "uvicorn[standard]>=0.54.0",
 ]
 
 [dependency-groups]
