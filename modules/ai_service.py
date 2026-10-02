@@ -6,9 +6,17 @@ from google import genai
 from google.genai.errors import ClientError, ServerError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
+from config import config
 from offer import CategoryValidationResponse, JobContract, JobContractResponse, JobOffer, OffersResponse
 
 logger = logging.getLogger(__name__)
+
+
+RETRY_MULTIPLIER = 1
+RETRY_MIN_WAIT = 6
+RETRY_MAX_WAIT = 60
+RETRY_ATTEMPTS = 10
+API_DELAY = 5.0
 
 
 # Function to parse job offers from text using the API
@@ -17,15 +25,8 @@ class AIService:
         self.client = genai.Client(api_key=api_key)
         self._api_lock = asyncio.Lock()
         self._last_api_call = 0.0
-        self._api_delay = 5.0
-        self._models = [
-            "models/gemini-3.1-flash-lite",
-            "models/gemini-3.5-flash-lite",
-            "models/gemini-3.5-flash",
-            "models/gemini-3.6-flash",
-            "models/gemini-3.7-flash",
-            "models/gemini-3.8-flash",
-        ]
+        self._api_delay = API_DELAY
+        self._models = config.get_list(["ai_models"])
 
     async def _wait_before_api_call(self) -> None:
         async with self._api_lock:
@@ -37,21 +38,12 @@ class AIService:
 
             self._last_api_call = time.monotonic()
 
-    @retry(
-        retry=retry_if_exception_type(ServerError),
-        wait=wait_exponential(multiplier=1, min=6, max=60),  # Wait: 4s, 8s, 16s...
-        stop=stop_after_attempt(10),
-    )
-    async def parser_offers_api(self, text: str) -> list[JobOffer]:
-        prompt = (
-            "Extract all job offers from this email text. "
-            "Return each job offer separately. "
-            "Do not extract salary or contract information.\n\n"
-            'VAT: true if "VAT" is explicitly stated, otherwise null.'
-            f'"{text}"'
-        )
-
-        response = None
+    async def _generate_response(
+        self,
+        prompt: str,
+        response_schema: dict,
+    ):
+        last_error = None
 
         for model in self._models:
             try:
@@ -63,24 +55,40 @@ class AIService:
                     contents=prompt,
                     config={
                         "response_mime_type": "application/json",
-                        "response_schema": OffersResponse.model_json_schema(),
+                        "response_schema": response_schema,
                         "temperature": 0.0,
                     },
                 )
 
-                logger.info(f"AI request successful with model: {model}")
-                break
+                logger.info("AI request successful with model: %s", model)
+
+                return response
 
             except (ServerError, ClientError) as error:
                 last_error = error
-                logger.warning(
-                    "AI request failed with model %s: %s",
-                    model,
-                    error,
-                )
 
-        if response is None:
+                logger.warning("AI request failed with model %s: %s", model, error)
+
+        if last_error is not None:
             raise last_error
+
+        raise RuntimeError("No AI models configured")
+
+    @retry(
+        retry=retry_if_exception_type(ServerError),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
+        stop=stop_after_attempt(RETRY_ATTEMPTS),
+    )
+    async def parser_offers_api(self, text: str) -> list[JobOffer]:
+        prompt = (
+            "Extract all job offers from this email text. "
+            "Return each job offer separately. "
+            "Do not extract salary or contract information.\n\n"
+            'VAT: true if "VAT" is explicitly stated, otherwise null.'
+            f'"{text}"'
+        )
+
+        response = await self._generate_response(prompt, OffersResponse.model_json_schema())
 
         logger.debug(f"AI OFFERS RAW RESPONSE: {response.text}")
 
@@ -95,11 +103,6 @@ class AIService:
 
         return parsed_response.offers
 
-    @retry(
-        retry=retry_if_exception_type(ServerError),
-        wait=wait_exponential(multiplier=1, min=6, max=60),  # Wait: 4s, 8s, 16s...
-        stop=stop_after_attempt(10),
-    )
     async def validate_category_api(
         self,
         clean_title: str,
@@ -115,36 +118,7 @@ class AIService:
             f'Return the correct category or unknown:\n"{clean_title}"'
         )
 
-        response = None
-
-        for model in self._models:
-            try:
-                await self._wait_before_api_call()
-
-                response = await asyncio.to_thread(
-                    self.client.models.generate_content,
-                    model=model,
-                    contents=prompt,
-                    config={
-                        "response_mime_type": "application/json",
-                        "response_schema": CategoryValidationResponse.model_json_schema(),
-                        "temperature": 0.0,
-                    },
-                )
-
-                logger.info(f"AI request successful with model: {model}")
-                break
-
-            except (ServerError, ClientError) as error:
-                last_error = error
-                logger.warning(
-                    "AI request failed with model %s: %s",
-                    model,
-                    error,
-                )
-
-        if response is None:
-            raise last_error
+        response = await self._generate_response(prompt, CategoryValidationResponse.model_json_schema())
 
         logger.debug(f"CATEGORY RAW RESPONSE: {response.text}")
 
@@ -158,8 +132,8 @@ class AIService:
 
     @retry(
         retry=retry_if_exception_type(ServerError),
-        wait=wait_exponential(multiplier=1, min=6, max=60),
-        stop=stop_after_attempt(10),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
+        stop=stop_after_attempt(RETRY_ATTEMPTS),
     )
     async def validate_salary_api(
         self,
@@ -173,30 +147,7 @@ class AIService:
             f"JOB OFFER:\n{salary_text}"
         )
 
-        response = None
-
-        for model in self._models:
-            try:
-                await self._wait_before_api_call()
-
-                response = await asyncio.to_thread(
-                    self.client.models.generate_content,
-                    model=model,
-                    contents=prompt,
-                    config={
-                        "response_mime_type": "application/json",
-                        "response_schema": JobContractResponse.model_json_schema(),
-                        "temperature": 0.0,
-                    },
-                )
-                logger.info("AI request successful with model: %s", model)
-                break
-            except (ServerError, ClientError) as error:
-                last_error = error
-                logger.warning("AI request failed with model %s: %s", model, error)
-
-        if response is None:
-            raise last_error
+        response = await self._generate_response(prompt, JobContractResponse.model_json_schema())
 
         if not response.parsed:
             return []
