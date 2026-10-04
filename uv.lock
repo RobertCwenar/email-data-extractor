@@ -618,6 +618,7 @@ dependencies = [
     { name = "pandas" },
     { name = "playwright" },
     { name = "python-dotenv" },
+    { name = "requests" },
     { name = "uvicorn", extra = ["standard"] },
 ]
 
@@ -641,6 +642,7 @@ requires-dist = [
     { name = "pandas", specifier = ">=3.0.3" },
     { name = "playwright", specifier = ">=1.62.0" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
+    { name = "requests", specifier = ">=2.34.2" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.54.0" },
 ]
 

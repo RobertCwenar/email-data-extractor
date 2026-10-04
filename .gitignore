@@ -16,3 +16,4 @@ mail_records/
 Structure_parser.txt
 !filter_keywords_example.json
 *.pbix
+etl.log

@@ -193,6 +193,11 @@
       ]
     }
   },
+
+  "ai_models": [
+    "models/gemini-3.1-flash-lite"
+  ],
+
   "settings": {
     "min_samples_category_level": 30,
     "min_samples_level": 30
