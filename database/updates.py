@@ -20,12 +20,12 @@ class UpdateDB:
             cursor.execute(
                 """
                 UPDATE JobContracts
-                SET contract_type = ?,
-                salary_currency = ?,
-                salary_period = ?,
-                salary_min_monthly = ?,
-                salary_max_monthly = ?
-            WHERE id = ?
+                SET contract_type = %s,
+                salary_currency = %s,
+                salary_period = %s,
+                salary_min_monthly = %s,
+                salary_max_monthly = %s
+            WHERE id = %s
                 """,
                 (
                     contract_type,
@@ -36,8 +36,6 @@ class UpdateDB:
                     contract_id,
                 ),
             )
-
-            conn.commit()
 
     def update_offer_salary(
         self,
@@ -52,10 +50,10 @@ class UpdateDB:
             cursor.execute(
                 """
                 UPDATE Offers
-                SET salary_min = ?,
-                    salary_max = ?,
-                    salary_status = ?
-                WHERE id = ?
+                SET salary_min = %s,
+                    salary_max = %s,
+                    salary_status = %s
+                WHERE id = %s
                 """,
                 (
                     salary_min,
@@ -64,8 +62,6 @@ class UpdateDB:
                     offer_id,
                 ),
             )
-
-            conn.commit()
 
     def update_job_classification(
         self,
@@ -79,14 +75,12 @@ class UpdateDB:
             cursor.execute(
                 """
                 UPDATE JobDetails
-                SET level = ?,
-                    category = ?
-                WHERE offer_id = ?
+                SET level = %s,
+                    category = %s
+                WHERE offer_id = %s
                 """,
                 (level, category, offer_id),
             )
-
-            conn.commit()
 
     def update_job_contract_monthly(
         self,
@@ -100,9 +94,9 @@ class UpdateDB:
             cursor.execute(
                 """
                 UPDATE JobContracts
-                SET salary_min_monthly = ?,
-                    salary_max_monthly = ?
-                WHERE id = ?
+                SET salary_min_monthly = %s,
+                    salary_max_monthly = %s
+                WHERE id = %s
                 """,
                 (
                     salary_min_monthly,
@@ -111,8 +105,6 @@ class UpdateDB:
                 ),
             )
 
-            conn.commit()
-
     def update_offer_status(self, rowids: list[int], status: str) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
@@ -120,13 +112,11 @@ class UpdateDB:
             cursor.executemany(
                 """
                 UPDATE Offers
-                SET offer_status = ?
-                WHERE id = ?
+                SET offer_status = %s
+                WHERE id = %s
                 """,
                 [(status, id) for id in rowids],
             )
-
-            conn.commit()
 
     def update_job_category(self, offer_id: int, category: str):
         with self.db._connect() as conn:
@@ -135,10 +125,8 @@ class UpdateDB:
             cursor.execute(
                 """
                 UPDATE JobDetails
-                SET category = ?
-                WHERE offer_id = ?
+                SET category = %s
+                WHERE offer_id = %s
                 """,
                 (category, offer_id),
             )
-
-            conn.commit()

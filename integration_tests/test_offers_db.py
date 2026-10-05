@@ -1,41 +1,48 @@
-import sqlite3
+from unittest.mock import MagicMock
 
 from database.database import Database
 from database.inserts import InsertDB
 from offer import JobOffer
 
 
-def create_test_tables(db_name: str):
-    with sqlite3.connect(db_name) as conn:
-        conn.execute("""
+def create_test_tables(db: Database):
+    with db._connect() as conn:
+        cursor = conn.cursor()
+
+        cursor.execute("""
             CREATE TABLE Companies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 company TEXT UNIQUE NOT NULL
             )
         """)
 
-        conn.execute("""
-            CREATE TABLE Offers(
-                id INTEGER PRIMARY KEY AUTOINCREMENT, 
-                title TEXT, 
-                company TEXT, 
-                location TEXT, 
-                salary_min REAL, 
-                salary_max REAL, 
-                date TEXT, 
-                source TEXT, 
-                salary_status TEXT, 
+        cursor.execute("""
+            CREATE TABLE Offers (
+                id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                title TEXT,
+                company TEXT,
+                location TEXT,
+                salary_min DOUBLE PRECISION,
+                salary_max DOUBLE PRECISION,
+                date TEXT,
+                source TEXT,
+                salary_status TEXT,
                 offer_status TEXT
-                )
-            """)
+            )
+        """)
 
 
-def test_save_same_offer_twice_creates_duplicate(tmp_path):
-    db_path = tmp_path / "test.db"
+def test_save_same_offer_twice_creates_duplicate():
+    db_connection = MagicMock()
 
-    db = InsertDB(Database(str(db_path)))
+    db_connection.__enter__.return_value = db_connection
+    db_cursor = db_connection.cursor.return_value
+    db_cursor.fetchone.side_effect = [(1,), (1,), (1,), (2,)]  # Mock the return values for save_company and save_offers
 
-    create_test_tables(str(db_path))
+    db = Database()
+    setattr(db, "_connect", MagicMock(return_value=db_connection))
+
+    insert_db = InsertDB(db)
 
     offer = JobOffer(
         title="Analityk Danych",
@@ -47,7 +54,7 @@ def test_save_same_offer_twice_creates_duplicate(tmp_path):
         salary_status="offer",
     )
 
-    first_id = db.save_offers(offer, source="Pracuj.pl")
-    second_id = db.save_offers(offer, source="Pracuj.pl")
+    first_id = insert_db.save_offers(offer, source="Pracuj.pl")
+    second_id = insert_db.save_offers(offer, source="Pracuj.pl")
 
     assert first_id != second_id

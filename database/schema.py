@@ -11,8 +11,8 @@ class DBSchema:
             cursor = conn.cursor()
 
             cursor.execute("""
-            CREATE TABLE IF NOT EXISTS JobDetails(
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+            CREATE TABLE IF NOT EXISTS JobDetails (
+                id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 offer_id INTEGER NOT NULL,
                 clean_title TEXT,
                 level TEXT,
@@ -20,27 +20,24 @@ class DBSchema:
             )
             """)
 
-            conn.commit()
-
     def create_job_contracts_table(self):
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS JobContracts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
                 offer_id INTEGER NOT NULL,
                 contract_type TEXT,
                 salary_currency TEXT,
                 salary_period TEXT,
-                salary_min_offer REAL, 
-                salary_max_offer REAL,
-                salary_min_monthly REAL, 
-                salary_max_monthly REAL,
+                salary_min_offer DOUBLE PRECISION,
+                salary_max_offer DOUBLE PRECISION,
+                salary_min_monthly DOUBLE PRECISION,
+                salary_max_monthly DOUBLE PRECISION,
                 FOREIGN KEY (offer_id) REFERENCES Offers(id)
-                )
-                """)
-            conn.commit()
+            )
+            """)
 
     # Create the Companies table
     def create_companies_table(self):
@@ -49,7 +46,7 @@ class DBSchema:
 
             cursor.execute("""
             CREATE TABLE IF NOT EXISTS Companies(
-            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY, 
             company TEXT UNIQUE NOT NULL)
             """)
 

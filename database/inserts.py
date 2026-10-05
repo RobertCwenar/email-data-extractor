@@ -26,7 +26,8 @@ class InsertDB:
                         title, company, location, salary_min, salary_max,
                         date, source, salary_status, offer_status
                     )
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        RETURNING id
                 """,
                 (
                     job.title,
@@ -41,7 +42,7 @@ class InsertDB:
                 ),
             )
 
-            return cursor.lastrowid
+            return cursor.fetchone()[0]
 
     # Save company to the Companies table and return its ID
     def save_company(self, company_name: str):
@@ -53,14 +54,15 @@ class InsertDB:
 
             cursor.execute(
                 """
-                    INSERT OR IGNORE INTO Companies (company)
-                        VALUES (?)
+                    INSERT INTO Companies (company)
+                    VALUES (%s)
+                    ON CONFLICT (company) DO NOTHING
                 """,
                 (company_name,),
             )
             cursor.execute(
                 """
-                    SELECT id FROM Companies WHERE company = ? 
+                    SELECT id FROM Companies WHERE company = %s
                     """,
                 (company_name,),
             )
@@ -82,7 +84,7 @@ class InsertDB:
                     salary_min_monthly, 
                     salary_max_monthly
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     contract.offer_id,
@@ -114,12 +116,10 @@ class InsertDB:
                     level,
                     category
                 )
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (offer_id, clean_title, level, category),
             )
-
-            conn.commit()
 
 
 # Normalize date to a standard format
