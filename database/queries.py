@@ -20,28 +20,27 @@ class QueryDB:
 
             return cursor.fetchone()
 
-    def get_job_contracts(self, offer_id: int):
-        with self.db._connect() as conn:
-            cursor = conn.cursor()
+    def get_job_contracts(self, offer_id: int, conn):
+        cursor = conn.cursor()
 
-            cursor.execute(
-                """
-                SELECT
-                    id,
-                    contract_type,
-                    salary_currency,
-                    salary_period,
-                    salary_min_offer,
-                    salary_max_offer,
-                    salary_min_monthly,
-                    salary_max_monthly
-                FROM JobContracts
-                WHERE offer_id = %s
-                """,
-                (offer_id,),
-            )
+        cursor.execute(
+            """
+            SELECT
+                id,
+                contract_type,
+                salary_currency,
+                salary_period,
+                salary_min_offer,
+                salary_max_offer,
+                salary_min_monthly,
+                salary_max_monthly
+            FROM JobContracts
+            WHERE offer_id = %s
+            """,
+            (offer_id,),
+        )
 
-            return cursor.fetchall()
+        return cursor.fetchall()
 
     def get_job_contract_offer_ids(self):
         with self.db._connect() as conn:

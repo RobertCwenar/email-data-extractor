@@ -35,9 +35,10 @@ class SalaryRecovery:
         self.salary_processor = salary_processor
 
     async def recover(self, offer_id: int) -> bool:
-        if self.db_query.get_job_contracts(offer_id):
-            print("Recovery stopped: contracts already exist")
-            return False
+        with self.db_query.db._connect() as conn:
+            if self.db_query.get_job_contracts(offer_id, conn):
+                print("Recovery stopped: contracts already exist")
+                return False
 
         offer = self.db_query.get_offer(offer_id)
 
