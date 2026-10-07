@@ -1,13 +1,16 @@
 import logging
-import sqlite3
 
-DB = "new_offers.db"
+from dotenv import load_dotenv
+
+from database.database import Database
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
+
 
 def migrate_job_salary():
-    with sqlite3.connect(DB) as conn:
+    with Database()._connect() as conn:
         cursor = conn.cursor()
 
         cursor.execute("""
@@ -20,29 +23,26 @@ def migrate_job_salary():
         logger.info(f"Found {len(offers)} offers")
 
         for offer_id, salary_min, salary_max in offers:
-            try:
-                cursor.execute(
-                    """
-                    INSERT INTO JobContracts
-                    (offer_id, salary_min_offer, salary_max_offer)
-                    VALUES (?, ?, ?)
-                    """,
-                    (
-                        offer_id,
-                        salary_min,
-                        salary_max,
-                    ),
-                )
-
-            except sqlite3.Error as e:
-                logger.warning(f"Could not save JobContracts for offer {offer_id}: {e}")
+            cursor.execute(
+                """
+                INSERT INTO JobContracts
+                (offer_id, salary_min_offer, salary_max_offer)
+                VALUES (%s, %s, %s)
+                """,
+                (offer_id, salary_min, salary_max),
+            )
 
         cursor.execute("""
             SELECT COUNT(*)
             FROM JobContracts
         """)
 
-        count = cursor.fetchone()[0]
+        count_row = cursor.fetchone()
+        if count_row is None:
+            logger.warning("Could not determine JobContracts count")
+            return
+
+        count = count_row[0]
 
         logger.info(f"JobContracts contains {count} records")
 

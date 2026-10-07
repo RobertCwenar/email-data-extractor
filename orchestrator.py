@@ -118,9 +118,8 @@ async def main() -> None:
 
     await classification_service.process_salary_estimations()
     offer_ids.update(db_query.get_job_contract_offer_ids())
-
     await classification_service.process_salary_selection(offer_ids)
-
+    logger.info("END salary selection")
     logger.info("ETL finished successfully")
 
 

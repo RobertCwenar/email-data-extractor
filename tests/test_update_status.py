@@ -1,13 +1,19 @@
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, MagicMock, Mock, patch
 
 import pytest
 
 from modules.salary_recovery import SalaryRecovery
 
 
+def create_db_query_mock():
+    db_query = Mock()
+    db_query.db._connect.return_value = MagicMock()
+    return db_query
+
+
 @pytest.mark.asyncio
 async def test_recover_salary_from_mail():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()
@@ -65,7 +71,7 @@ async def test_recover_salary_from_mail():
 
 @pytest.mark.asyncio
 async def test_recover_does_nothing_when_salary_not_found():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()
@@ -112,7 +118,7 @@ async def test_recover_does_nothing_when_salary_not_found():
 
 @pytest.mark.asyncio
 async def test_recover_does_nothing_when_offer_does_not_exist():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()
@@ -140,7 +146,7 @@ async def test_recover_does_nothing_when_offer_does_not_exist():
 
 @pytest.mark.asyncio
 async def test_recover_does_nothing_when_contract_already_exists():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()
@@ -179,7 +185,7 @@ async def test_recover_does_nothing_when_contract_already_exists():
 
 @pytest.mark.asyncio
 async def test_recover_uses_folder_from_source():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()
@@ -235,7 +241,7 @@ async def test_recover_uses_folder_from_source():
 
 @pytest.mark.asyncio
 async def test_recover_salary_from_previous_offer():
-    db_query = Mock()
+    db_query = create_db_query_mock()
     db_insert = Mock()
     db_update = Mock()
     ai = Mock()

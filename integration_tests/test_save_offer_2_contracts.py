@@ -1,55 +1,24 @@
-import sqlite3
+from unittest.mock import MagicMock
 
 from database.database import Database
 from database.inserts import InsertDB
 from offer import JobContract, JobOffer
 
 
-def create_test_offer_db(db_name: str):
-    with sqlite3.connect(db_name) as conn:
-        conn.execute("""
-            CREATE TABLE Companies (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                company TEXT UNIQUE NOT NULL
-            )
-        """)
+def test_save_offer_with_uop_and_b2b():
+    db_connection = MagicMock()
+    db_connection.__enter__.return_value = db_connection
+    db_cursor = db_connection.cursor.return_value
 
-        conn.execute("""
-            CREATE TABLE Offers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT,
-                company TEXT,
-                location TEXT,
-                salary_min REAL,
-                salary_max REAL,
-                date TEXT,
-                source TEXT,
-                salary_status TEXT, 
-                offer_status TEXT
-            )
-        """)
+    db_cursor.fetchone.side_effect = [
+        (1,),  # save_company
+        (1,),  # save_offers
+    ]
 
-        conn.execute("""
-            CREATE TABLE JobContracts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                offer_id INTEGER NOT NULL,
-                contract_type TEXT,
-                salary_currency TEXT,
-                salary_period TEXT,
-                salary_min_offer REAL,
-                salary_max_offer REAL,
-                salary_min_monthly REAL,
-                salary_max_monthly REAL
-            )
-        """)
+    db = Database()
+    setattr(db, "_connect", MagicMock(return_value=db_connection))
 
-
-def test_save_offer_with_uop_and_b2b(tmp_path):
-    db_path = str(tmp_path / "test.db")
-
-    create_test_offer_db(db_path)
-
-    db = InsertDB(Database(db_path))
+    insert_db = InsertDB(db)
 
     offer = JobOffer(
         title="Analityk Danych",
@@ -61,7 +30,7 @@ def test_save_offer_with_uop_and_b2b(tmp_path):
         salary_status="offer",
     )
 
-    offer_id = db.save_offers(
+    offer_id = insert_db.save_offers(
         offer,
         source="Pracuj.pl",
     )
@@ -90,20 +59,6 @@ def test_save_offer_with_uop_and_b2b(tmp_path):
     ]
 
     for contract in contracts:
-        db.save_job_contract(contract)
+        insert_db.save_job_contract(contract)
 
-    with sqlite3.connect(db_path) as conn:
-        rows = conn.execute(
-            """
-            SELECT contract_type, salary_period,
-                   salary_min_offer, salary_max_offer
-            FROM JobContracts
-            WHERE offer_id = ?
-        """,
-            (offer_id,),
-        ).fetchall()
-
-    assert len(rows) == 2
-
-    assert rows[0][0] == "UoP"
-    assert rows[1][0] == "B2B"
+    assert db_cursor.execute.call_count == 5

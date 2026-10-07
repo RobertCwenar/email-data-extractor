@@ -13,35 +13,34 @@ class QueryDB:
                 """
                 SELECT contract_type, salary_period
                 FROM JobContracts
-                WHERE offer_id = ?
+                WHERE offer_id = %s
             """,
                 (offer_id,),
             )
 
             return cursor.fetchone()
 
-    def get_job_contracts(self, offer_id: int):
-        with self.db._connect() as conn:
-            cursor = conn.cursor()
+    def get_job_contracts(self, offer_id: int, conn):
+        cursor = conn.cursor()
 
-            cursor.execute(
-                """
-                SELECT
-                    id,
-                    contract_type,
-                    salary_currency,
-                    salary_period,
-                    salary_min_offer,
-                    salary_max_offer,
-                    salary_min_monthly,
-                    salary_max_monthly
-                FROM JobContracts
-                WHERE offer_id = ?
-                """,
-                (offer_id,),
-            )
+        cursor.execute(
+            """
+            SELECT
+                id,
+                contract_type,
+                salary_currency,
+                salary_period,
+                salary_min_offer,
+                salary_max_offer,
+                salary_min_monthly,
+                salary_max_monthly
+            FROM JobContracts
+            WHERE offer_id = %s
+            """,
+            (offer_id,),
+        )
 
-            return cursor.fetchall()
+        return cursor.fetchall()
 
     def get_job_contract_offer_ids(self):
         with self.db._connect() as conn:
@@ -80,7 +79,7 @@ class QueryDB:
                 """
                 SELECT level, category
                 FROM JobDetails
-                WHERE clean_title = ?
+                WHERE clean_title = %s
                 LIMIT 1
                 """,
                 (clean_title,),
@@ -96,7 +95,7 @@ class QueryDB:
                 """
                 SELECT 1
                 FROM JobDetails
-                WHERE offer_id = ?
+                WHERE offer_id = %s
                 LIMIT 1
                 """,
                 (offer_id,),
@@ -112,7 +111,7 @@ class QueryDB:
                 """
                 SELECT salary_status
                 FROM Offers
-                WHERE id = ?
+                WHERE id = %s
                 """,
                 (offer_id,),
             )
@@ -127,7 +126,7 @@ class QueryDB:
                 FROM Offers o
                 LEFT JOIN JobDetails jd 
                     ON jd.offer_id = o.id
-                WHERE o.salary_status IN ("offer", "offer_calculate")
+                WHERE o.salary_status IN ('offer', 'offer_calculate')
             """)
             return cursor.fetchall()
 
@@ -178,7 +177,7 @@ class QueryDB:
                 """
                 SELECT date
                 FROM Offers
-                WHERE title = ? AND company = ?
+                WHERE title = %s AND company = %s
                 """,
                 (title, company),
             )
@@ -208,16 +207,16 @@ class QueryDB:
                 """
             SELECT id
             FROM Offers
-            WHERE title = ?
-                AND company = ?
-                AND id < ?
+            WHERE title = %s
+                AND company = %s
+                AND id < %s
             ORDER BY id DESC
             LIMIT 1
             """,
                 (title, company, offer_id),
             )
 
-        row = cursor.fetchone()
+            row = cursor.fetchone()
         return row[0] if row else None
 
     def get_offers(self):
@@ -240,7 +239,7 @@ class QueryDB:
             ORDER BY date DESC
             """)
 
-        return cursor.fetchall()
+            return cursor.fetchall()
 
     def get_offer(self, offer_id: int):
         with self.db._connect() as conn:
@@ -260,7 +259,7 @@ class QueryDB:
                     salary_status,
                     offer_status
                 FROM Offers
-                WHERE id = ?
+                WHERE id = %s
                 """,
                 (offer_id,),
             )
@@ -293,9 +292,9 @@ class QueryDB:
                 FROM Offers o
                 JOIN JobContracts jc
                     ON jc.offer_id = o.id
-                WHERE o.title = ?
-                AND o.company = ?
-                AND o.id != ?
+                WHERE o.title = %s
+                AND o.company = %s
+                AND o.id != %s
                 AND o.salary_min IS NOT NULL
                 AND o.salary_max IS NOT NULL
                 AND o.salary_status IS NOT NULL

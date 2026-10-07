@@ -1,10 +1,14 @@
-import sqlite3
+import os
+
+import psycopg
 
 
-# Database class for saving job offers and related data to SQLite database
 class Database:
-    def __init__(self, db_name: str = "new_offers.db"):
-        self.db_name = db_name
-
     def _connect(self):
-        return sqlite3.connect(self.db_name, timeout=40)
+        return psycopg.connect(
+            host=os.getenv("POSTGRES_HOST"),
+            port=os.getenv("POSTGRES_PORT"),
+            dbname=os.getenv("POSTGRES_DB"),
+            user=os.getenv("POSTGRES_USER"),
+            password=os.getenv("POSTGRES_PASSWORD"),
+        )
