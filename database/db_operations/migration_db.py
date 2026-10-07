@@ -1,48 +1,48 @@
 import logging
-import sqlite3
 
-DB = "new_offers.db"
+from dotenv import load_dotenv
+
+from database.database import Database
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 
 def migrate_job_details():
-    with sqlite3.connect(DB) as conn:
+    db = Database()
+
+    with db._connect() as conn:
         cursor = conn.cursor()
 
-    cursor.execute("""
-        SELECT id, title
-        FROM Offers
-    """)
+        cursor.execute("""
+            SELECT id, title
+            FROM Offers
+        """)
 
-    offers = cursor.fetchall()
+        offers = cursor.fetchall()
 
-    logger.info(f"Found {len(offers)} offers")
+        logger.info(f"Found {len(offers)} offers")
 
-    for offer in offers:
-        try:
+        for offer_id, title in offers:
             cursor.execute(
                 """
                 INSERT INTO JobDetails
                 (offer_id, clean_title, level, category)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (
-                    offer[0],
-                    offer[1],
+                    offer_id,
+                    title,
                     None,
                     None,
                 ),
             )
-        except sqlite3.Error as e:
-            logger.warning(f"Could not save JobDetails for offer {offer[0]} {offer[1]}: {e}")
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM JobDetails
-    """)
-
-    logger.info(f"JobDetails after: {cursor.fetchone()[0]}")
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM JobDetails
+        """)
+        logger.info(f"JobDetails contains {cursor.fetchone()[0]} records")
 
 
 if __name__ == "__main__":

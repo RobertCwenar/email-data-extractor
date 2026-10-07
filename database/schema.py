@@ -5,6 +5,25 @@ class DBSchema:
     def __init__(self, db: Database):
         self.db = db
 
+    def create_offers_table(self):
+        with self.db._connect() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS Offers (
+                    id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+                    title TEXT,
+                    company TEXT,
+                    location TEXT,
+                    salary_min DOUBLE PRECISION,
+                    salary_max DOUBLE PRECISION,
+                    date TEXT,
+                    source TEXT,
+                    salary_status TEXT,
+                    offer_status TEXT
+                )
+            """)
+
     # Create the JobDetails table
     def create_job_details_table(self):
         with self.db._connect() as conn:
@@ -51,6 +70,7 @@ class DBSchema:
             """)
 
     def create_tables(self):
+        self.create_offers_table()
         self.create_companies_table()
         self.create_job_details_table()
         self.create_job_contracts_table()

@@ -1,13 +1,18 @@
 import logging
-import sqlite3
+
+from dotenv import load_dotenv
+
+from database.database import Database
 
 logger = logging.getLogger(__name__)
 
-db_name = "new_offers.db"
+load_dotenv()
 
 
 def migrate_salary_status():
-    with sqlite3.connect(db_name) as conn:
+    db = Database()
+
+    with db._connect() as conn:
         cursor = conn.cursor()
 
         cursor.execute(
