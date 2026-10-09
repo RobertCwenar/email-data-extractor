@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 
 from config import config
 from database.database import Database
+from database.deduplication import Deduplication
 from database.inserts import InsertDB
 from database.queries import QueryDB
 from database.schema import DBSchema
@@ -16,12 +17,13 @@ from modules.email_sources import build_email_parsers
 from modules.filter_service import FilterService
 from modules.job_classification_service import JobClassificationService
 from modules.job_classifier import JobClassifier
+from modules.offer_source_workflow import OfferSourceWorkflow
 from modules.offer_status import OfferStatus
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
-from offer import JobContract
 from parsers.salary_parsers import SalaryParser
+from scrapers.scraper import Scraper
 
 # Load environment variables from .env file
 load_dotenv()
@@ -50,6 +52,7 @@ async def main() -> None:
 
     db_insert = InsertDB(db)
     db_query = QueryDB(db)
+    deduplication = Deduplication(db)
     db_update = UpdateDB(db)
     db_schema = DBSchema(db)
 
@@ -80,38 +83,23 @@ async def main() -> None:
         salary_parser=salary_parser,
     )
 
+    scraper = Scraper()
+
     classification_service = JobClassificationService(
         db_query, db_update, db_insert, classifier, salary_estimator, salary_processor
     )
 
-    offer_ids = set()
-
-    for parser in sources:
-        logger.info(f"Processing source: {parser.source}")
-
-        offers = await parser.fetch_offers()
-
-        for offer, offer_text, cache_id in offers:
-            if filter_service.should_save(offer):
-                offer.offer_status = offer_status.get_offer_status(offer)
-                offer_id = db_insert.save_offers(
-                    offer,
-                    source=parser.source,
-                )
-                offer_ids.add(offer_id)
-                contracts = []
-
-                if offer_text:
-                    contracts = await ai.validate_salary_api(offer_text)
-
-                if not contracts:
-                    contracts = [JobContract(contract_type="UoP")]
-
-                for contract in contracts:
-                    contract.offer_id = offer_id
-                    contract = salary_processor.resolve_contract_type(contract, offer_text)
-                    salary_processor.normalize_salary(contract)
-                    db_insert.save_job_contract(contract)
+    source_workflow = OfferSourceWorkflow(
+        email_parsers=sources,
+        scraper=scraper,
+        db_query=deduplication,
+        db_insert=db_insert,
+        filter_service=filter_service,
+        offer_status=offer_status,
+        ai=ai,
+        salary_processor=salary_processor,
+    )
+    offer_ids = await source_workflow.run()
 
     # Process job classifications and salary estimation
     await classification_service.process_jobs()

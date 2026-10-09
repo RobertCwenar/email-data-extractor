@@ -34,7 +34,7 @@ async def test_main():
     mock_db_queries.get_offers_for_status.return_value = []
     mock_db_queries.get_salary_history.return_value = []
     mock_db_queries.get_job_contract_offer_ids.return_value = []
-
+    mock_db_queries.find_cross_source_duplicate_id.return_value = None
     # Mock filter
     mock_filter_instance = MagicMock()
     mock_filter_instance.should_save.return_value = True
@@ -47,10 +47,8 @@ async def test_main():
         patch("orchestrator.UpdateDB", return_value=mock_db_update),
         patch("orchestrator.DBSchema", return_value=mock_db_schema),
         patch("orchestrator.FilterService", return_value=mock_filter_instance),
-        patch(
-            "orchestrator.build_email_parsers",
-            return_value=[mock_parser_instance],
-        ),
+        patch("orchestrator.build_email_parsers", return_value=[mock_parser_instance]),
+        patch("orchestrator.Deduplication", return_value=mock_db_queries),
     ):
         await main()
 
