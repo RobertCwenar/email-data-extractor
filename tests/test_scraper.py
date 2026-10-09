@@ -22,13 +22,14 @@ def test_get_offers_from_page():
                 "[data-test='offer-additional-info-2']": "Umowa o pracę",
                 "[data-test='offer-additional-info-3']": "Hybrydowo",
                 "[data-test='offer-salary']": "8 000–10 000 zł",
-                "[data-test='link-offer']": None,
+                "a[href*='/praca/']": "/praca/data-analyst",
             }
 
             locator = MagicMock()
+            locator.first = locator
             locator.inner_text.return_value = elements[selector]
-            locator.get_attribute.return_value = "/praca/data-analyst"
-            locator.count.return_value = 1
+            locator.get_attribute.return_value = elements.get(selector)
+            locator.count.return_value = 0 if elements.get(selector) is None else 1
 
             return locator
 
@@ -55,12 +56,15 @@ def test_get_offers_without_salary():
 
         def locator_side_effect(selector):
             locator = MagicMock()
+            locator.first = locator
 
             if selector == "[data-test='offer-salary']":
                 locator.count.return_value = 0
-            elif selector == "[data-test='link-offer']":
+            elif selector == "a[href*='/praca/']":
+                locator.count.return_value = 1
                 locator.get_attribute.return_value = "/praca/data-analyst"
             else:
+                locator.count.return_value = 1
                 locator.inner_text.return_value = "Test"
 
             return locator

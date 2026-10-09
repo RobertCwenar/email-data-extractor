@@ -39,6 +39,10 @@ async def test_main():
     mock_filter_instance = MagicMock()
     mock_filter_instance.should_save.return_value = True
 
+    mock_scraper = MagicMock()
+    mock_scraper.run_scraper.return_value = []
+    mock_scraper.load_todays_offers.return_value = []
+
     with (
         patch("orchestrator.AIService", return_value=mock_ai_instance),
         patch("orchestrator.Database", return_value=mock_db),
@@ -49,8 +53,11 @@ async def test_main():
         patch("orchestrator.FilterService", return_value=mock_filter_instance),
         patch("orchestrator.build_email_parsers", return_value=[mock_parser_instance]),
         patch("orchestrator.Deduplication", return_value=mock_db_queries),
+        patch("orchestrator.Scraper", return_value=mock_scraper),
     ):
         await main()
+
+    mock_scraper.run_scraper.assert_called_once()
 
     assert mock_parser_instance.fetch_offers.call_count == 1
     assert mock_filter_instance.should_save.call_count == 1

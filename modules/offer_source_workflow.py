@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Literal
 
@@ -40,8 +41,12 @@ class OfferSourceWorkflow:
         batches: list[tuple[SourceKind, str, list[tuple[JobOffer, str, str | None]]]] = []
         for parser in self.email_parsers:
             logger.info("Processing source: %s", parser.source)
-            batches.append(("email", parser.source, await parser.fetch_offers()))
-        records = self.scraper.load_todays_offers()
+            offers = await parser.fetch_offers()
+            logger.info("Fetched %s offers from %s", len(offers), parser.source)
+            batches.append(("email", parser.source, offers))
+        logger.info("Loading today's scraper offers")
+        records = await asyncio.to_thread(self.scraper.run_scraper)
+        logger.info("Loaded %s scraper offers", len(records))
         batches.append(("scraper", "scraper", [scraper_record_to_offer(record) for record in records]))
 
         offer_ids: set[int] = set()

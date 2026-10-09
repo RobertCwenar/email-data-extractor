@@ -11,39 +11,58 @@ class Scraper:
     def __init__(self):
         self.url = "https://www.pracuj.pl/praca/data%20analyst;kw?et=17%2C3"
 
+    def get_text(self, card, selector):
+        element = card.locator(selector).first
+        if element.count() == 0:
+            return None
+        return element.inner_text(timeout=3000)
+
     def get_offers_from_page(self, url):
+        print("1. Start Playwright", flush=True)
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            print("2. Uruchamiam Chromium", flush=True)
+            browser = p.chromium.launch(headless=False)
+            print("3. Chromium uruchomiony", flush=True)
 
-            try:
-                page = browser.new_page()
-                page.goto(url, wait_until="domcontentloaded", timeout=60_000)
+            page = browser.new_page()
+            print("4. Otwieram stronę", flush=True)
+            response = page.goto(url, wait_until="commit", timeout=30000)
+            print("5. HTTP:", response.status if response else None, flush=True)
+            logger.info("Pracuj.pl HTTP status: %s", response.status if response else None)
+            page.wait_for_timeout(5000)
+            print("6. Sprawdzam karty ofert", flush=True)
+            cards = page.locator("div[data-test='default-offer']")
+            logger.info("Liczba kart ofert na stronie: %s", cards.count())
+            print("7. Liczba kart:", cards.count(), flush=True)
+            offers = []
 
-                cards = page.locator("div[data-test='default-offer']")
-                offers = []
-
-                for card in cards.all():
+            for i, card in enumerate(cards.all(), start=1):
+                print(f"Pobieram ofertę {i}/50", flush=True)
+                try:
                     offer = {
-                        "title": card.locator("[data-test='offer-title']").inner_text(),
-                        "company": card.locator("[data-test='link-company-profile']").inner_text(),
-                        "location": card.locator("[data-test='text-region']").inner_text(),
-                        "level": card.locator("[data-test='offer-additional-info-0']").inner_text(),
-                        "contract": card.locator("[data-test='offer-additional-info-2']").inner_text(),
-                        "work_mode": card.locator("[data-test='offer-additional-info-3']").inner_text(),
-                        "salary": (
-                            card.locator("[data-test='offer-salary']").inner_text()
-                            if card.locator("[data-test='offer-salary']").count() > 0
+                        "title": self.get_text(card, "[data-test='offer-title']"),
+                        "company": self.get_text(card, "[data-test='link-company-profile']"),
+                        "location": self.get_text(card, "[data-test='text-region']"),
+                        "level": self.get_text(card, "[data-test='offer-additional-info-0']"),
+                        "contract": self.get_text(card, "[data-test='offer-additional-info-2']"),
+                        "work_mode": self.get_text(card, "[data-test='offer-additional-info-3']"),
+                        "salary": self.get_text(card, "[data-test='offer-salary']"),
+                        "url": (
+                            card.locator("a[href*='/praca/']").first.get_attribute("href", timeout=3000)
+                            if card.locator("a[href*='/praca/']").count() > 0
                             else None
                         ),
-                        "url": card.locator("[data-test='link-offer']").get_attribute("href"),
                     }
 
                     offers.append(offer)
+                except Exception as e:
+                    print(f"Błąd przy ofercie {i}: {e}", flush=True)
+                    raise
+            print("8. Pobrano ofert:", len(offers), flush=True)
+            return offers
 
-                return offers
-
-            finally:
-                browser.close()
+        # finally:
+        # browser.close()
 
     def run_scraper(self):
         offers = self.get_offers_from_page(self.url)
