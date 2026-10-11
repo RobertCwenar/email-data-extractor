@@ -5,27 +5,27 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "beautifulsoup4>=4.15.0",
-    "google-genai>=2.10.0",
-    "google-generativeai>=0.8.6",
-    "pandas>=3.0.3",
-    "playwright>=1.62.0",
-    "psycopg[binary]>=3.3.6",
-    "python-dotenv>=1.2.2",
-    "requests>=2.34.2",
-    "uvicorn[standard]>=0.54.0",
+    "beautifulsoup4==4.15.0",
+    "google-genai==2.10.0",
+    "google-generativeai==0.8.6",
+    "pandas==3.0.3",
+    "playwright==1.62.0",
+    "psycopg[binary]==3.3.6",
+    "python-dotenv==1.2.2",
+    "requests==2.34.2",
+    "uvicorn[standard]==0.54.0",
 ]
 
 [dependency-groups]
 dev = [
-    "mdformat>=1.0.0",
-    "mypy>=2.1.0",
-    "pandas-stubs>=3.0.3.260530",
-    "pre-commit>=4.6.0",
-    "pytest>=9.1.1",
-    "pytest-asyncio>=1.4.0",
-    "pytest-mock>=3.15.1",
-    "ruff>=0.15.20",
+    "mdformat==1.0.0",
+    "mypy==2.1.0",
+    "pandas-stubs==3.0.3.260530",
+    "pre-commit==4.6.0",
+    "pytest==9.1.1",
+    "pytest-asyncio==1.4.0",
+    "pytest-mock==3.15.1",
+    "ruff==0.15.20",
 ]
 
 [tool.pytest.ini_options]

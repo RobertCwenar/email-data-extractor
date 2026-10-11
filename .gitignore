@@ -19,3 +19,4 @@ Structure_parser.txt
 *job_offers_backup.dump
 *etl.log
 *.sql
+uv.lock

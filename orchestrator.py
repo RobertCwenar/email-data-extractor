@@ -84,7 +84,7 @@ async def main() -> None:
         db_query, db_update, db_insert, classifier, salary_estimator, salary_processor
     )
 
-    offer_ids = set()
+    offer_ids: set[int] = set()
 
     for parser in sources:
         logger.info(f"Processing source: {parser.source}")
@@ -98,7 +98,8 @@ async def main() -> None:
                     offer,
                     source=parser.source,
                 )
-                offer_ids.add(offer_id)
+                if offer_id is not None:
+                    offer_ids.add(offer_id)
                 contracts = []
 
                 if offer_text:
@@ -119,7 +120,6 @@ async def main() -> None:
     await classification_service.process_salary_estimations()
     offer_ids.update(db_query.get_job_contract_offer_ids())
     await classification_service.process_salary_selection(offer_ids)
-    logger.info("END salary selection")
     logger.info("ETL finished successfully")
 
 

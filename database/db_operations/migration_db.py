@@ -12,40 +12,39 @@ def migrate_job_details() -> None:
     db = Database()
 
     with db._connect() as conn:
-        cursor = conn.cursor()
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, title
+                FROM Offers
+            """)
 
-        cursor.execute("""
-            SELECT id, title
-            FROM Offers
-        """)
+            offers = cursor.fetchall()
 
-        offers = cursor.fetchall()
+            logger.info(f"Found {len(offers)} offers")
 
-        logger.info(f"Found {len(offers)} offers")
+            for offer_id, title in offers:
+                cursor.execute(
+                    """
+                    INSERT INTO JobDetails
+                    (offer_id, clean_title, level, category)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        offer_id,
+                        title,
+                        None,
+                        None,
+                    ),
+                )
 
-        for offer_id, title in offers:
-            cursor.execute(
-                """
-                INSERT INTO JobDetails
-                (offer_id, clean_title, level, category)
-                VALUES (%s, %s, %s, %s)
-                """,
-                (
-                    offer_id,
-                    title,
-                    None,
-                    None,
-                ),
-            )
-
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM JobDetails
-        """)
-        result = cursor.fetchone()
-        if result is not None:
-            count = result[0]
-            logger.info(f"JobDetails contains {count} records")
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM JobDetails
+            """)
+            result = cursor.fetchone()
+            if result is not None:
+                count = result[0]
+                logger.info(f"JobDetails contains {count} records")
 
 
 if __name__ == "__main__":

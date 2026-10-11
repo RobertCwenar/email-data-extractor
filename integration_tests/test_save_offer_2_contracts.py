@@ -8,7 +8,7 @@ from offer import JobContract, JobOffer
 def test_save_offer_with_uop_and_b2b():
     db_connection = MagicMock()
     db_connection.__enter__.return_value = db_connection
-    db_cursor = db_connection.cursor.return_value
+    db_cursor = db_connection.cursor.return_value.__enter__.return_value
 
     db_cursor.fetchone.side_effect = [
         (1,),  # save_company

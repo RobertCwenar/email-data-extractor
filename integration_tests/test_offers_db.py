@@ -36,8 +36,8 @@ def test_save_same_offer_twice_creates_duplicate():
     db_connection = MagicMock()
 
     db_connection.__enter__.return_value = db_connection
-    db_cursor = db_connection.cursor.return_value
-    db_cursor.fetchone.side_effect = [(1,), (1,), (1,), (2,)]  # Mock the return values for save_company and save_offers
+    db_cursor = db_connection.cursor.return_value.__enter__.return_value
+    db_cursor.fetchone.side_effect = [(1,), (1,), (1,), (2,)]
 
     db = Database()
     setattr(db, "_connect", MagicMock(return_value=db_connection))

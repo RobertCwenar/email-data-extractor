@@ -18,9 +18,7 @@ class InsertDB:
         logger.debug(f"SAVING TO DB: {job.title} {source}")
 
         job.date = normalize_date(job.date)
-        with self.db._connect() as conn:
-            cursor = conn.cursor()
-
+        with self.db._connect() as conn, conn.cursor() as cursor:
             cursor.execute(
                 """
                     INSERT INTO Offers (
@@ -53,9 +51,7 @@ class InsertDB:
         if not company_name:
             return None
 
-        with self.db._connect() as conn:
-            cursor = conn.cursor()
-
+        with self.db._connect() as conn, conn.cursor() as cursor:
             cursor.execute(
                 """
                     INSERT INTO Companies (company)
@@ -77,33 +73,32 @@ class InsertDB:
 
     def save_job_contract(self, contract: JobContract) -> None:
         with self.db._connect() as conn:
-            cursor = conn.cursor()
-
-            cursor.execute(
-                """
-                INSERT INTO JobContracts (
-                    offer_id,
-                    contract_type,
-                    salary_currency,
-                    salary_period,
-                    salary_min_offer,
-                    salary_max_offer, 
-                    salary_min_monthly, 
-                    salary_max_monthly
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO JobContracts (
+                        offer_id,
+                        contract_type,
+                        salary_currency,
+                        salary_period,
+                        salary_min_offer,
+                        salary_max_offer, 
+                        salary_min_monthly, 
+                        salary_max_monthly
+                    )
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                    """,
+                    (
+                        contract.offer_id,
+                        contract.contract_type,
+                        contract.salary_currency,
+                        contract.salary_period,
+                        contract.salary_min_offer,
+                        contract.salary_max_offer,
+                        contract.salary_min_monthly,
+                        contract.salary_max_monthly,
+                    ),
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    contract.offer_id,
-                    contract.contract_type,
-                    contract.salary_currency,
-                    contract.salary_period,
-                    contract.salary_min_offer,
-                    contract.salary_max_offer,
-                    contract.salary_min_monthly,
-                    contract.salary_max_monthly,
-                ),
-            )
 
     # Save job details to the JobDetails table
     def save_job_details(
@@ -114,19 +109,19 @@ class InsertDB:
         category: str,
     ) -> None:
         with self.db._connect() as conn:
-            cursor = conn.cursor()
-            cursor.execute(
-                """
-                INSERT INTO JobDetails (
-                    offer_id,
-                    clean_title,
-                    level,
-                    category
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO JobDetails (
+                        offer_id,
+                        clean_title,
+                        level,
+                        category
+                    )
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (offer_id, clean_title, level, category),
                 )
-                VALUES (%s, %s, %s, %s)
-                """,
-                (offer_id, clean_title, level, category),
-            )
 
 
 # Normalize date to a standard format
