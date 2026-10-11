@@ -1,10 +1,18 @@
 import json
 import logging
+import re
 from datetime import date, datetime
 
 from playwright.sync_api import sync_playwright
 
 logger = logging.getLogger(__name__)
+
+
+def extract_offer_id(url: str) -> str | None:
+    if not url:
+        return None
+    match = re.search(r",oferta,(\d+)", url)
+    return match.group(1) if match else None
 
 
 class Scraper:
@@ -61,15 +69,13 @@ class Scraper:
             print("8. Pobrano ofert:", len(offers), flush=True)
             return offers
 
-        # finally:
-        # browser.close()
-
     def run_scraper(self):
         offers = self.get_offers_from_page(self.url)
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now().strftime("%Y-%m-%d")
 
         for offer in offers:
             offer["scraped_at"] = timestamp
+            offer["offer_id"] = extract_offer_id(offer["url"])
 
         try:
             with open("filter_pracuj_offers.json", "r", encoding="utf-8") as file:
@@ -77,17 +83,32 @@ class Scraper:
         except FileNotFoundError:
             existing_offers = []
 
-        existing_urls = {offer.get("url") for offer in existing_offers if offer.get("url")}
+        existing_keys = {
+            (
+                offer.get("offer_id") or extract_offer_id(offer.get("url")),
+                offer.get("scraped_at"),
+            )
+            for offer in existing_offers
+        }
 
-        new_offers = [offer for offer in offers if offer.get("url") and offer["url"] not in existing_urls]
+        new_offers = [
+            offer
+            for offer in offers
+            if (offer.get("offer_id") or offer.get("url"))
+            and (
+                offer.get("offer_id") or extract_offer_id(offer.get("url")),
+                offer["scraped_at"],
+            )
+            not in existing_keys
+        ]
 
         existing_offers.extend(new_offers)
 
         with open("filter_pracuj_offers.json", "w", encoding="utf-8") as file:
             json.dump(existing_offers, file, ensure_ascii=False, indent=2)
 
-        logger.info(f"Liczba nowych ofert: {len(new_offers)}")
-        logger.info(f"Liczba wszystkich ofert w JSON: {len(existing_offers)}")
+        logger.info("Liczba nowych ofert: %s", len(new_offers))
+        logger.info("Liczba wszystkich ofert w JSON: %s", len(existing_offers))
 
         return new_offers
 

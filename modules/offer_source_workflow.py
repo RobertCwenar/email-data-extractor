@@ -8,7 +8,7 @@ from modules.filter_service import FilterService
 from modules.offer_status import OfferStatus
 from modules.salary_processor import SalaryProcessor
 from offer import JobContract, JobOffer
-from parsers.scraper_offer_adapter import scraper_record_to_offer
+from parsers.scraper_offer_adapter import scraper_record_to_contract, scraper_record_to_offer
 
 logger = logging.getLogger(__name__)
 
@@ -47,12 +47,18 @@ class OfferSourceWorkflow:
         logger.info("Loading today's scraper offers")
         records = await asyncio.to_thread(self.scraper.run_scraper)
         logger.info("Loaded %s scraper offers", len(records))
-        batches.append(("scraper", "scraper", [scraper_record_to_offer(record) for record in records]))
+        batches.append(("scraper", "scraper", records))
 
         offer_ids: set[int] = set()
 
         for source_kind, source_name, offers in batches:
-            for offer, offer_text, _cache_id in offers:
+            for item in offers:
+                if source_kind == "scraper":
+                    record = item
+                    offer, offer_text, _cache_id = scraper_record_to_offer(record)
+                else:
+                    offer, offer_text, _cache_id = item
+
                 if not self.filter_service.should_save(offer):
                     continue
 
@@ -72,16 +78,23 @@ class OfferSourceWorkflow:
                 offer_id = self.db_insert.save_offers(offer, source=source_name)
                 offer_ids.add(offer_id)
 
-                contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
+                if source_kind == "scraper":
+                    contracts = [scraper_record_to_contract(record)]
+                else:
+                    contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
+
                 if not contracts:
                     contracts = [JobContract(contract_type="UoP")]
 
                 for contract in contracts:
                     contract.offer_id = offer_id
-                    contract = self.salary_processor.resolve_contract_type(
-                        contract,
-                        offer_text,
-                    )
+
+                    if source_kind == "email":
+                        contract = self.salary_processor.resolve_contract_type(
+                            contract,
+                            offer_text,
+                        )
+
                     self.salary_processor.normalize_salary(contract)
                     self.db_insert.save_job_contract(contract)
 
