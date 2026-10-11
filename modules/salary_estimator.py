@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from config import config
 from database.queries import QueryDB
@@ -9,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 class SalaryEstimator:
-    def __init__(self, salary_history) -> None:
+    def __init__(self, salary_history: Any) -> None:
         salary_rules = config.get_dict(["salary_rules"])
 
         self.salary_rules = {
@@ -64,33 +65,36 @@ class SalaryEstimator:
     def recalculate_empty_salaries(self, db_read: QueryDB, db_update: UpdateDB) -> None:
         jobs = db_read.get_job_contracts_for_salary_estimator()
         logger.debug(f"Salary estimator jobs: {len(jobs)}")
-        for job in jobs:
-            contract_id, offer_id, title, company, date, level, category = job
+        with db_update.db._connect() as conn:
+            for job in jobs:
+                contract_id, offer_id, title, company, date, level, category = job
 
-            classification = JobClassification(
-                offer_id=offer_id,
-                category=category,
-                level=level,
-            )
+                classification = JobClassification(
+                    offer_id=offer_id,
+                    category=category,
+                    level=level,
+                )
 
-            salary_min, salary_max = self.salary_logic(
-                classification,
-                company,
-                title,
-                date,
-            )
-            db_update.update_offer_salary(
-                offer_id,
-                salary_min,
-                salary_max,
-                salary_status="estimated",
-            )
+                salary_min, salary_max = self.salary_logic(
+                    classification,
+                    company,
+                    title,
+                    date,
+                )
+                db_update.update_offer_salary(
+                    offer_id,
+                    salary_min,
+                    salary_max,
+                    salary_status="estimated",
+                    conn=conn,
+                )
 
-            db_update.update_job_contract_salary(
-                contract_id,
-                "UoP",
-                "PLN",
-                "monthly",
-                salary_min,
-                salary_max,
-            )
+                db_update.update_job_contract_salary(
+                    contract_id,
+                    "UoP",
+                    "PLN",
+                    "monthly",
+                    salary_min,
+                    salary_max,
+                    conn=conn,
+                )

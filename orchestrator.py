@@ -6,7 +6,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 from config import config
-from database.database import Database
+from database.connection import Database
 from database.inserts import InsertDB
 from database.queries import QueryDB
 from database.schema import DBSchema

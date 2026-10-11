@@ -124,7 +124,7 @@ class SalaryProcessor:
         offer_id: int,
         title: str,
         company: str,
-    ):
+    ) -> None:
         if self.db is None:
             return
 

@@ -2,7 +2,7 @@ import email
 import imaplib
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from typing import cast
+from typing import Any, cast
 
 from bs4 import BeautifulSoup
 
@@ -21,7 +21,7 @@ class EmailParser(BaseParser):
         ai_service: AIService,
         db_service: InsertDB,
         filter_service: FilterService,
-        email_config,
+        email_config: Any,
         folder_name: str,
         source: str,
         cache: FileCache,
@@ -45,7 +45,7 @@ class EmailParser(BaseParser):
         )
         return mail
 
-    def _get_mail_ids(self, mail) -> list[bytes]:
+    def _get_mail_ids(self, mail: imaplib.IMAP4_SSL) -> list[bytes]:
         mail.select(self.folder_name)
 
         status, response = mail.search(None, "UNSEEN")

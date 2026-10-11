@@ -2,13 +2,13 @@ import logging
 
 from dotenv import load_dotenv
 
-from database.database import Database
+from database.connection import Database
 
 logger = logging.getLogger(__name__)
 load_dotenv()
 
 
-def migrate_job_details():
+def migrate_job_details() -> None:
     db = Database()
 
     with db._connect() as conn:
@@ -42,7 +42,10 @@ def migrate_job_details():
             SELECT COUNT(*)
             FROM JobDetails
         """)
-        logger.info(f"JobDetails contains {cursor.fetchone()[0]} records")
+        result = cursor.fetchone()
+        if result is not None:
+            count = result[0]
+            logger.info(f"JobDetails contains {count} records")
 
 
 if __name__ == "__main__":

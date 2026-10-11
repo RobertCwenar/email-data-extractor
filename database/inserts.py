@@ -1,18 +1,19 @@
 import logging
 from datetime import datetime
+from typing import Any
 
-from database.database import Database
+from database.connection import Database
 from offer import JobContract, JobOffer
 
 logger = logging.getLogger(__name__)
 
 
 class InsertDB:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database) -> None:
         self.db = db
 
     # Save job offer to the database
-    def save_offers(self, job: JobOffer, source: str, contract: JobContract | None = None):
+    def save_offers(self, job: JobOffer, source: str, contract: JobContract | None = None) -> Any | None:
         self.save_company(job.company)
         logger.debug(f"SAVING TO DB: {job.title} {source}")
 
@@ -42,10 +43,13 @@ class InsertDB:
                 ),
             )
 
-            return cursor.fetchone()[0]
+            result = cursor.fetchone()
+            if result is None:
+                return None
+            return result[0]
 
     # Save company to the Companies table and return its ID
-    def save_company(self, company_name: str):
+    def save_company(self, company_name: str) -> Any | None:
         if not company_name:
             return None
 
@@ -66,9 +70,12 @@ class InsertDB:
                     """,
                 (company_name,),
             )
-            return cursor.fetchone()[0]
+            result = cursor.fetchone()
+            if result is None:
+                return None
+            return result[0]
 
-    def save_job_contract(self, contract: JobContract):
+    def save_job_contract(self, contract: JobContract) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -105,7 +112,7 @@ class InsertDB:
         clean_title: str,
         level: str,
         category: str,
-    ):
+    ) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
             cursor.execute(
@@ -123,7 +130,7 @@ class InsertDB:
 
 
 # Normalize date to a standard format
-def normalize_date(value):
+def normalize_date(value: Any) -> str | None:
     if not value:
         return None
 

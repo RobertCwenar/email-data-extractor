@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from database.database import Database
+from database.connection import Database
 from database.inserts import InsertDB
 from offer import JobOffer
 

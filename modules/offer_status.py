@@ -15,11 +15,12 @@ class OfferStatus:
             return "process"
 
         offers = self.db_read.get_offer_history(job.title, job.company)
+        dates = [date for date in offers if date is not None]
 
-        if not offers:
+        if not dates:
             return "new"
 
-        last_date = max(datetime.strptime(date, "%Y-%m-%d") for date in offers)
+        last_date = max(datetime.strptime(date, "%Y-%m-%d") for date in dates)
         job_date = datetime.strptime(job.date, "%Y-%m-%d")
 
         if (job_date - last_date).days >= 30:

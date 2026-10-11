@@ -2,14 +2,14 @@ import logging
 
 from dotenv import load_dotenv
 
-from database.database import Database
+from database.connection import Database
 
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
 
-def migrate_salary_status():
+def migrate_salary_status() -> None:
     db = Database()
 
     with db._connect() as conn:

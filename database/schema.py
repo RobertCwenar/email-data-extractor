@@ -1,11 +1,11 @@
-from database.database import Database
+from database.connection import Database
 
 
 class DBSchema:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database) -> None:
         self.db = db
 
-    def create_offers_table(self):
+    def create_offers_table(self) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -25,7 +25,7 @@ class DBSchema:
             """)
 
     # Create the JobDetails table
-    def create_job_details_table(self):
+    def create_job_details_table(self) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -39,7 +39,7 @@ class DBSchema:
             )
             """)
 
-    def create_job_contracts_table(self):
+    def create_job_contracts_table(self) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -59,7 +59,7 @@ class DBSchema:
             """)
 
     # Create the Companies table
-    def create_companies_table(self):
+    def create_companies_table(self) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -69,7 +69,7 @@ class DBSchema:
             company TEXT UNIQUE NOT NULL)
             """)
 
-    def create_tables(self):
+    def create_tables(self) -> None:
         self.create_offers_table()
         self.create_companies_table()
         self.create_job_details_table()

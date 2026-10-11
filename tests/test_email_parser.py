@@ -32,17 +32,9 @@ async def test_fetch_offers_returns_offer_text_and_cache_id():
         salary_parser=salary_processor,
     )
 
-    # fake mail
     mail = MagicMock()
-
-    parser._connect = MagicMock(return_value=mail)
-    parser._get_mail_ids = MagicMock(return_value=[b"1"])
-
     msg = MagicMock()
     msg.__getitem__.side_effect = lambda key: "Sun, 30 Aug 2026 10:00:00 +0200" if key == "Date" else None
-
-    parser._fetch_mail = MagicMock(return_value=msg)
-    parser._get_html = MagicMock(return_value="<html>test</html>")
 
     offer = JobOffer(
         title="Analityk Danych",
@@ -51,15 +43,15 @@ async def test_fetch_offers_returns_offer_text_and_cache_id():
     )
 
     ai.parser_offers_api = AsyncMock(return_value=[offer])
-
     salary_processor.extract_offer_text.return_value = {id(offer): "salary offer text"}
-
     cache.contains.return_value = False
 
-    with patch.object(
-        parser,
-        "_html_to_text",
-        return_value="offer text",
+    with (
+        patch.object(parser, "_connect", return_value=mail),
+        patch.object(parser, "_get_mail_ids", return_value=[b"1"]),
+        patch.object(parser, "_fetch_mail", return_value=msg),
+        patch.object(parser, "_get_html", return_value="<html>test</html>"),
+        patch.object(parser, "_html_to_text", return_value="offer text"),
     ):
         result = await parser.fetch_offers()
 

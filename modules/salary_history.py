@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime
+from typing import Any
 
 from database.queries import QueryDB
 from modules.statistics_salary import SalaryStatistics
@@ -32,13 +33,13 @@ class SalaryHistory:
 
             self.statistics[key] = statistics
 
-    def _to_float(self, value) -> float | None:
+    def _to_float(self, value: Any) -> float | None:
         try:
             return float(value) if value not in (None, "") else None
         except ValueError, TypeError:
             return None
 
-    def get_history(self, history_data) -> list[SalaryHistoryRecord]:
+    def get_history(self, history_data: list[tuple[Any, ...]]) -> list[SalaryHistoryRecord]:
         history = []
 
         for offer in history_data:

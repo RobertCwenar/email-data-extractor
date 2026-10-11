@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from typing import Any
 
 from google import genai
 from google.genai.errors import ClientError, ServerError
@@ -42,7 +43,7 @@ class AIService:
         self,
         prompt: str,
         response_schema: dict,
-    ):
+    ) -> Any:
         last_error = None
 
         for model in self._models:

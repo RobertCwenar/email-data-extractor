@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from offer import JobClassification, JobContract
 
@@ -7,7 +8,9 @@ logger = logging.getLogger(__name__)
 
 class JobClassificationService:
     # Initialize the JobClassificationServce with database and classifier instances
-    def __init__(self, queries, updates, inserts, classifier, salary_estimator, salary_processor) -> None:
+    def __init__(
+        self, queries: Any, updates: Any, inserts: Any, classifier: Any, salary_estimator: Any, salary_processor: Any
+    ) -> None:
         self.db_query = queries
         self.db_update = updates
         self.db_insert = inserts

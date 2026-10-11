@@ -4,7 +4,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from database.database import Database
+from database.connection import Database
 from database.inserts import InsertDB
 from database.queries import QueryDB
 from database.updates import UpdateDB
@@ -13,7 +13,7 @@ from modules.salary_processor import SalaryProcessor
 from modules.salary_recovery import SalaryRecovery
 
 
-async def main():
+async def main() -> None:
     load_dotenv()
 
     if len(sys.argv) != 2:

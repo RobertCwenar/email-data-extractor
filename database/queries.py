@@ -1,11 +1,16 @@
-from database.database import Database
+from typing import Any
+
+from psycopg import Connection
+from psycopg.rows import TupleRow
+
+from database.connection import Database
 
 
 class QueryDB:
-    def __init__(self, db: Database):
+    def __init__(self, db: Database) -> None:
         self.db = db
 
-    def get_job_contract(self, offer_id: int):
+    def get_job_contract(self, offer_id: int) -> TupleRow | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -20,7 +25,7 @@ class QueryDB:
 
             return cursor.fetchone()
 
-    def get_job_contracts(self, offer_id: int, conn):
+    def get_job_contracts(self, offer_id: int, conn: Connection) -> list[tuple[Any, ...]]:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -42,7 +47,7 @@ class QueryDB:
 
         return cursor.fetchall()
 
-    def get_job_contract_offer_ids(self):
+    def get_job_contract_offer_ids(self) -> list[int]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -57,7 +62,7 @@ class QueryDB:
             return [row[0] for row in cursor.fetchall()]
 
     # Get jobs for classification from the Offers table
-    def get_jobs_for_classification(self):
+    def get_jobs_for_classification(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -71,7 +76,7 @@ class QueryDB:
 
             return cursor.fetchall()
 
-    def get_classification_by_title(self, clean_title: str):
+    def get_classification_by_title(self, clean_title: str) -> tuple[Any, ...] | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -103,7 +108,7 @@ class QueryDB:
 
             return cursor.fetchone() is not None
 
-    def get_salary_status(self, offer_id: int) -> str:
+    def get_salary_status(self, offer_id: int) -> str | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -116,9 +121,10 @@ class QueryDB:
                 (offer_id,),
             )
 
-            return cursor.fetchone()[0]
+            row = cursor.fetchone()
+            return row[0] if row is not None else None
 
-    def get_salary_history(self):
+    def get_salary_history(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -130,7 +136,7 @@ class QueryDB:
             """)
             return cursor.fetchall()
 
-    def get_job_contracts_for_salary_estimator(self):
+    def get_job_contracts_for_salary_estimator(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -156,7 +162,7 @@ class QueryDB:
 
             return cursor.fetchall()
 
-    def get_all_job_details_for_migration(self):
+    def get_all_job_details_for_migration(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -169,7 +175,7 @@ class QueryDB:
 
             return cursor.fetchall()
 
-    def get_offer_history(self, title: str, company: str):
+    def get_offer_history(self, title: str, company: str) -> list[str | None]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -184,7 +190,7 @@ class QueryDB:
 
             return [row[0] for row in cursor.fetchall()]
 
-    def get_offers_for_status(self):
+    def get_offers_for_status(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -199,7 +205,7 @@ class QueryDB:
 
             return cursor.fetchall()
 
-    def get_previous_offer(self, offer_id: int, title: str, company: str):
+    def get_previous_offer(self, offer_id: int, title: str, company: str) -> int | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -219,7 +225,7 @@ class QueryDB:
             row = cursor.fetchone()
         return row[0] if row else None
 
-    def get_offers(self):
+    def get_offers(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -241,7 +247,7 @@ class QueryDB:
 
             return cursor.fetchall()
 
-    def get_offer(self, offer_id: int):
+    def get_offer(self, offer_id: int) -> tuple[Any, ...] | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -271,7 +277,7 @@ class QueryDB:
         offer_id: int,
         title: str,
         company: str,
-    ):
+    ) -> tuple[Any, ...] | None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 

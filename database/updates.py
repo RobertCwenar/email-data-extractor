@@ -1,4 +1,6 @@
-from database.database import Database
+from psycopg import Connection
+
+from database.connection import Database
 
 
 class UpdateDB:
@@ -13,8 +15,8 @@ class UpdateDB:
         salary_period: str,
         salary_min_monthly: float | None,
         salary_max_monthly: float | None,
-        conn,
-    ):
+        conn: Connection,
+    ) -> None:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -43,8 +45,8 @@ class UpdateDB:
         salary_min: float | None,
         salary_max: float | None,
         salary_status: str,
-        conn,
-    ):
+        conn: Connection,
+    ) -> None:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -68,7 +70,7 @@ class UpdateDB:
         offer_id: int,
         level: str,
         category: str,
-    ):
+    ) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
@@ -87,8 +89,8 @@ class UpdateDB:
         contract_id: int,
         salary_min_monthly: float | None,
         salary_max_monthly: float | None,
-        conn,
-    ):
+        conn: Connection,
+    ) -> None:
         cursor = conn.cursor()
 
         cursor.execute(
@@ -118,7 +120,7 @@ class UpdateDB:
                 [(status, id) for id in rowids],
             )
 
-    def update_job_category(self, offer_id: int, category: str):
+    def update_job_category(self, offer_id: int, category: str) -> None:
         with self.db._connect() as conn:
             cursor = conn.cursor()
 
