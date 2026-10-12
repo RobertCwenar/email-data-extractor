@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from unittest.mock import MagicMock, patch
 
 from scrapers.scraper import Scraper
@@ -36,7 +37,7 @@ def test_get_offers_from_page():
         card.locator.side_effect = locator_side_effect
         page.locator.return_value.all.return_value = [card]
 
-        offers = scraper.get_offers_from_page(scraper.url)
+        offers = scraper.get_offers_from_page(scraper.urls[0])
 
     assert len(offers) == 1
     assert offers[0]["title"] == "Data Analyst"
@@ -72,24 +73,26 @@ def test_get_offers_without_salary():
         card.locator.side_effect = locator_side_effect
         page.locator.return_value.all.return_value = [card]
 
-        offers = scraper.get_offers_from_page(scraper.url)
+        offers = scraper.get_offers_from_page(scraper.urls[0])
 
     assert len(offers) == 1
     assert offers[0]["salary"] is None
 
 
-def test_run_scraper_saves_offers_to_json(tmp_path):
+def test_run_scraper_saves_offers_to_json(tmp_path, monkeypatch):
     scraper = Scraper()
-    output_file = tmp_path / "filter_pracuj_offers.json"
+    scraper.urls = ["https://example.com"]
+    monkeypatch.chdir(tmp_path)
 
+    output_file = tmp_path / "filter_pracuj_offers.json"
     existing_offers = [
         {
             "title": "Python Developer",
             "company": "Jacumo",
-            "url": "/praca/python-developer",
+            "url": "/praca/python-developer,oferta,1001",
+            "scraped_at": date.today().isoformat(),
         }
     ]
-
     output_file.write_text(
         json.dumps(existing_offers, ensure_ascii=False),
         encoding="utf-8",
@@ -100,25 +103,11 @@ def test_run_scraper_saves_offers_to_json(tmp_path):
             "title": "Data Analyst",
             "company": "Jacumo",
             "salary": None,
-            "url": "/praca/data-analyst",
+            "url": "/praca/data-analyst,oferta,1002",
         }
     ]
 
-    with (
-        patch.object(scraper, "get_offers_from_page", return_value=new_offers),
-        patch("scrapers.scraper.open", create=True) as mock_open,
-    ):
-        mock_open.side_effect = [
-            MagicMock(
-                __enter__=lambda _: output_file.open("r", encoding="utf-8"),
-                __exit__=lambda *_: None,
-            ),
-            MagicMock(
-                __enter__=lambda _: output_file.open("w", encoding="utf-8"),
-                __exit__=lambda *_: None,
-            ),
-        ]
-
+    with patch.object(scraper, "get_offers_from_page", return_value=new_offers):
         scraper.run_scraper()
 
     saved_offers = json.loads(output_file.read_text(encoding="utf-8"))

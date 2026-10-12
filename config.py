@@ -8,14 +8,9 @@ logger = logging.getLogger(__name__)
 
 # Class responsible for loading and accessing application configuration.
 class AppConfig:
-    def __init__(self) -> None:
-        self.path = Path("filter_keywords.json")
-
-        if not self.path.exists():
-            self.path = Path("filter_keywords_example.json")
-
+    def __init__(self, filename: str) -> None:
+        self.path = Path(filename)
         logger.info(f"Loading config: {self.path}")
-
         self._data = self._load()
 
     # Loads configuration data from a JSON file.
@@ -47,4 +42,5 @@ class AppConfig:
 
 
 # Creates a shared configuration object used across the application.
-config = AppConfig()
+config = AppConfig("filter_keywords.json")
+scraper_config = AppConfig("scraper_urls.json")

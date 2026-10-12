@@ -3,12 +3,14 @@ import logging
 import re
 from datetime import date, datetime
 
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import Locator, sync_playwright
+
+from config import scraper_config
 
 logger = logging.getLogger(__name__)
 
 
-def extract_offer_id(url: str) -> str | None:
+def extract_offer_id(url: str | None) -> str | None:
     if not url:
         return None
     match = re.search(r",oferta,(\d+)", url)
@@ -16,16 +18,16 @@ def extract_offer_id(url: str) -> str | None:
 
 
 class Scraper:
-    def __init__(self):
-        self.url = "https://www.pracuj.pl/praca/data%20analyst;kw?et=17%2C3"
+    def __init__(self) -> None:
+        self.urls = scraper_config.get_list(["scraper", "urls"])
 
-    def get_text(self, card, selector):
+    def get_text(self, card: Locator, selector: str) -> str | None:
         element = card.locator(selector).first
         if element.count() == 0:
             return None
         return element.inner_text(timeout=3000)
 
-    def get_offers_from_page(self, url):
+    def get_offers_from_page(self, url: str) -> list[dict]:
         print("1. Start Playwright", flush=True)
         with sync_playwright() as p:
             print("2. Uruchamiam Chromium", flush=True)
@@ -42,7 +44,7 @@ class Scraper:
             cards = page.locator("div[data-test='default-offer']")
             logger.info("Liczba kart ofert na stronie: %s", cards.count())
             print("7. Liczba kart:", cards.count(), flush=True)
-            offers = []
+            offers: list[dict] = []
 
             for i, card in enumerate(cards.all(), start=1):
                 print(f"Pobieram ofertę {i}/50", flush=True)
@@ -69,8 +71,11 @@ class Scraper:
             print("8. Pobrano ofert:", len(offers), flush=True)
             return offers
 
-    def run_scraper(self):
-        offers = self.get_offers_from_page(self.url)
+    def run_scraper(self) -> list[dict]:
+        offers: list[dict] = []
+        for url in self.urls:
+            offers.extend(self.get_offers_from_page(url))
+
         timestamp = datetime.now().strftime("%Y-%m-%d")
 
         for offer in offers:
