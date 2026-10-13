@@ -1,7 +1,7 @@
 import json
 import logging
 import re
-from datetime import date, datetime
+from datetime import datetime
 
 from playwright.sync_api import Locator, sync_playwright
 
@@ -90,7 +90,7 @@ class Scraper:
 
         existing_keys = {
             (
-                offer.get("offer_id") or extract_offer_id(offer.get("url")),
+                offer.get("offer_id") or extract_offer_id(offer.get("url")) or offer.get("url"),
                 offer.get("scraped_at"),
             )
             for offer in existing_offers
@@ -99,9 +99,8 @@ class Scraper:
         new_offers = [
             offer
             for offer in offers
-            if (offer.get("offer_id") or offer.get("url"))
-            and (
-                offer.get("offer_id") or extract_offer_id(offer.get("url")),
+            if (
+                offer.get("offer_id") or extract_offer_id(offer.get("url")) or offer.get("url"),
                 offer["scraped_at"],
             )
             not in existing_keys
@@ -116,23 +115,3 @@ class Scraper:
         logger.info("Liczba wszystkich ofert w JSON: %s", len(existing_offers))
 
         return new_offers
-
-    def load_todays_offers(self) -> list[dict]:
-        with open("filter_pracuj_offers.json", "r", encoding="utf-8") as file:
-            offers = json.load(file)
-
-        if not isinstance(offers, list):
-            raise ValueError()
-
-        today = date.today().isoformat()
-        todays_offers: list[dict] = []
-
-        for offer in offers:
-            if not isinstance(offer, dict):
-                continue
-
-            scraped_at = offer.get("scraped_at")
-            if isinstance(scraped_at, str) and scraped_at[:10] == today:
-                todays_offers.append(offer)
-
-        return todays_offers

@@ -1,6 +1,6 @@
 import pytest
 
-from parsers.scraper_offer_adapter import scraper_record_to_contract
+from scrapers.scraper_offer_adapter import scraper_record_to_contract
 
 
 @pytest.mark.parametrize(

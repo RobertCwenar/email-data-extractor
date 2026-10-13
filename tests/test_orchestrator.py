@@ -41,7 +41,6 @@ async def test_main():
 
     mock_scraper = MagicMock()
     mock_scraper.run_scraper.return_value = []
-    mock_scraper.load_todays_offers.return_value = []
 
     with (
         patch("orchestrator.AIService", return_value=mock_ai_instance),

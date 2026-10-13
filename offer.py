@@ -125,5 +125,7 @@ class CategoryValidationResponse(BaseModel):
         "procurement",
         "customer_operations",
         "medical",
+        "environment",
+        "delivery",
         "unknown",
     ]

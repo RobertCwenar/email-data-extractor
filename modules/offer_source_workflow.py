@@ -8,7 +8,7 @@ from modules.filter_service import FilterService
 from modules.offer_status import OfferStatus
 from modules.salary_processor import SalaryProcessor
 from offer import JobContract, JobOffer
-from parsers.scraper_offer_adapter import scraper_record_to_contract, scraper_record_to_offer
+from scrapers.scraper_offer_adapter import scraper_record_to_contract, scraper_record_to_offer
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +55,8 @@ class OfferSourceWorkflow:
             for item in offers:
                 if source_kind == "scraper":
                     record = item
-                    offer, offer_text, _cache_id = scraper_record_to_offer(record)
+                    offer = scraper_record_to_offer(record)
+                    offer_text = ""
                 else:
                     offer, offer_text, _cache_id = item
 
