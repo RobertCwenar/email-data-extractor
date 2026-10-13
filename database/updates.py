@@ -1,4 +1,5 @@
 from database.database import Database
+from offer import JobContract
 
 
 class UpdateDB:
@@ -33,6 +34,36 @@ class UpdateDB:
                     salary_period,
                     salary_min_monthly,
                     salary_max_monthly,
+                    contract_id,
+                ),
+            )
+
+            conn.commit()
+
+    def update_job_contract(self, contract_id: int, contract: JobContract) -> None:
+        with self.db._connect() as conn:
+            cursor = conn.cursor()
+
+            cursor.execute(
+                """
+                UPDATE JobContracts
+                SET contract_type = ?,
+                    salary_currency = ?,
+                    salary_period = ?,
+                    salary_min_offer = ?,
+                    salary_max_offer = ?,
+                    salary_min_monthly = ?,
+                    salary_max_monthly = ?
+                WHERE id = ?
+                """,
+                (
+                    contract.contract_type,
+                    contract.salary_currency,
+                    contract.salary_period,
+                    contract.salary_min_offer,
+                    contract.salary_max_offer,
+                    contract.salary_min_monthly,
+                    contract.salary_max_monthly,
                     contract_id,
                 ),
             )

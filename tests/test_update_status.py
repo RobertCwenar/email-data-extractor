@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 
 from modules.salary_recovery import SalaryRecovery
+from offer import JobContract
 
 
 @pytest.mark.asyncio
@@ -104,10 +105,60 @@ async def test_recover_does_nothing_when_salary_not_found():
     ):
         result = await recovery.recover(20)
 
-    assert result is True
+    assert result is False
 
-    db_insert.save_job_contract.assert_called_once()
+    db_insert.save_job_contract.assert_called_once_with(JobContract(offer_id=20, contract_type="UoP"))
     db_update.update_offer_salary.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_recover_updates_existing_empty_contract():
+    db_query = Mock()
+    db_insert = Mock()
+    db_update = Mock()
+    ai = Mock()
+    salary_processor = Mock()
+
+    db_query.get_job_contracts.return_value = [(1, "UoP", None, None, None, None, None, None)]
+    db_query.get_offer.return_value = (
+        20,
+        "Data Analyst",
+        "ABC",
+        "Wrocław",
+        None,
+        None,
+        "2026-09-22",
+        "RocketJobs",
+        None,
+        "new",
+    )
+
+    contract = JobContract(
+        contract_type="UoP",
+        salary_currency="PLN",
+        salary_period="monthly",
+        salary_min_offer=8000,
+        salary_max_offer=10000,
+        salary_min_monthly=8000,
+        salary_max_monthly=10000,
+    )
+    salary_processor.get_salary_status.return_value = "offer"
+
+    recovery = SalaryRecovery(
+        db_query=db_query,
+        db_insert=db_insert,
+        db_update=db_update,
+        ai=ai,
+        email_config={},
+        salary_processor=salary_processor,
+    )
+
+    with patch.object(recovery, "_recover_from_mail", new=AsyncMock(return_value=[contract])):
+        result = await recovery.recover(20)
+
+    assert result is True
+    db_update.update_job_contract.assert_called_once_with(1, contract)
+    db_insert.save_job_contract.assert_not_called()
 
 
 @pytest.mark.asyncio
