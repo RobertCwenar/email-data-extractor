@@ -2,6 +2,8 @@ from typing import Any, Literal
 
 from offer import JobOffer
 
+SCRAPER_SOURCES = {"scraper", "scraper_linkedin"}
+
 
 class Deduplication:
     def __init__(self, db: Any) -> None:
@@ -34,10 +36,10 @@ class Deduplication:
 
             offer_id, existing_source = row
 
-            if source_kind == "scraper" and existing_source != "scraper":
+            if source_kind == "scraper" and existing_source not in SCRAPER_SOURCES:
                 return offer_id
 
-            if source_kind == "email" and existing_source == "scraper":
+            if source_kind == "email" and existing_source in SCRAPER_SOURCES:
                 return offer_id
 
             return None

@@ -23,6 +23,7 @@ from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
 from parsers.salary_parsers import SalaryParser
+from scrapers.linkedin_scraper import LinkedInScraper
 from scrapers.scraper import Scraper
 
 # Load environment variables from .env file
@@ -84,6 +85,7 @@ async def main() -> None:
     )
 
     scraper = Scraper()
+    linkedin_scraper = LinkedInScraper()
 
     classification_service = JobClassificationService(
         db_query, db_update, db_insert, classifier, salary_estimator, salary_processor
@@ -91,7 +93,7 @@ async def main() -> None:
 
     source_workflow = OfferSourceWorkflow(
         email_parsers=sources,
-        scraper=scraper,
+        scrapers=[scraper, linkedin_scraper],
         db_query=deduplication,
         db_insert=db_insert,
         filter_service=filter_service,

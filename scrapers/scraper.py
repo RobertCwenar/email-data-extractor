@@ -30,24 +30,23 @@ class Scraper:
     def get_offers_from_page(self, url: str) -> list[dict]:
         print("1. Start Playwright", flush=True)
         with sync_playwright() as p:
-            print("2. Uruchamiam Chromium", flush=True)
+            print("2. Launching Chromium", flush=True)
             browser = p.chromium.launch(headless=False)
-            print("3. Chromium uruchomiony", flush=True)
+            print("3. Chromium launched", flush=True)
 
             page = browser.new_page()
-            print("4. Otwieram stronę", flush=True)
+            print("4. Opening page", flush=True)
             response = page.goto(url, wait_until="commit", timeout=30000)
             print("5. HTTP:", response.status if response else None, flush=True)
             logger.info("Pracuj.pl HTTP status: %s", response.status if response else None)
             page.wait_for_timeout(5000)
-            print("6. Sprawdzam karty ofert", flush=True)
+            print("6. Checking offer cards", flush=True)
             cards = page.locator("div[data-test='default-offer']")
-            logger.info("Liczba kart ofert na stronie: %s", cards.count())
-            print("7. Liczba kart:", cards.count(), flush=True)
+            logger.info("Number of offer cards on the page: %s", cards.count())
+            print("7. Number of cards:", cards.count(), flush=True)
             offers: list[dict] = []
 
             for i, card in enumerate(cards.all(), start=1):
-                print(f"Pobieram ofertę {i}/50", flush=True)
                 try:
                     offer = {
                         "title": self.get_text(card, "[data-test='offer-title']"),
@@ -66,9 +65,9 @@ class Scraper:
 
                     offers.append(offer)
                 except Exception as e:
-                    print(f"Błąd przy ofercie {i}: {e}", flush=True)
+                    print(f"Error processing offer {i}: {e}", flush=True)
                     raise
-            print("8. Pobrano ofert:", len(offers), flush=True)
+            print("8. Offers retrieved:", len(offers), flush=True)
             return offers
 
     def run_scraper(self) -> list[dict]:
@@ -111,7 +110,6 @@ class Scraper:
         with open("filter_pracuj_offers.json", "w", encoding="utf-8") as file:
             json.dump(existing_offers, file, ensure_ascii=False, indent=2)
 
-        logger.info("Liczba nowych ofert: %s", len(new_offers))
-        logger.info("Liczba wszystkich ofert w JSON: %s", len(existing_offers))
+        logger.info("Number of new offers: %s", len(new_offers))
 
         return new_offers

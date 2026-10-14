@@ -42,7 +42,7 @@ def scraper_record_to_contract(record: dict[str, Any]) -> JobContract:
     elif "brutto" in normalized and contract.contract_type is None:
         contract.contract_type = "UoP"
 
-    if "/ godz." in normalized or "/ godzin" in normalized:
+    if "/ godz." in normalized or "/ godzin" in normalized or "/ hour" in normalized:
         contract.salary_period = "hourly"
     elif "/ mies." in normalized or "/ miesiąc" in normalized:
         contract.salary_period = "monthly"
@@ -50,15 +50,15 @@ def scraper_record_to_contract(record: dict[str, Any]) -> JobContract:
         return contract
 
     match = re.search(
-        r"(\d[\d ]*)\s*[–-]\s*(\d[\d ]*)\s*zł",
+        r"(\d[\d \u00a0]*)\s*[-–—]\s*(\d[\d \u00a0]*)\s*(?:zł|PLN)",
         salary_text,
     )
 
     if not match:
         return contract
 
-    salary_min = float(match.group(1).replace(" ", ""))
-    salary_max = float(match.group(2).replace(" ", ""))
+    salary_min = float(match.group(1).replace(" ", "").replace("\u00a0", ""))
+    salary_max = float(match.group(2).replace(" ", "").replace("\u00a0", ""))
 
     if salary_min > salary_max:
         return contract

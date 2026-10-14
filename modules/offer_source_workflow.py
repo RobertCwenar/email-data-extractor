@@ -20,7 +20,7 @@ class OfferSourceWorkflow:
         self,
         *,
         email_parsers,
-        scraper,
+        scrapers,
         db_query,
         db_insert: InsertDB,
         filter_service: FilterService,
@@ -29,7 +29,7 @@ class OfferSourceWorkflow:
         salary_processor: SalaryProcessor,
     ) -> None:
         self.email_parsers = email_parsers
-        self.scraper = scraper
+        self.scrapers = scrapers
         self.db_query = db_query
         self.db_insert = db_insert
         self.filter_service = filter_service
@@ -42,12 +42,11 @@ class OfferSourceWorkflow:
         for parser in self.email_parsers:
             logger.info("Processing source: %s", parser.source)
             offers = await parser.fetch_offers()
-            logger.info("Fetched %s offers from %s", len(offers), parser.source)
             batches.append(("email", parser.source, offers))
-        logger.info("Loading today's scraper offers")
-        records = await asyncio.to_thread(self.scraper.run_scraper)
-        logger.info("Loaded %s scraper offers", len(records))
-        batches.append(("scraper", "scraper", records))
+        for scraper in self.scrapers:
+            records = await asyncio.to_thread(scraper.run_scraper)
+            logger.info("Loaded %s offers from %s", len(records), scraper.__class__.__name__)
+            batches.append(("scraper", getattr(scraper, "source", "scraper"), records))
 
         offer_ids: set[int] = set()
 

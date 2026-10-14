@@ -41,6 +41,9 @@ async def test_main():
 
     mock_scraper = MagicMock()
     mock_scraper.run_scraper.return_value = []
+    mock_linkedin_scraper = MagicMock()
+    mock_linkedin_scraper.source = "scraper_linkedin"
+    mock_linkedin_scraper.run_scraper.return_value = []
 
     with (
         patch("orchestrator.AIService", return_value=mock_ai_instance),
@@ -53,10 +56,12 @@ async def test_main():
         patch("orchestrator.build_email_parsers", return_value=[mock_parser_instance]),
         patch("orchestrator.Deduplication", return_value=mock_db_queries),
         patch("orchestrator.Scraper", return_value=mock_scraper),
+        patch("orchestrator.LinkedInScraper", return_value=mock_linkedin_scraper),
     ):
         await main()
 
     mock_scraper.run_scraper.assert_called_once()
+    mock_linkedin_scraper.run_scraper.assert_called_once()
 
     assert mock_parser_instance.fetch_offers.call_count == 1
     assert mock_filter_instance.should_save.call_count == 1
