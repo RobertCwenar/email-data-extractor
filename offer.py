@@ -108,6 +108,19 @@ class JobContractResponse(BaseModel):
     contracts: list[JobContract]
 
 
+class StructureScraper(BaseModel):
+    title: str | None = None
+    company: str | None = None
+    location: str | None = None
+    level: Optional[str] = None
+    contract: Optional[str] = None
+    work_mode: Optional[str] = None
+    salary: Optional[str] = None
+    url: str | None = None
+    offer_id: str | None = None
+    scraped_at: str | None = None
+
+
 class CategoryValidationResponse(BaseModel):
     category: Literal[
         "data_analytics",

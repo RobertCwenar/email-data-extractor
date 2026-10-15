@@ -1,25 +1,23 @@
-import json
 import logging
-from datetime import datetime
+from typing import Any
 
 from playwright.sync_api import Locator, sync_playwright
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
+
+from config import scraper_config
+from scrapers.base_scraper import BaseScraper
 
 logger = logging.getLogger(__name__)
 
 JOB_CARD_SELECTOR = '[componentkey^="job-card-component-ref-"]'
 
 
-class LinkedInScraper:
-    def __init__(self) -> None:
-        self.source = "scraper_linkedin"
-        self.url = "https://www.linkedin.com/jobs/search-results/?keywords=Analityk%20danych&geoId=105072130"
+class LinkedInScraper(BaseScraper):
+    output_file = "filter_linkedin_offers.json"
+    source = "scraper_linkedin"
 
-    def get_text(self, card: Locator, selector: str) -> str | None:
-        element = card.locator(selector).first
-        if element.count() == 0:
-            return None
-        return element.inner_text(timeout=3000).strip()
+    def __init__(self) -> None:
+        self.urls = scraper_config.get_list(["scraper_linkedin", "urls"])
 
     def scroll_results_to_bottom(self, page, cards: Locator) -> bool:
         previous_keys = set(
@@ -111,15 +109,15 @@ class LinkedInScraper:
                 reached_bottom = True
                 break
 
-        logger.info(
+        logger.debug(
             "LinkedIn scrolling: rounds=%s, reached bottom=%s",
             scroll_rounds,
             reached_bottom,
         )
         return reached_bottom
 
-    def read_page_offers(self, cards: Locator) -> list[dict]:
-        offers: list[dict] = []
+    def read_page_offers(self, cards: Locator) -> list[dict[str, Any]]:
+        offers: list[dict[str, Any]] = []
         for card in cards.all():
             component_key = card.get_attribute("componentkey")
             offer_id = component_key.removeprefix("job-card-component-ref-") if component_key else None
@@ -143,17 +141,14 @@ class LinkedInScraper:
                     "title": title,
                     "company": company,
                     "location": location,
-                    "level": None,
-                    "contract": None,
                     "work_mode": work_mode,
-                    "salary": None,
                     "url": f"https://www.linkedin.com/jobs/view/{offer_id}" if offer_id else None,
                     "offer_id": offer_id,
                 }
             )
         return offers
 
-    def get_offers_from_page(self) -> list[dict]:
+    def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         with sync_playwright() as p:
             context = p.chromium.launch_persistent_context(
                 user_data_dir="linkedni_profile",
@@ -161,10 +156,10 @@ class LinkedInScraper:
             )
             page = context.pages[0] if context.pages else context.new_page()
 
-            page.goto(self.url, wait_until="domcontentloaded", timeout=60000)
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
             page.wait_for_timeout(5000)
 
-            offers: list[dict] = []
+            offers: list[dict[str, Any]] = []
             seen_keys: set[str] = set()
             max_pages = 40
 
@@ -213,38 +208,3 @@ class LinkedInScraper:
                 logger.warning("LinkedIn reached the page limit: %s", max_pages)
 
             return offers
-
-    def run_scraper(self) -> list[dict]:
-        offers = self.get_offers_from_page()
-        timestamp = datetime.now().strftime("%Y-%m-%d")
-
-        for offer in offers:
-            offer["scraped_at"] = timestamp
-
-        output_file = "filter_linkedin_offers.json"
-
-        try:
-            with open(output_file, "r", encoding="utf-8") as file:
-                existing_offers = json.load(file)
-                if not isinstance(existing_offers, list):
-                    existing_offers = []
-        except FileNotFoundError, json.JSONDecodeError:
-            existing_offers = []
-        existing_keys = {(offer.get("offer_id"), offer.get("scraped_at")) for offer in existing_offers}
-
-        new_offers = []
-        for offer in offers:
-            offer_key = offer.get("offer_id") or offer.get("url")
-            key = (offer_key, offer["scraped_at"])
-            if offer_key is None or key not in existing_keys:
-                new_offers.append(offer)
-                if offer_key is not None:
-                    existing_keys.add(key)
-
-        existing_offers.extend(new_offers)
-
-        with open(output_file, "w", encoding="utf-8") as file:
-            json.dump(existing_offers, file, ensure_ascii=False, indent=2)
-
-        logger.info("New LinkedIn offers: %s", len(new_offers))
-        return new_offers

@@ -15,6 +15,7 @@ mail_records/
 *.json
 Structure_parser.txt
 !filter_keywords_example.json
+!scraper_urls_example.json
 *.pbix
 *job_offers_backup.dump
 *etl.log

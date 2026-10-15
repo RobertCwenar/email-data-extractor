@@ -2,13 +2,13 @@ import json
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-from scrapers.scraper import Scraper
+from scrapers.pracuj_scraper import Scraper
 
 
 def test_get_offers_from_page():
     scraper = Scraper()
 
-    with patch("scrapers.scraper.sync_playwright") as mock_playwright:
+    with patch("scrapers.pracuj_scraper.sync_playwright") as mock_playwright:
         browser = mock_playwright.return_value.__enter__.return_value.chromium.launch.return_value
         page = browser.new_page.return_value
 
@@ -49,7 +49,7 @@ def test_get_offers_from_page():
 def test_get_offers_without_salary():
     scraper = Scraper()
 
-    with patch("scrapers.scraper.sync_playwright") as mock_playwright:
+    with patch("scrapers.pracuj_scraper.sync_playwright") as mock_playwright:
         browser = mock_playwright.return_value.__enter__.return_value.chromium.launch.return_value
         page = browser.new_page.return_value
 
@@ -79,12 +79,11 @@ def test_get_offers_without_salary():
     assert offers[0]["salary"] is None
 
 
-def test_run_scraper_saves_offers_to_json(tmp_path, monkeypatch):
+def test_run_scraper_saves_offers_to_json(tmp_path):
     scraper = Scraper()
     scraper.urls = ["https://example.com"]
-    monkeypatch.chdir(tmp_path)
-
     output_file = tmp_path / "filter_pracuj_offers.json"
+    scraper.output_file = str(output_file)
     existing_offers = [
         {
             "title": "Python Developer",
@@ -115,4 +114,5 @@ def test_run_scraper_saves_offers_to_json(tmp_path, monkeypatch):
     assert len(saved_offers) == 2
     assert saved_offers[0]["title"] == "Python Developer"
     assert saved_offers[1]["title"] == "Data Analyst"
+    assert saved_offers[1]["offer_id"] == "1002"
     assert "scraped_at" in saved_offers[1]

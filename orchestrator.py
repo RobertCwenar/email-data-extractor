@@ -24,7 +24,7 @@ from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
 from parsers.salary_parsers import SalaryParser
 from scrapers.linkedin_scraper import LinkedInScraper
-from scrapers.scraper import Scraper
+from scrapers.pracuj_scraper import Scraper
 
 # Load environment variables from .env file
 load_dotenv()

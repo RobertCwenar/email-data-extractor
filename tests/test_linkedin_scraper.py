@@ -49,7 +49,7 @@ def test_get_offers_scrolls_until_no_new_linkedin_cards(mock_sync_playwright) ->
 
     scraper = LinkedInScraper()
 
-    assert scraper.get_offers_from_page() == []
+    assert scraper.get_offers_from_page("https://example.com/jobs") == []
     assert page.evaluate.call_count == 4
     scroll_script = page.evaluate.call_args_list[0].args[0]
     assert "target.scrollTop + step" in scroll_script
@@ -57,24 +57,22 @@ def test_get_offers_scrolls_until_no_new_linkedin_cards(mock_sync_playwright) ->
 
 
 @patch.object(LinkedInScraper, "get_offers_from_page")
-def test_run_scraper_saves_new_offers(mock_get_offers, tmp_path, monkeypatch) -> None:
-    monkeypatch.chdir(tmp_path)
-
+def test_run_scraper_saves_new_offers(mock_get_offers, tmp_path) -> None:
     mock_get_offers.return_value = [
         {
             "title": "Analityk danych",
             "company": "Przykładowa firma",
             "location": "Wrocław",
-            "level": None,
-            "contract": None,
             "work_mode": "Praca hybrydowa",
-            "salary": None,
             "url": "https://www.linkedin.com/jobs/view/123456",
             "offer_id": "123456",
         }
     ]
 
     scraper = LinkedInScraper()
+    scraper.urls = ["https://example.com/jobs"]
+    output_file = tmp_path / "filter_linkedin_offers.json"
+    scraper.output_file = str(output_file)
 
     result = scraper.run_scraper()
 
@@ -82,36 +80,32 @@ def test_run_scraper_saves_new_offers(mock_get_offers, tmp_path, monkeypatch) ->
     assert result[0]["offer_id"] == "123456"
     assert "scraped_at" in result[0]
 
-    with open("filter_linkedin_offers.json", encoding="utf-8") as file:
-        saved_offers = json.load(file)
+    saved_offers = json.loads(output_file.read_text(encoding="utf-8"))
 
     assert len(saved_offers) == 1
     assert saved_offers[0]["title"] == "Analityk danych"
+    mock_get_offers.assert_called_once_with("https://example.com/jobs")
 
 
 @patch.object(LinkedInScraper, "get_offers_from_page")
 def test_run_scraper_skips_offer_already_saved_today(
     mock_get_offers,
     tmp_path,
-    monkeypatch,
 ) -> None:
-    monkeypatch.chdir(tmp_path)
-
     mock_get_offers.return_value = [
         {
             "title": "Analityk danych",
             "company": "Przykładowa firma",
             "location": "Wrocław",
-            "level": None,
-            "contract": None,
             "work_mode": None,
-            "salary": None,
             "url": "https://www.linkedin.com/jobs/view/123456",
             "offer_id": "123456",
         }
     ]
 
     scraper = LinkedInScraper()
+    scraper.urls = ["https://example.com/jobs"]
+    scraper.output_file = str(tmp_path / "filter_linkedin_offers.json")
     first_result = scraper.run_scraper()
     second_result = scraper.run_scraper()
 
