@@ -1,6 +1,7 @@
 from psycopg import Connection
 
 from database.connection import Database
+from offer import JobContract
 
 
 class UpdateDB:
@@ -37,6 +38,33 @@ class UpdateDB:
                     contract_id,
                 ),
             )
+
+    def update_job_contract(self, contract_id: int, contract: JobContract) -> None:
+        with self.db._connect() as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    UPDATE JobContracts
+                    SET contract_type = %s,
+                        salary_currency = %s,
+                        salary_period = %s,
+                        salary_min_offer = %s,
+                        salary_max_offer = %s,
+                        salary_min_monthly = %s,
+                        salary_max_monthly = %s
+                    WHERE id = %s
+                    """,
+                    (
+                        contract.contract_type,
+                        contract.salary_currency,
+                        contract.salary_period,
+                        contract.salary_min_offer,
+                        contract.salary_max_offer,
+                        contract.salary_min_monthly,
+                        contract.salary_max_monthly,
+                        contract_id,
+                    ),
+                )
 
     def update_offer_salary(
         self,

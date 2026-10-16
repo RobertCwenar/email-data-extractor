@@ -36,17 +36,21 @@ class SalaryRecovery:
 
     async def recover(self, offer_id: int) -> bool:
         with self.db_query.db._connect() as conn:
-            if self.db_query.get_job_contracts(offer_id, conn):
+            existing_contracts = self.db_query.get_job_contracts(offer_id, conn)
+
+            if any(any(value is not None for value in row[4:8]) for row in existing_contracts):
                 print("Recovery stopped: contracts already exist")
                 return False
 
-        offer = self.db_query.get_offer(offer_id)
+            placeholder = existing_contracts[0] if existing_contracts else None
 
-        if offer is None:
-            print("Recovery stopped: offer does not exist")
-            return False
+            offer = self.db_query.get_offer(offer_id)
 
-        title = offer[1]
+            if offer is None:
+                print("Recovery stopped: offer does not exist")
+                return False
+
+            title = offer[1]
         company = offer[2]
         mail_date = offer[6]
         source = offer[7]
@@ -104,22 +108,20 @@ class SalaryRecovery:
                     salary_max_monthly=salary_max_monthly,
                 )
 
-                self.db_insert.save_job_contract(contract)
+                self._save_or_update_contract(contract, placeholder)
 
                 return True
 
-            contract = JobContract(
-                offer_id=offer_id,
-            )
+            if placeholder is None:
+                self.db_insert.save_job_contract(JobContract(offer_id=offer_id, contract_type="UoP"))
 
-            self.db_insert.save_job_contract(contract)
+            print("Recovery stopped: no salary found in mail or previous offers")
+            return False
 
-            return True
-
-        for contract in contracts:
+        for index, contract in enumerate(contracts):
             contract.offer_id = offer_id
 
-            self.db_insert.save_job_contract(contract)
+            self._save_or_update_contract(contract, placeholder if index == 0 else None)
 
             self.db_update.update_offer_salary(
                 offer_id,
@@ -129,6 +131,12 @@ class SalaryRecovery:
             )
 
         return True
+
+    def _save_or_update_contract(self, contract: JobContract, placeholder) -> None:
+        if placeholder is None:
+            self.db_insert.save_job_contract(contract)
+        else:
+            self.db_update.update_job_contract(placeholder[0], contract)
 
     def _connect(self) -> imaplib.IMAP4_SSL:
         mail = imaplib.IMAP4_SSL(
