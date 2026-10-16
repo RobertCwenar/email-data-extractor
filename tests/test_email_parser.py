@@ -7,7 +7,7 @@ from parsers.email_parser import EmailParser
 
 
 @pytest.mark.asyncio
-async def test_fetch_offers_returns_offer_text_and_cache_id():
+async def test_fetch_offers_returns_offer_text_and_cache_id(mocker):
     ai = MagicMock()
     db = MagicMock()
     filter_service = MagicMock()
@@ -33,8 +33,15 @@ async def test_fetch_offers_returns_offer_text_and_cache_id():
     )
 
     mail = MagicMock()
+
+    mocker.patch.object(parser, "_connect", return_value=mail)
+    mocker.patch.object(parser, "_get_mail_ids", return_value=[b"1"])
+
     msg = MagicMock()
     msg.__getitem__.side_effect = lambda key: "Sun, 30 Aug 2026 10:00:00 +0200" if key == "Date" else None
+
+    mocker.patch.object(parser, "_fetch_mail", return_value=msg)
+    mocker.patch.object(parser, "_get_html", return_value="<html>test</html>")
 
     offer = JobOffer(
         title="Analityk Danych",

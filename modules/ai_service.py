@@ -104,6 +104,11 @@ class AIService:
 
         return parsed_response.offers
 
+    @retry(
+        retry=retry_if_exception_type(ServerError),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
+        stop=stop_after_attempt(RETRY_ATTEMPTS),
+    )
     async def validate_category_api(
         self,
         clean_title: str,

@@ -62,7 +62,12 @@ class SalaryEstimator:
 
         return None, None
 
-    def recalculate_empty_salaries(self, db_read: QueryDB, db_update: UpdateDB) -> None:
+    def recalculate_empty_salaries(
+        self,
+        db_read: QueryDB,
+        db_update: UpdateDB,
+        conn=None,
+    ) -> None:
         jobs = db_read.get_job_contracts_for_salary_estimator()
         logger.debug(f"Salary estimator jobs: {len(jobs)}")
         with db_update.db._connect() as conn:
