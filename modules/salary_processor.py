@@ -51,21 +51,20 @@ class SalaryProcessor:
 
         if "netto" in text and "vat" in text:
             contract.contract_type = "B2B"
+        elif "umowa zlecenie" in text:
+            contract.contract_type = "UZ"
         elif "brutto" in text:
             contract.contract_type = "UoP"
-        elif "uz" in text and "umowa zlecenie" in text:
-            contract.contract_type = "UZ"
-        elif "zależnie od umowy" in text:
+        elif any(value in text for value in ("praca stała", "pełny etat", "permanent")):
             contract.contract_type = "UoP"
+        elif "umowa b2b" in text:
+            contract.contract_type = "B2B"
         elif contract.contract_type is None:
             contract.contract_type = "UoP"
 
         return contract
 
-    def normalize_salary(
-        self,
-        contract: JobContract,
-    ) -> JobContract:
+    def normalize_salary(self, contract: JobContract) -> JobContract:
 
         if contract.salary_min_offer is None and contract.salary_max_offer is None:
             return contract
