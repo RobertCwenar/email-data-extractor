@@ -2,7 +2,7 @@
 
 ## 1. System Overview
 
-The main and most important part of the workflow is retrieving job offer data from email. The process starts by logging into the WP.pl email account and reading messages from the appropriate folders.
+The pipeline collects job offers from configured email sources and job-board scrapers. Email messages are read from their configured IMAP folders, while scraper URLs are configured separately.
 
 After processing, the system saves the IDs of all processed emails in `mail_records`. This prevents the same email from being processed a second time. If an email is untracked but its ID is already saved in `mail_records`, it can be safely skipped. The individual ID stored in the file improves the email processing flow and enables individual monitoring of processed emails in the project.
 
@@ -10,10 +10,10 @@ The extracted email content is then processed and transformed into structured jo
 
 The application uses the `filter_keywords.json` configuration file to define filtering and classification rules. Based on these rules, irrelevant offers can be filtered out and relevant data can be assigned to the appropriate fields. When a category cannot be determined using the keywords defined in `filter_keywords.json`, the system uses AI classification to determine the appropriate category.
 
-The processed data is stored in an SQLite database, with `Offers` serving as the main table. Additional important tables include `JobDetails` and `Companies`.
+The processed data is stored in PostgreSQL, with `Offers` serving as the main table. Related data is stored in `JobContracts`, `JobDetails`, and `Companies`.
 
 ```text
-Email
+Email / Scrapers
   ↓
 Parsing
   ↓
@@ -25,7 +25,7 @@ Classification
   ↓
 Salary Estimation
   ↓
-SQLite
+PostgreSQL
 ```
 
 ## 2. System Architecture
@@ -35,9 +35,9 @@ The system is designed as a modular ETL pipeline for processing job offers from 
 ### 2.1 Data Flow
 
 ```text
-Email
+Email and Scrapers
   ↓
-EmailParser
+EmailParser / Scraper Adapter
   ↓
 JobOffer
   ↓
@@ -55,7 +55,7 @@ Final Salary Selection
   ↓
 Offers
   ↓
-SQLite
+PostgreSQL
 ```
 
 ### 2.2 Main Components
@@ -64,7 +64,7 @@ SQLite
 - **FilterService** – filters unwanted offers using configured rules.
 - **AIService** – uses AI for structured data extraction and job offer analysis.
 - **Pydantic Models** – validate and normalize application data.
-- **Database Layer** – manages SQLite database initialization, migrations, persistence, and data access.
+- **Database Layer** – manages PostgreSQL schema creation, migrations, persistence, and data access.
 - **JobClassifier** – determines job category and seniority based on configured classification rules.
 - **JobClassificationService** – coordinates job classification and stores classification results.
 - **SalaryHistory** – provides historical salary statistics based on previously collected offers.
@@ -78,27 +78,33 @@ The modular architecture allows individual components to be developed, tested, a
 
 ## 3. Email Sources
 
-The system uses incoming email messages as the primary source of job-offer data. Emails are received from multiple job platforms and processed into a common JobOffer structure.
+The system collects job-offer data from email and web sources. Email messages and scraped records are converted into the common `JobOffer` structure before filtering and persistence.
 
 ```text
 Email Sources
-     │
-     ├── RocketJobs.pl
-     │
-     ├── LinkedIn
-     │
-     ├── Pracuj.pl
-     │
-     └── WP.pl
-            │
-            ▼
-       Email Parser
-            │
-            ▼
-         JobOffer
+     |
+     +-- RocketJobs
+     +-- Pracuj.pl
+     +-- LinkedIn
+     +-- justjoin.it
+     +-- theprotocol.it
+     +-- Jooble
+     |
+     v
+  Email Parser ------------------+
+                                 |
+Scrapers                         |
+  |                              |
+  +-- Pracuj scraper             |
+  +-- LinkedIn scraper           |
+  |                              |
+  +------------------------------+
+                 |
+                 v
+              JobOffer
 ```
 
-Each source may use a different email structure and formatting. The parsing layer is responsible for extracting the relevant information and converting it into a standardized `JobOffer` object.
+Email folders and cache files are defined in `modules/email_sources.py`; scraper URLs are read from configuration. Each source may use a different structure, and its parser or adapter converts records into the standardized `JobOffer` model.
 
 The `JobOffer` model provides a common interface for the rest of the application, regardless of the original email source.
 
@@ -343,7 +349,7 @@ Salary       │
 
 ## 7. End-to-End Processing Flow
 
-The complete processing pipeline combines email extraction, data validation, filtering, classification, and salary estimation into a single workflow.
+The diagram below shows the email parsing and offer processing path. The current complete ETL flow, including scraper ingestion, duplicate checks, and orchestration order, follows it.
 
 ```text
 
@@ -499,11 +505,77 @@ FileCache
                          Final Offers update
                                    │
                                    ▼
-                                SQLite
+                              PostgreSQL
                                    │
                                    ▼
                                   END
 
+```
+
+### 7.1 Current Complete ETL Flow
+
+The orchestrator first prepares the database and salary history, then processes offers from all configured sources. Classification and salary estimation run after source ingestion.
+
+Cross-source duplicate detection uses matching date, title, and company, and skips an offer only when the matching record came from the other source type. An offer without a date is not checked for a cross-source duplicate.
+
+```text
+Orchestrator
+     |
+     +--> Create PostgreSQL schema
+     +--> Update ended offer statuses
+     +--> Load salary history
+     |
+     +--> Email parsers -----------+
+     |                             |
+     +--> Pracuj / LinkedIn scraper ---+
+                                   |
+                                   v
+                         OfferSourceWorkflow
+                                   |
+                                   v
+                           FilterService
+                            /         \
+                        reject       accept
+                          |             |
+                         skip     Cross-source duplicate?
+                                      /       \
+                                    yes        no
+                                     |          |
+                                    skip   Set offer status
+                                                |
+                                                v
+                                           Save Offer
+                                          /          \
+                                      email        scraper
+                                        |              |
+                               AI salary validation  Adapt record
+                                        |              |
+                               Contracts returned?     |
+                                  /          \         |
+                                yes            no      |
+                                 |              |      |
+                                 |       Empty UoP     |
+                                 +--------------+------+
+                                               v
+                                  Normalize and save contracts
+                                               |
+                                               v
+                                Classify missing JobDetails
+                                               |
+                                               v
+                              Estimate missing source salaries
+                                               |
+                                               v
+                              Collect offers with contracts
+                                               |
+                                               v
+                                  Select UoP > B2B > UZ
+                                               |
+                                               v
+                              Update final offer salary/status
+                                               |
+                                               v
+                                          PostgreSQL
 ```
 
 ## 8. Configuration
@@ -610,6 +682,30 @@ Unit tests verify individual components independently from the rest of the appli
 
 - test_salary_status — verifies that the salary status is correctly assigned depending on whether salary information comes from the original offer or is estimated.
 
+- test_base_scraper — verifies record validation, JSON output, and avoiding duplicate scraper offers on the same day.
+
+- test_email_parser — verifies that parsed email offers include their extracted salary text and email cache ID.
+
+- test_linkedin_scraper — verifies LinkedIn card text extraction, page scrolling, saving new offers, and skipping offers already saved that day.
+
+- test_salary_parser — verifies that salary text is associated with the matching offer and excludes neighboring offers.
+
+- test_salary_processor_salary — verifies monthly and yearly salary normalization and salary status for missing, monthly, and hourly salary data.
+
+- test_salary_processor_selection — verifies contract priority (UoP over B2B over UZ) and the empty contract list case.
+
+- test_scraper — verifies Pracuj offer extraction with and without salary data and saving offers to JSON.
+
+- test_scraper_record_to_contract — verifies conversion of scraper salary ranges and contract types, including missing or unsupported salary formats.
+
+- test_update_status — verifies salary recovery from email or a previous offer and guards for missing offers, existing contracts, or unavailable salary data.
+
+- test_validate_ai — verifies that AI salary validation converts an hourly salary response into a job contract.
+
+- test_offer_source_workflow — new unit tests for filter and cross-source duplicate skips, fallback contracts for email offers without validated salary data, and scraper contract processing without AI validation.
+
+- test_job_classification_service — new unit tests for final contract salary normalization and selection, persistence of changed monthly values, and the no-selectable-contract case.
+
 ### 9.2 Integration Tests
 
 Integration tests verify interactions between application components and the database.
@@ -617,3 +713,65 @@ Integration tests verify interactions between application components and the dat
 - test_save_db — verifies that processed job offers are correctly saved to the test database.
 
 - test_save_job_link — verifies that job offer links are correctly stored and associated with the corresponding offer in the database.
+
+## 10. Operational Tools and Project Resources
+
+### 10.1 Environment and Local Configuration
+
+The runtime reads email credentials from `EMAIL`, `PASSWORD`, `EMAIL_HOST`, and `EMAIL_PORT`; `EMAIL_PORT` defaults to `993`. `KEY_API` supplies the Gemini API key. PostgreSQL uses `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. The names and placeholder values are shown in `.env_template`.
+
+The application loads `filter_keywords.json` and `scraper_urls.json` from the project root. Example versions are provided as `filter_keywords_example.json` and `scraper_urls_example.json`. The active JSON files are ignored by Git, so create or copy them locally before running the application. `filter_keywords.json` controls filtering, classification keywords, and salary rules; `scraper_urls.json` supplies URL lists to the Pracuj and LinkedIn scrapers.
+
+### 10.2 Salary Recovery Utility
+
+`backfill_offer_status.py` runs `SalaryRecovery` for a single offer ID:
+
+```bash
+uv run python backfill_offer_status.py <offer_id>
+```
+
+The utility is for offers whose source maps to a configured email folder. It searches that folder on the saved offer's date, checks messages for the offer title and company, then asks `AIService` to validate salary information. If it cannot recover salary from email, it tries the latest matching offer with saved salary. The recovery stops when the offer does not exist or a contract already contains salary values; a placeholder UoP contract can be created when no salary is found.
+
+### 10.3 Database Maintenance and SQL Resources
+
+The scripts in `database/db_operations/` are manual PostgreSQL maintenance utilities:
+
+- `migrate_status.py` fills missing offer salary statuses from the salary columns.
+- `migration_db.py` creates `JobDetails` rows from existing offers.
+- `migration_salary.py` creates `JobContracts` rows from existing offer salary columns.
+
+The two row-copying scripts insert records for existing offers and do not check for duplicates. Review the target database before running them again.
+
+The root SQL files are also manual resources and are not applied by `orchestrator.py`:
+
+- `queries.sql` contains diagnostic and analysis queries for salary status, sources, companies, and offer history.
+- `views.sql` defines reporting views, including total offers and normalized locations. The location view currently limits data to dates from `2026-05-01` onward.
+- `trigger.sql` defines a PostgreSQL trigger that normalizes selected contract type labels during insert or update.
+
+### 10.4 Scraper Artifacts and Logging
+
+The Pracuj and LinkedIn scrapers write records to `filter_pracuj_offers.json` and `filter_linkedin_offers.json`. `BaseScraper` validates records, adds the scrape date, and skips records with a previously seen offer ID or URL for that date. The email parsers keep processed message IDs in per-source text files under `mail_records/`. These generated files are local runtime state and are ignored by Git.
+
+LinkedIn scraping uses a visible Playwright browser and the persistent profile directory `linkedni_profile`; the Pracuj scraper also launches a visible browser. The orchestrator writes runtime logs to `etl.log`.
+
+`linkedin_login.py` opens the LinkedIn login page in the same persistent profile directory, allowing a user to sign in before starting the LinkedIn scraper.
+
+### 10.5 Continuous Integration
+
+`.github/workflows/ci.yml` runs on pull requests. It sets up Python `3.14.4`, installs dependencies with `uv sync`, copies the example JSON files into the active configuration filenames, runs `ruff check .`, and runs `pytest`. The tests under `integration_tests/` use mocked database connections; the CI job does not provision or verify a live PostgreSQL server.
+
+The current database-operation test files are `integration_tests/test_offers_db.py` and `integration_tests/test_save_offer_2_contracts.py`.
+
+### 10.6 Filtering, Classification, and Offer Status Rules
+
+Before saving, `FilterService` removes configured legal-form suffixes from the company name. It rejects titles shorter than three characters or companies shorter than two characters, the literal value `null`, and configured bad title markers. A title must also contain a configured job phrase and must not contain an excluded phrase; configured junk phrases are removed before this check.
+
+Seniority classification checks configured keywords in this order: senior, junior, intern, mid, and manager. Category classification scores matching keywords (single-word matches score 1, two-word matches 5, and phrases of three or more words score 10). When there is no keyword match, it asks AI to select from the configured literal categories. Classification by title is reused from the database when an existing category is available, and category results are cached in memory during the run.
+
+An offer without a date receives status `process`. With a date, it receives `new` when no matching title/company history exists or the latest matching offer is at least 30 days older; otherwise it receives `process`. During the next ETL run, offers are grouped into posting cycles by title and company. A cycle is marked `ended` when its last offer date is at least 30 days old; a gap of at least 30 days starts a new cycle.
+
+### 10.7 Salary Normalization and Status Values
+
+`SalaryProcessor` accepts hourly, daily, weekly, monthly, and yearly source periods. It normalizes them to monthly values using 168 working hours per month, 21 working days per month, 52 weeks per year, and 12 months per year. If one source bound is missing, it copies the available bound to the missing side; if no period is supplied, it assumes monthly. When a normalized minimum is below 500, both normalized monthly bounds are cleared.
+
+The salary status is `estimated` when both source salary bounds are missing, `offer` for a monthly source salary, and `offer_calculate` for a source salary in another period. Final contract selection follows `UoP`, `B2B`, and `UZ` priority, returning the first matching contract of the highest available type.

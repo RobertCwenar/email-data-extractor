@@ -35,3 +35,11 @@ The project is designed to help answer questions such as:
 
 An important part of the project is the SalaryEstimator, which estimates salary ranges for different positions and experience levels. The salary can be calculated using several sources, including salary information from job offers, historical salary data, and predefined rules stored in a JSON configuration file. More information about the salary estimation process is available in the technical documentation.
 The project will be continuously developed and updated in the future as new requirements and analytical possibilities emerge.
+
+## Current Data and Analysis Scope
+
+The current implementation collects job offers from email and from the Pracuj.pl and LinkedIn web scrapers. It stores the offer title, company, location, source, date, salary values and status in PostgreSQL. It also stores contract type and salary period, plus a normalized monthly salary range when available. Classification adds a job level and category.
+
+These fields support comparisons of advertised and estimated compensation by company, job title, date, location, source, category, and seniority level. Salary estimates can use a matching historical offer, category-and-level salary statistics, or configured salary rules.
+
+The current offer and classification models do not extract or store job skills. Skill-related questions in the list above therefore describe a possible future analysis area rather than data currently produced by the pipeline.
