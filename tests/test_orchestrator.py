@@ -78,7 +78,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     mock_db_query.get_offers_for_status.return_value = []
     mock_db_query.get_salary_history.return_value = []
     mock_db_query.get_job_contract_offer_ids.return_value = []
-    mock_db_query.find_cross_source_duplicate_id.return_value = None
+    mock_db_query.find_same_source_duplicate_id.return_value = None
 
     mock_filter = MagicMock()
     mock_filter.should_save.return_value = True
@@ -111,3 +111,20 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     linkedin_saved = json.loads((tmp_path / "filter_linkedin_offers.json").read_text(encoding="utf-8"))
     assert pracuj_saved[0]["offer_id"] == "1001"
     assert linkedin_saved[0]["offer_id"] == "2002"
+
+
+@pytest.mark.asyncio
+async def test_main_retries_once_with_saved_scraper_data_after_failure():
+    run_pipeline = AsyncMock(side_effect=[RuntimeError("temporary AI failure"), None])
+    wait = AsyncMock()
+
+    with (
+        patch("orchestrator._run_pipeline", run_pipeline),
+        patch("orchestrator.asyncio.sleep", wait),
+    ):
+        await main()
+
+    assert run_pipeline.await_count == 2
+    assert run_pipeline.await_args_list[0].kwargs == {"skip_scrapers": False}
+    assert run_pipeline.await_args_list[1].kwargs == {"skip_scrapers": True}
+    wait.assert_awaited_once_with(60)

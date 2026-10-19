@@ -516,7 +516,7 @@ FileCache
 
 The orchestrator first prepares the database and salary history, then processes offers from all configured sources. Classification and salary estimation run after source ingestion.
 
-Cross-source duplicate detection uses matching date, title, and company, and skips an offer only when the matching record came from the other source type. An offer without a date is not checked for a cross-source duplicate.
+Duplicate detection is limited to offers with the same date, title, company, and source. Matching offers from another source or another date are kept as separate records. Offers without a date are not checked for duplicates.
 
 ```text
 Orchestrator
@@ -537,7 +537,7 @@ Orchestrator
                             /         \
                         reject       accept
                           |             |
-                         skip     Cross-source duplicate?
+                         skip     Same-source duplicate?
                                       /       \
                                     yes        no
                                      |          |
@@ -702,7 +702,7 @@ Unit tests verify individual components independently from the rest of the appli
 
 - test_validate_ai — verifies that AI salary validation converts an hourly salary response into a job contract.
 
-- test_offer_source_workflow — new unit tests for filter and cross-source duplicate skips, fallback contracts for email offers without validated salary data, and scraper contract processing without AI validation.
+- test_offer_source_workflow — unit tests for filtering, same-source duplicate handling, fallback contracts for email offers without validated salary data, and scraper contract processing without AI validation.
 
 - test_job_classification_service — new unit tests for final contract salary normalization and selection, persistence of changed monthly values, and the no-selectable-contract case.
 

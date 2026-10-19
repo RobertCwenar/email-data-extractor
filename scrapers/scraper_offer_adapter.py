@@ -6,11 +6,17 @@ from offer import JobContract, JobOffer
 
 
 def scraper_record_to_offer(record: dict[str, Any]) -> JobOffer:
+    scraped_at = record.get("scraped_at")
+    try:
+        offer_date = date.fromisoformat(scraped_at) if isinstance(scraped_at, str) else date.today()
+    except ValueError:
+        offer_date = date.today()
+
     return JobOffer(
         title=str(record.get("title") or "").strip(),
         company=str(record.get("company") or "").strip(),
         location=str(record.get("location") or "Nie podano").strip(),
-        date=date.today().isoformat(),
+        date=offer_date.isoformat(),
     )
 
 

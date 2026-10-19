@@ -45,8 +45,12 @@ print(Path("etl.log").resolve())
 
 
 # Main function to orchestrate the job offer processing
-async def main() -> None:
-    logger.info("ETL started")
+async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
+    logger.info(
+        "ETL started (scrapers=%s)",
+        "disabled" if skip_scrapers else "enabled",
+    )
+
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
     db = Database()
@@ -61,6 +65,7 @@ async def main() -> None:
     offer_status = OfferStatus(db_query, db_update)
     offer_status.update_ended_offers()
     filter_service = FilterService(config)
+
     email_config = {
         "host": os.getenv("EMAIL_HOST"),
         "port": int(os.getenv("EMAIL_PORT", 993)),
@@ -84,34 +89,48 @@ async def main() -> None:
         salary_parser=salary_parser,
     )
 
-    scraper = Scraper()
-    linkedin_scraper = LinkedInScraper()
+    scrapers = [Scraper(), LinkedInScraper()]
 
     classification_service = JobClassificationService(
-        db_query, db_update, db_insert, classifier, salary_estimator, salary_processor
+        db_query,
+        db_update,
+        db_insert,
+        classifier,
+        salary_estimator,
+        salary_processor,
     )
 
     source_workflow = OfferSourceWorkflow(
         email_parsers=sources,
-        scrapers=[scraper, linkedin_scraper],
+        scrapers=scrapers,
         db_query=deduplication,
         db_insert=db_insert,
         filter_service=filter_service,
         offer_status=offer_status,
         ai=ai,
         salary_processor=salary_processor,
+        offline_scrapers=skip_scrapers,
     )
+
     offer_ids = await source_workflow.run()
 
-    # Process job classifications and salary estimation
     await classification_service.process_jobs()
-
     await classification_service.process_salary_estimations()
+
     offer_ids.update(db_query.get_job_contract_offer_ids())
     await classification_service.process_salary_selection(offer_ids)
+
     logger.info("ETL finished successfully")
 
 
-# Run the main function
+async def main() -> None:
+    try:
+        await _run_pipeline(skip_scrapers=False)
+    except Exception:
+        logger.exception("ETL failed. Retrying in 60 seconds without scrapers.")
+        await asyncio.sleep(60)
+        await _run_pipeline(skip_scrapers=True)
+
+
 if __name__ == "__main__":
     asyncio.run(main())

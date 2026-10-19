@@ -1,6 +1,6 @@
 import pytest
 
-from scrapers.scraper_offer_adapter import scraper_record_to_contract
+from scrapers.scraper_offer_adapter import scraper_record_to_contract, scraper_record_to_offer
 
 
 @pytest.mark.parametrize(
@@ -100,3 +100,16 @@ def test_salary_without_supported_period_is_not_parsed():
     assert contract.contract_type == "UoP"
     assert contract.salary_min_offer is None
     assert contract.salary_max_offer is None
+
+
+def test_scraper_record_to_offer_uses_saved_scrape_date():
+    offer = scraper_record_to_offer(
+        {
+            "title": "Data Analyst",
+            "company": "Acme",
+            "location": "Warsaw",
+            "scraped_at": "2026-10-18",
+        }
+    )
+
+    assert offer.date == "2026-10-18"

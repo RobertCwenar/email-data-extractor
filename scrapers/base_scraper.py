@@ -72,5 +72,34 @@ class BaseScraper:
         logger.info("New offers saved to %s: %s", output_path, len(new_offers))
         return new_offers
 
-    def _offer_key(self, offer: dict[str, Any]) -> str | None:
-        return self.get_offer_id(offer) or offer.get("url")
+    def load_saved_offers(self) -> list[dict[str, Any]]:
+        output_path = Path(self.output_file)
+        try:
+            with output_path.open("r", encoding="utf-8") as file:
+                saved_offers = json.load(file)
+        except FileNotFoundError, json.JSONDecodeError:
+            return []
+
+        if not isinstance(saved_offers, list):
+            logger.warning("Ignoring scraper output with unexpected format: %s", output_path)
+            return []
+
+        offers: list[dict[str, Any]] = []
+        today = datetime.now().strftime("%Y-%m-%d")
+        for raw_offer in saved_offers:
+            if not isinstance(raw_offer, dict):
+                continue
+            if raw_offer.get("scraped_at") != today:
+                continue
+            try:
+                offers.append(StructureScraper.model_validate(raw_offer).model_dump())
+            except Exception:
+                logger.exception("Ignoring invalid saved scraper record in %s", output_path)
+
+        logger.info("Loaded %s saved offers from %s without scraping", len(offers), output_path)
+        return offers
+
+    def _offer_key(self, offer: dict[str, Any]) -> tuple[str, str]:
+        company = offer.get("company")
+        title = offer.get("title")
+        return str(company or "").strip(), str(title or "").strip()

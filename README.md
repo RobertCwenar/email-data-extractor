@@ -65,7 +65,7 @@ Email sources (IMAP)                 Job board URLs
           |                    Scrapers and adapters
           +-------------+---------------+
                         v
-           Filtering and cross-source deduplication
+           Filtering and same-source deduplication
                         |
                         v
               Save offers and contracts

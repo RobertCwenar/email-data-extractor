@@ -69,3 +69,8 @@ async def test_fetch_offers_returns_offer_text_and_cache_id(mocker):
     assert returned_offer.title == "Analityk Danych"
     assert offer_text == "salary offer text"
     assert cache_id == "1"
+    cache.add.assert_not_called()
+
+    parser.commit_processed_messages()
+
+    cache.add.assert_called_once_with("1")

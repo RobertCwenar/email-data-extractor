@@ -1,5 +1,5 @@
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from scrapers.base_scraper import BaseScraper
 
@@ -68,3 +68,38 @@ def test_run_scraper_deduplicates_same_offer_on_same_day(tmp_path) -> None:
     assert len(first_run) == 1
     assert second_run == []
     assert len(saved_offers) == 1
+
+
+def test_load_saved_offers_reads_only_today_without_visiting_urls(tmp_path) -> None:
+    now = datetime.now()
+    today = now.strftime("%Y-%m-%d")
+    yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+    output_file = tmp_path / "offers.json"
+    output_file.write_text(
+        json.dumps(
+            [
+                {
+                    "title": "Current Offer",
+                    "company": "Acme",
+                    "location": "Warsaw",
+                    "offer_id": "today-1",
+                    "scraped_at": today,
+                },
+                {
+                    "title": "Old Offer",
+                    "company": "Acme",
+                    "location": "Warsaw",
+                    "offer_id": "yesterday-1",
+                    "scraped_at": yesterday,
+                },
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scraper = StubScraper(str(output_file), {"https://example.com/jobs": []})
+
+    offers = scraper.load_saved_offers()
+
+    assert len(offers) == 1
+    assert offers[0]["offer_id"] == "today-1"
+    assert scraper.visited_urls == []

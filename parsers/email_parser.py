@@ -33,6 +33,12 @@ class EmailParser(BaseParser):
         self.source = source
         self.cache = cache
         self.salary_parser = salary_parser
+        self._pending_cache_ids: set[str] = set()
+
+    def commit_processed_messages(self) -> None:
+        for cache_id in self._pending_cache_ids:
+            self.cache.add(cache_id)
+        self._pending_cache_ids.clear()
 
     def _connect(self) -> imaplib.IMAP4_SSL:
         mail = imaplib.IMAP4_SSL(
@@ -103,6 +109,8 @@ class EmailParser(BaseParser):
             html = self._get_html(msg) if msg else None
 
             if not html or msg is None:
+                if msg is not None:
+                    self._pending_cache_ids.add(cache_id)
                 continue
 
             text = self._html_to_text(html)
@@ -122,6 +130,6 @@ class EmailParser(BaseParser):
                 offer_text = offer_texts.get(id(offer), "")
                 offers_result.append((offer, offer_text, cache_id))
 
-            self.cache.add(cache_id)
+            self._pending_cache_ids.add(cache_id)
         mail.logout()
         return offers_result
