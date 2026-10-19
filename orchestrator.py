@@ -22,7 +22,7 @@ from modules.offer_status import OfferStatus
 from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
-from parsers.salary_parsers import SalaryParser
+from parsers.salary_parser import SalaryParser
 from scrapers.linkedin_scraper import LinkedInScraper
 from scrapers.pracuj_scraper import Scraper
 

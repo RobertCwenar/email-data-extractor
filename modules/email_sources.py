@@ -5,7 +5,7 @@ from modules.ai_service import AIService
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from parsers.email_parser import EmailParser
-from parsers.salary_parsers import SalaryParser
+from parsers.salary_parser import SalaryParser
 
 
 class EmailSource(NamedTuple):

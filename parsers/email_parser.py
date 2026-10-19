@@ -12,7 +12,7 @@ from modules.ai_service import AIService
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from offer import JobOffer
-from parsers.salary_parsers import SalaryParser
+from parsers.salary_parser import SalaryParser
 
 
 class EmailParser(BaseParser):
