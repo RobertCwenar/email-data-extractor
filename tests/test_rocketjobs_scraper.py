@@ -4,7 +4,7 @@ import pytest
 
 from config import scraper_config
 from scrapers.rocketjobs_scraper import RocketJobsScraper
-from scrapers.scraper_offer_adapter import _location, _salary, _text
+from scrapers.scraper_offer_adapter import _contract, _level, _location, _salary, _text
 
 
 def test_scraper_uses_its_configured_urls(monkeypatch) -> None:
@@ -43,8 +43,7 @@ def test_get_offers_from_page_extracts_card_and_normalizes_url(monkeypatch) -> N
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
     selectors["img[alt]"].first.count.return_value = 1
     selectors["img[alt]"].first.get_attribute.return_value = "Image: Acme"
-    selectors["button:has(svg.lucide-map-pin)"].first.count.return_value = 1
-    selectors["button:has(svg.lucide-map-pin)"].first.inner_text.return_value = "Wroc\u0142aw, +2 Lokalizacje"
+    selectors["button:has(svg.lucide-map-pin)"].all_inner_texts.return_value = ["Wroc\u0142aw, +2 Lokalizacje"]
     selectors["span"].all_inner_texts.return_value = ["12 000 - 15 000", "PLN / month", "Mid", "B2B"]
     selectors["p"].all_inner_texts.return_value = ["Hybrydowo"]
     page.locator.return_value.count.return_value = 1
@@ -90,7 +89,7 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
     selectors["img[alt]"].first.count.return_value = 1
     selectors["img[alt]"].first.get_attribute.return_value = "Acme"
-    selectors["button:has(svg.lucide-map-pin)"].first.count.return_value = 0
+    selectors["button:has(svg.lucide-map-pin)"].all_inner_texts.return_value = []
     selectors["span"].all_inner_texts.return_value = []
     selectors["p"].all_inner_texts.return_value = []
     page.locator.return_value.count.return_value = 2
@@ -120,11 +119,25 @@ def test_text_returns_none_for_missing_or_empty_element() -> None:
 )
 def test_location_cleans_extra_locations(raw: str, expected: str) -> None:
     card = MagicMock()
-    location = card.locator.return_value.first
-    location.count.return_value = 1
-    location.inner_text.return_value = raw
+    card.locator.return_value.all_inner_texts.return_value = [raw]
 
     assert _location(card) == expected
+
+
+def test_location_ignores_company_profile_button() -> None:
+    card = MagicMock()
+    card.locator.return_value.all_inner_texts.return_value = [
+        "Poka\u017c profil firmy",
+        "Wroc\u0142aw, +2 Lokalizacje",
+    ]
+
+    assert _location(card) == "Wroc\u0142aw"
+
+
+def test_level_and_contract_only_accept_complete_values() -> None:
+    assert _level(["Google Tag Manager", "Mid Data Engineer", "Specjalista / Mid"]) == "Specjalista / Mid"
+    assert _contract(["B2B marketing"]) is None
+    assert _contract(["B2B marketing", "B2B, Umowa zlecenie"]) == "B2B, Umowa zlecenie"
 
 
 @pytest.mark.parametrize(

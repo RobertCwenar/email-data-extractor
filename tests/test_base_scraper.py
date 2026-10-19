@@ -1,5 +1,6 @@
 import json
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from scrapers.base_scraper import BaseScraper
 
@@ -46,7 +47,7 @@ def test_run_scraper_validates_records_and_saves_to_its_output_file(tmp_path) ->
     assert saved_offers[0]["level"] is None
     assert saved_offers[0]["contract"] is None
     assert saved_offers[0]["salary"] is None
-    assert saved_offers[0]["scraped_at"] == datetime.now().strftime("%Y-%m-%d")
+    assert saved_offers[0]["scraped_at"] == datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d")
 
 
 def test_run_scraper_deduplicates_same_offer_on_same_day(tmp_path) -> None:
@@ -70,8 +71,37 @@ def test_run_scraper_deduplicates_same_offer_on_same_day(tmp_path) -> None:
     assert len(saved_offers) == 1
 
 
+def test_run_scraper_dates_each_url_when_its_scrape_finishes(tmp_path, monkeypatch) -> None:
+    class FakeDate:
+        def __init__(self, value: str) -> None:
+            self.value = value
+
+        def strftime(self, _format: str) -> str:
+            return self.value
+
+    dates = iter(("2026-10-19", "2026-10-20"))
+
+    class FakeDateTime:
+        @staticmethod
+        def now(_timezone: ZoneInfo | None = None) -> FakeDate:
+            return FakeDate(next(dates))
+
+    monkeypatch.setattr("scrapers.base_scraper.datetime", FakeDateTime)
+    scraper = StubScraper(
+        str(tmp_path / "offers.json"),
+        {
+            "https://example.com/first": [{"title": "Data Analyst", "company": "Jacumo", "location": "Warsaw"}],
+            "https://example.com/second": [{"title": "Data Engineer", "company": "Jacumo", "location": "Warsaw"}],
+        },
+    )
+
+    offers = scraper.run_scraper()
+
+    assert [offer["scraped_at"] for offer in offers] == ["2026-10-19", "2026-10-20"]
+
+
 def test_load_saved_offers_reads_only_today_without_visiting_urls(tmp_path) -> None:
-    now = datetime.now()
+    now = datetime.now(ZoneInfo("Europe/Warsaw"))
     today = now.strftime("%Y-%m-%d")
     yesterday = (now - timedelta(days=1)).strftime("%Y-%m-%d")
     output_file = tmp_path / "offers.json"

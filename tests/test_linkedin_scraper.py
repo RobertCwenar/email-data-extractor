@@ -2,6 +2,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from scrapers.linkedin_scraper import LinkedInScraper
+from scrapers.scraper_offer_adapter import linkedin_card_to_record
 
 
 def test_get_text_returns_text() -> None:
@@ -23,6 +24,33 @@ def test_get_text_returns_none_when_element_missing() -> None:
     result = scraper.get_text(card, "p span[aria-hidden='true']")
 
     assert result is None
+
+
+def test_linkedin_card_adapter_extracts_common_offer_record() -> None:
+    card = MagicMock()
+    paragraphs = MagicMock()
+    paragraphs.count.return_value = 3
+    company = MagicMock()
+    company.inner_text.return_value = "Jacumo"
+    location = MagicMock()
+    location.inner_text.return_value = "Warszawa (Praca hybrydowa)"
+    paragraphs.nth.side_effect = lambda index: {1: company, 2: location}[index]
+    title = MagicMock()
+    title.first.count.return_value = 1
+    title.first.inner_text.return_value = "Analityk danych"
+    card.get_attribute.return_value = "job-card-component-ref-123"
+    card.locator.side_effect = lambda selector: paragraphs if selector == "p" else title
+
+    offer = linkedin_card_to_record(card)
+
+    assert offer == {
+        "title": "Analityk danych",
+        "company": "Jacumo",
+        "location": "Warszawa",
+        "work_mode": "Praca hybrydowa",
+        "url": "https://www.linkedin.com/jobs/view/123",
+        "offer_id": "123",
+    }
 
 
 @patch("scrapers.linkedin_scraper.sync_playwright")

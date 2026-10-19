@@ -6,10 +6,9 @@ from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from config import scraper_config
 from scrapers.base_scraper import BaseScraper
+from scrapers.scraper_offer_adapter import LINKEDIN_CARD_SELECTOR, linkedin_card_to_record
 
 logger = logging.getLogger(__name__)
-
-JOB_CARD_SELECTOR = '[componentkey^="job-card-component-ref-"]'
 
 
 class LinkedInScraper(BaseScraper):
@@ -88,7 +87,7 @@ class LinkedInScraper(BaseScraper):
                         at_bottom: window.scrollY + window.innerHeight >= pageHeight - 10
                     };
                 }""",
-                JOB_CARD_SELECTOR,
+                LINKEDIN_CARD_SELECTOR,
             )
             page.wait_for_timeout(2000)
 
@@ -116,38 +115,6 @@ class LinkedInScraper(BaseScraper):
         )
         return reached_bottom
 
-    def read_page_offers(self, cards: Locator) -> list[dict[str, Any]]:
-        offers: list[dict[str, Any]] = []
-        for card in cards.all():
-            component_key = card.get_attribute("componentkey")
-            offer_id = component_key.removeprefix("job-card-component-ref-") if component_key else None
-
-            title = self.get_text(card, "p span[aria-hidden='true']")
-            paragraphs = card.locator("p")
-            company = paragraphs.nth(1).inner_text().strip() if paragraphs.count() > 1 else None
-            location_text = paragraphs.nth(2).inner_text().strip() if paragraphs.count() > 2 else None
-
-            work_mode = None
-            location = location_text
-            if location_text:
-                for mode in ("Praca stacjonarna", "Praca hybrydowa", "Praca zdalna"):
-                    if mode in location_text:
-                        work_mode = mode
-                        location = location_text.replace(f" ({mode})", "").strip()
-                        break
-
-            offers.append(
-                {
-                    "title": title,
-                    "company": company,
-                    "location": location,
-                    "work_mode": work_mode,
-                    "url": f"https://www.linkedin.com/jobs/view/{offer_id}" if offer_id else None,
-                    "offer_id": offer_id,
-                }
-            )
-        return offers
-
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         with sync_playwright() as p:
             context = p.chromium.launch_persistent_context(
@@ -164,9 +131,9 @@ class LinkedInScraper(BaseScraper):
             max_pages = 40
 
             for page_number in range(1, max_pages + 1):
-                cards = page.locator(JOB_CARD_SELECTOR)
+                cards = page.locator(LINKEDIN_CARD_SELECTOR)
                 self.scroll_results_to_bottom(page, cards)
-                page_offers = self.read_page_offers(cards)
+                page_offers = [linkedin_card_to_record(card) for card in cards.all()]
                 for offer in page_offers:
                     key = offer.get("offer_id") or offer.get("url")
                     if key is None or key not in seen_keys:
@@ -198,7 +165,7 @@ class LinkedInScraper(BaseScraper):
                                 .map(element => element.getAttribute('componentkey'));
                             return keys.some(key => key && !args.previous.includes(key));
                         }""",
-                        arg={"selector": JOB_CARD_SELECTOR, "previous": current_keys},
+                        arg={"selector": LINKEDIN_CARD_SELECTOR, "previous": current_keys},
                         timeout=20000,
                     )
                 except PlaywrightTimeoutError:

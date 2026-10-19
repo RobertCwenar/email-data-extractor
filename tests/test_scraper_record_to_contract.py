@@ -77,6 +77,14 @@ def test_missing_salary_returns_contract_without_salary():
     assert contract.salary_max_offer is None
 
 
+def test_b2b_contract_label_is_preserved_without_salary():
+    contract = scraper_record_to_contract({"salary": None, "contract": "B2B"})
+
+    assert contract.contract_type == "B2B"
+    assert contract.salary_min_offer is None
+    assert contract.salary_max_offer is None
+
+
 def test_salary_depending_on_contract_is_not_parsed():
     record = {
         "salary": "32–7 000 zł / mies. (zal. od umowy)",

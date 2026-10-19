@@ -3,12 +3,14 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from playwright.sync_api import Locator
 
 from offer import StructureScraper
 
 logger = logging.getLogger(__name__)
+WARSAW_TIMEZONE = ZoneInfo("Europe/Warsaw")
 
 
 class BaseScraper:
@@ -31,13 +33,16 @@ class BaseScraper:
     def run_scraper(self) -> list[dict[str, Any]]:
         offers: list[dict[str, Any]] = []
         for url in self.urls:
-            offers.extend(self.get_offers_from_page(url))
+            page_offers = self.get_offers_from_page(url)
+            scraped_at = datetime.now(WARSAW_TIMEZONE).strftime("%Y-%m-%d")
+            offers.extend(
+                {**raw_offer, "scraped_at": raw_offer.get("scraped_at") or scraped_at} for raw_offer in page_offers
+            )
 
-        timestamp = datetime.now().strftime("%Y-%m-%d")
         normalized_offers: list[dict[str, Any]] = []
         for raw_offer in offers:
             offer = StructureScraper.model_validate(raw_offer).model_dump()
-            offer["scraped_at"] = timestamp
+            offer["scraped_at"] = raw_offer["scraped_at"]
             offer_id = self.get_offer_id(offer)
             if offer_id is not None:
                 offer["offer_id"] = offer_id
@@ -85,7 +90,7 @@ class BaseScraper:
             return []
 
         offers: list[dict[str, Any]] = []
-        today = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now(WARSAW_TIMEZONE).strftime("%Y-%m-%d")
         for raw_offer in saved_offers:
             if not isinstance(raw_offer, dict):
                 continue

@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright
 
 from config import scraper_config
 from scrapers.base_scraper import BaseScraper
-from scrapers.scraper_offer_adapter import CARD_SELECTOR, rocketjobs_card_to_offer
+from scrapers.scraper_offer_adapter import ROCKETJOBS_CARD_SELECTOR, rocketjobs_card_to_record
 
 MAX_SCROLL_ROUNDS = 12
 SCROLL_WAIT_MS = 1000
@@ -31,12 +31,12 @@ class RocketJobsScraper(BaseScraper):
                 if response and response.status >= 400:
                     raise RuntimeError(f"RocketJobs returned HTTP {response.status}: {url}")
 
-                page.wait_for_selector(CARD_SELECTOR, timeout=30000)
+                page.wait_for_selector(ROCKETJOBS_CARD_SELECTOR, timeout=30000)
                 previous_count = stable_rounds = 0
                 for _ in range(MAX_SCROLL_ROUNDS):
                     page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
                     page.wait_for_timeout(SCROLL_WAIT_MS)
-                    current_count = page.locator(CARD_SELECTOR).count()
+                    current_count = page.locator(ROCKETJOBS_CARD_SELECTOR).count()
                     if current_count == previous_count:
                         stable_rounds += 1
                         if stable_rounds >= STABLE_ROUNDS_LIMIT:
@@ -45,13 +45,13 @@ class RocketJobsScraper(BaseScraper):
                         stable_rounds = 0
                     previous_count = current_count
 
-                cards = page.locator(CARD_SELECTOR)
+                cards = page.locator(ROCKETJOBS_CARD_SELECTOR)
                 logger.info("RocketJobs cards found: %s", cards.count())
                 offers: list[dict[str, Any]] = []
                 seen_urls: set[str] = set()
                 for index, link in enumerate(cards.all(), start=1):
                     try:
-                        offer = rocketjobs_card_to_offer(link, url)
+                        offer = rocketjobs_card_to_record(link, url)
                         if offer is None:
                             logger.warning("RocketJobs: missing required data for card %s", index)
                             continue
