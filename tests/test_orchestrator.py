@@ -7,18 +7,22 @@ from config import scraper_config
 from orchestrator import main
 from scrapers.linkedin_scraper import LinkedInScraper
 from scrapers.pracuj_scraper import Scraper
+from scrapers.rocketjobs_scraper import RocketJobsScraper
 
 
 @pytest.mark.asyncio
 async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path, monkeypatch):
     pracuj_url = "https://pracuj.example/jobs"
     linkedin_url = "https://linkedin.example/jobs"
+    rocketjobs_url = "https://rocketjobs.example/jobs"
 
     def configured_urls(keys):
         if keys == ["scraper", "urls"]:
             return [pracuj_url]
         if keys == ["scraper_linkedin", "urls"]:
             return [linkedin_url]
+        if keys == ["scraper_rocketjobs", "urls"]:
+            return [rocketjobs_url]
         return []
 
     monkeypatch.setattr(scraper_config, "get_list", configured_urls)
@@ -27,6 +31,11 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
         LinkedInScraper,
         "output_file",
         str(tmp_path / "filter_linkedin_offers.json"),
+    )
+    monkeypatch.setattr(
+        RocketJobsScraper,
+        "output_file",
+        str(tmp_path / "filter_rocketjobs_offers.json"),
     )
 
     pracuj_offers = [
@@ -54,6 +63,18 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
             "offer_id": "2002",
         }
     ]
+    rocketjobs_offers = [
+        {
+            "title": "BI Analyst",
+            "company": "Example RocketJobs",
+            "location": "Wrocław",
+            "level": "Specjalista / Mid",
+            "contract": "B2B",
+            "work_mode": "Hybrydowo",
+            "salary": "12 000 PLN/mies.",
+            "url": "https://rocketjobs.example/oferta-pracy/bi-analyst",
+        }
+    ]
 
     mock_offer = MagicMock()
     mock_offer.title = "Python Developer"
@@ -69,7 +90,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
 
     mock_db = MagicMock()
     mock_db_insert = MagicMock()
-    mock_db_insert.save_offers.side_effect = [101, 102, 103]
+    mock_db_insert.save_offers.side_effect = [101, 102, 103, 104]
     mock_db_query = MagicMock()
     mock_db_update = MagicMock()
     mock_db_schema = MagicMock()
@@ -99,18 +120,29 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
             "get_offers_from_page",
             return_value=linkedin_offers,
         ) as linkedin_fetch,
+        patch.object(
+            RocketJobsScraper,
+            "get_offers_from_page",
+            return_value=rocketjobs_offers,
+        ) as rocketjobs_fetch,
     ):
         await main()
 
     pracuj_fetch.assert_called_once_with(pracuj_url)
     linkedin_fetch.assert_called_once_with(linkedin_url)
-    assert mock_filter.should_save.call_count == 3
-    assert mock_db_insert.save_offers.call_count == 3
+    rocketjobs_fetch.assert_called_once_with(rocketjobs_url)
+    assert mock_filter.should_save.call_count == 4
+    assert mock_db_insert.save_offers.call_count == 4
+    (rocketjobs_saved_offer,) = mock_db_insert.save_offers.call_args_list[-1].args
+    assert rocketjobs_saved_offer.title == "BI Analyst"
+    assert mock_db_insert.save_offers.call_args_list[-1].kwargs == {"source": "scraper_rocketjobs"}
 
     pracuj_saved = json.loads((tmp_path / "filter_pracuj_offers.json").read_text(encoding="utf-8"))
     linkedin_saved = json.loads((tmp_path / "filter_linkedin_offers.json").read_text(encoding="utf-8"))
+    rocketjobs_saved = json.loads((tmp_path / "filter_rocketjobs_offers.json").read_text(encoding="utf-8"))
     assert pracuj_saved[0]["offer_id"] == "1001"
     assert linkedin_saved[0]["offer_id"] == "2002"
+    assert rocketjobs_saved[0]["title"] == "BI Analyst"
 
 
 @pytest.mark.asyncio
