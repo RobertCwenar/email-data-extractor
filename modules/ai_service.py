@@ -28,6 +28,7 @@ class AIService:
         self._last_api_call = 0.0
         self._api_delay = API_DELAY
         self._models = config.get_list(["ai_models"])
+        self._unavailable_models: set[str] = set()
 
     async def _wait_before_api_call(self) -> None:
         async with self._api_lock:
@@ -47,6 +48,8 @@ class AIService:
         last_error = None
 
         for model in self._models:
+            if model in self._unavailable_models:
+                continue
             try:
                 await self._wait_before_api_call()
 
@@ -67,11 +70,17 @@ class AIService:
 
             except (ServerError, ClientError) as error:
                 last_error = error
+                is_rate_limited = getattr(error, "code", None) == 429 or "429" in str(error)
+                if is_rate_limited:
+                    self._unavailable_models.add(model)
 
                 logger.warning("AI request failed with model %s: %s", model, error)
 
         if last_error is not None:
             raise last_error
+
+        if self._unavailable_models:
+            raise RuntimeError("All AI models are currently unavailable")
 
         raise RuntimeError("No AI models configured")
 
