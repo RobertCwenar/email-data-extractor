@@ -4,7 +4,13 @@ import pytest
 
 from config import scraper_config
 from scrapers.rocketjobs_scraper import RocketJobsScraper
-from scrapers.scraper_offer_adapter import _contract, _level, _location, _salary, _text
+from scrapers.scraper_offer_adapter import (
+    _contract,
+    _level,
+    _location,
+    _salary,
+    _text,
+)
 
 
 def test_scraper_uses_its_configured_urls(monkeypatch) -> None:
@@ -31,7 +37,7 @@ def test_get_offers_from_page_extracts_card_and_normalizes_url(monkeypatch) -> N
         for name in (
             "a.offer_list_offer_title_link",
             "img[alt]",
-            "button:has(svg.lucide-map-pin)",
+            "svg.lucide-map-pin + div",
             "span",
             "p",
         )
@@ -43,7 +49,7 @@ def test_get_offers_from_page_extracts_card_and_normalizes_url(monkeypatch) -> N
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
     selectors["img[alt]"].first.count.return_value = 1
     selectors["img[alt]"].first.get_attribute.return_value = "Image: Acme"
-    selectors["button:has(svg.lucide-map-pin)"].all_inner_texts.return_value = ["Wroc\u0142aw, +2 Lokalizacje"]
+    selectors["svg.lucide-map-pin + div"].all_inner_texts.return_value = ["Wroc\u0142aw, +2 Lokalizacje"]
     selectors["span"].all_inner_texts.return_value = ["12 000 - 15 000", "PLN / month", "Mid", "B2B"]
     selectors["p"].all_inner_texts.return_value = ["Hybrydowo"]
     page.locator.return_value.count.return_value = 1
@@ -74,7 +80,7 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
         for name in (
             "a.offer_list_offer_title_link",
             "img[alt]",
-            "button:has(svg.lucide-map-pin)",
+            "svg.lucide-map-pin + div",
             "span",
             "p",
         )
@@ -89,7 +95,7 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
     selectors["img[alt]"].first.count.return_value = 1
     selectors["img[alt]"].first.get_attribute.return_value = "Acme"
-    selectors["button:has(svg.lucide-map-pin)"].all_inner_texts.return_value = []
+    selectors["svg.lucide-map-pin + div"].all_inner_texts.return_value = []
     selectors["span"].all_inner_texts.return_value = []
     selectors["p"].all_inner_texts.return_value = []
     page.locator.return_value.count.return_value = 2

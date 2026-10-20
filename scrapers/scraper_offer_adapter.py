@@ -9,7 +9,7 @@ from offer import JobContract, JobOffer
 
 ROCKETJOBS_CARD_SELECTOR = "a.offer-card"
 ROCKETJOBS_TITLE_SELECTOR = "a.offer_list_offer_title_link"
-ROCKETJOBS_LOCATION_SELECTOR = "button:has(svg.lucide-map-pin)"
+ROCKETJOBS_LOCATION_SELECTOR = "svg.lucide-map-pin + div"
 ROCKETJOBS_LEVEL_PATTERN = re.compile(
     r"(?:junior|m\N{LATIN SMALL LETTER L WITH STROKE}odszy specjalista\s*/\s*junior|mid|specjalista\s*/\s*mid|"
     r"senior|starszy specjalista\s*/\s*senior|expert|ekspert\s*/\s*expert|manager)",
@@ -49,14 +49,22 @@ def _text(card: Locator, selector: str) -> str | None:
 
 
 def _location(card: Locator) -> str | None:
-    for raw_text in card.locator(ROCKETJOBS_LOCATION_SELECTOR).all_inner_texts():
-        text = raw_text.strip()
-        if text.casefold() in {"poka\u017c profil firmy", "zobacz profil firmy"}:
+    elements = card.locator(ROCKETJOBS_LOCATION_SELECTOR)
+    texts = elements.all_inner_texts()
+
+    if not texts:
+        print("BRAK SELEKTORA LOKALIZACJI")
+        print(card.inner_html()[:5000])
+
+    for raw_text in texts:
+        location = re.sub(r"\s+", " ", raw_text).strip()
+        location = re.sub(r"\s*,\s*", ", ", location)
+        location = re.sub(r",\s*\+\d+\s+Lokalizacje\s*$", "", location, flags=re.IGNORECASE)
+        if location.casefold() in {"pokaż profil firmy", "pokaz profil firmy"}:
             continue
-        match = re.match(r"(.+?)(?:,\s*\+\d+)?(?:\s+Lokalizacje)?$", text)
-        location = match.group(1).strip() if match else text
         if location:
             return location
+
     return None
 
 
@@ -91,7 +99,7 @@ def _salary(card: Locator) -> str | None:
 
 # Source-specific card parsers return plain records validated by BaseScraper.
 def rocketjobs_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
-    card = link.locator("xpath=..")
+    card = link.locator("xpath=../..")
     title = _text(card, ROCKETJOBS_TITLE_SELECTOR)
     if not title:
         title = re.sub(r"^Zobacz ofert\u0119\s*", "", link.get_attribute("title") or "", flags=re.IGNORECASE).strip()
