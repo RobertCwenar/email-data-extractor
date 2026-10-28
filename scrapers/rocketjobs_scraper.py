@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 from playwright.sync_api import sync_playwright
@@ -20,12 +21,14 @@ class RocketJobsScraper(BaseScraper):
 
     def __init__(self) -> None:
         self.urls = scraper_config.get_list(["scraper_rocketjobs", "urls"])
+        self.headless = os.getenv("PLAYWRIGHT_HEADLESS", "1").strip().lower() not in {"0", "false", "no"}
 
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
-        with sync_playwright() as playwright:
-            browser = playwright.chromium.launch(headless=False)
-            try:
-                page = browser.new_page()
+        try:
+            with sync_playwright() as playwright:
+                browser = playwright.chromium.launch(headless=self.headless)
+                page = browser.new_page(viewport={"width": 1440, "height": 1200})
+
                 response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
                 logger.info("RocketJobs HTTP status: %s", response.status if response else None)
                 if response and response.status >= 400:
@@ -55,13 +58,19 @@ class RocketJobsScraper(BaseScraper):
                         if offer is None:
                             logger.warning("RocketJobs: missing required data for card %s", index)
                             continue
-                        if offer["url"] not in seen_urls:
-                            seen_urls.add(offer["url"])
+                        offer_url = offer.get("url")
+                        if not offer_url:
+                            logger.warning("RocketJobs: card %s has no URL", index)
+                            continue
+                        if offer_url not in seen_urls:
+                            seen_urls.add(offer_url)
                             offers.append(offer)
                     except Exception:
                         logger.exception("RocketJobs: failed to process card %s", index)
 
                 logger.info("RocketJobs offers retrieved: %s", len(offers))
-                return offers
-            finally:
                 browser.close()
+                return offers
+        except Exception:
+            logger.exception("RocketJobs: page scraping failed for %s", url)
+            return []

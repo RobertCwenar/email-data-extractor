@@ -1,3 +1,4 @@
+import logging
 import re
 from datetime import date
 from typing import Any
@@ -6,6 +7,8 @@ from urllib.parse import urljoin
 from playwright.sync_api import Locator
 
 from offer import JobContract, JobOffer
+
+logger = logging.getLogger(__name__)
 
 ROCKETJOBS_CARD_SELECTOR = "a.offer-card"
 ROCKETJOBS_TITLE_SELECTOR = "a.offer_list_offer_title_link"
@@ -53,8 +56,8 @@ def _location(card: Locator) -> str | None:
     texts = elements.all_inner_texts()
 
     if not texts:
-        print("BRAK SELEKTORA LOKALIZACJI")
-        print(card.inner_html()[:5000])
+        logger.warning("RocketJobs card has no location element")
+        logger.debug("RocketJobs card HTML: %s", card.inner_html()[:5000])
 
     for raw_text in texts:
         location = re.sub(r"\s+", " ", raw_text).strip()
