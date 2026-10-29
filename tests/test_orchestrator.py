@@ -133,6 +133,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     rocketjobs_fetch.assert_called_once_with(rocketjobs_url)
     assert mock_filter.should_save.call_count == 4
     assert mock_db_insert.save_offers.call_count == 4
+    mock_db_update.normalize_offer_locations.assert_called_once_with()
     (rocketjobs_saved_offer,) = mock_db_insert.save_offers.call_args_list[-1].args
     assert rocketjobs_saved_offer.title == "BI Analyst"
     assert mock_db_insert.save_offers.call_args_list[-1].kwargs == {"source": "scraper_rocketjobs"}

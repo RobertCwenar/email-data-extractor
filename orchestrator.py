@@ -114,6 +114,7 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     )
 
     offer_ids = await source_workflow.run()
+    db_update.normalize_offer_locations()
 
     await classification_service.process_jobs()
     await classification_service.process_salary_estimations()

@@ -154,3 +154,7 @@ class UpdateDB:
                     """,
                     (category, offer_id),
                 )
+
+    def normalize_offer_locations(self) -> None:
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            cursor.execute("SELECT normalize_offer_locations()")
