@@ -20,5 +20,5 @@ Structure_parser.txt
 *job_offers_backup.dump
 *etl.log
 *.sql
-linkedni_profile/
+linkedin_profile/
 uv.lock
