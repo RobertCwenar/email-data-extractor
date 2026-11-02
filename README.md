@@ -8,7 +8,7 @@ Source code: [GitHub repository](https://github.com/RobertCwenar/email-data-extr
 
 ## About
 
-The pipeline collects offers from configured email sources and the Pracuj.pl and LinkedIn job board scrapers. It validates and classifies offer data, normalizes salary and contract details, and stores the results in PostgreSQL. Salary history and configured rules can be used to estimate missing salary ranges.
+The pipeline collects offers from configured email sources and the Pracuj.pl, LinkedIn, RocketJobs, JustJoin.it, and theprotocol.it job board scrapers. It validates and classifies offer data, normalizes salary and contract details, and stores the results in PostgreSQL. Salary history and configured rules can be used to estimate missing salary ranges.
 
 ## Technologies
 
@@ -101,7 +101,7 @@ uv run playwright install chromium
 
 Copy `.env_template` to `.env` and set the required mailbox, Gemini API, and PostgreSQL values. The variable names are `EMAIL`, `PASSWORD`, `EMAIL_HOST`, `EMAIL_PORT`, `KEY_API`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. If `EMAIL_PORT` is omitted, the application uses `993`.
 
-The active `filter_keywords.json` and `scraper_urls.json` files are local configuration. Create them from `filter_keywords_example.json` and `scraper_urls_example.json` before running the pipeline. The scraper example contains Pracuj.pl URLs; to enable LinkedIn scraping, add a `scraper_linkedin.urls` list to `scraper_urls.json`.
+The active `filter_keywords.json` and `scraper_urls.json` files are local configuration. Create them from `filter_keywords_example.json` and `scraper_urls_example.json` before running the pipeline. Add the URLs you want to scrape under `scraper_justjoin.urls`, `scraper_theprotocol.urls`, `scraper_linkedin.urls`, or `scraper_rocketjobs.urls`; Pracuj.pl URLs use `scraper.urls`.
 
 PostgreSQL must be running and reachable with the configured connection values. The application creates its tables when it starts.
 
@@ -111,7 +111,7 @@ PostgreSQL must be running and reachable with the configured connection values. 
 uv run python orchestrator.py
 ```
 
-The application runs the configured email and scraper sources, processes the collected offers, and updates PostgreSQL. Scraped records are also written to `filter_pracuj_offers.json` and `filter_linkedin_offers.json`. Processed email IDs are tracked under `mail_records/` to avoid processing the same messages again.
+The application runs the configured email and scraper sources, processes the collected offers, and updates PostgreSQL. Scraped records are also written to source-specific files such as `filter_justjoin_offers.json`, `filter_theprotocol_offers.json`, `filter_pracuj_offers.json`, and `filter_linkedin_offers.json`. Processed email IDs are tracked under `mail_records/` to avoid processing the same messages again.
 
 ## Additional Utilities
 
