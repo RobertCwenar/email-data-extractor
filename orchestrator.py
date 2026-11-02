@@ -23,9 +23,11 @@ from modules.salary_estimator import SalaryEstimator
 from modules.salary_history import SalaryHistory
 from modules.salary_processor import SalaryProcessor
 from parsers.salary_parser import SalaryParser
+from scrapers.justjoin_scraper import JustJoinScraper
 from scrapers.linkedin_scraper import LinkedInScraper
 from scrapers.pracuj_scraper import Scraper
 from scrapers.rocketjobs_scraper import RocketJobsScraper
+from scrapers.theprotocol_scraper import TheProtocolScraper
 
 # Load environment variables from .env file
 load_dotenv()
@@ -90,7 +92,7 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
         salary_parser=salary_parser,
     )
 
-    scrapers = [Scraper(), LinkedInScraper(), RocketJobsScraper()]
+    scrapers = [Scraper(), LinkedInScraper(), RocketJobsScraper(), JustJoinScraper(), TheProtocolScraper()]
 
     classification_service = JobClassificationService(
         db_query,
