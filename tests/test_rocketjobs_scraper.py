@@ -36,20 +36,31 @@ def test_get_offers_from_page_extracts_card_and_normalizes_url(monkeypatch) -> N
         name: MagicMock()
         for name in (
             "a.offer_list_offer_title_link",
-            "img[alt]",
+            "svg.lucide-building",
             "svg.lucide-map-pin + div",
             "span",
             "p",
         )
     }
+
     card.locator.side_effect = selectors.__getitem__
     link.locator.return_value = card
     link.get_attribute.return_value = "/oferta-pracy/bi-analyst"
+
+    # Firma
+    company_icon = selectors["svg.lucide-building"]
+    company_icon.first.count.return_value = 1
+
+    company_element = company_icon.first.locator.return_value.locator.return_value.first
+    company_element.count.return_value = 1
+    company_element.inner_text.return_value = "Acme"
+
+    # Tytuł
     selectors["a.offer_list_offer_title_link"].first.count.return_value = 1
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
-    selectors["img[alt]"].first.count.return_value = 1
-    selectors["img[alt]"].first.get_attribute.return_value = "Image: Acme"
-    selectors["svg.lucide-map-pin + div"].all_inner_texts.return_value = ["Wroc\u0142aw, +2 Lokalizacje"]
+
+    # Pozostałe pola
+    selectors["svg.lucide-map-pin + div"].all_inner_texts.return_value = ["Wrocław, +2 Lokalizacje"]
     selectors["span"].all_inner_texts.return_value = ["12 000 - 15 000", "PLN / month", "Mid", "B2B"]
     selectors["p"].all_inner_texts.return_value = ["Hybrydowo"]
     page.locator.return_value.count.return_value = 1
@@ -79,7 +90,7 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
         name: MagicMock()
         for name in (
             "a.offer_list_offer_title_link",
-            "img[alt]",
+            "svg.lucide-building",
             "svg.lucide-map-pin + div",
             "span",
             "p",
@@ -93,8 +104,12 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
     }[name]
     selectors["a.offer_list_offer_title_link"].first.count.return_value = 1
     selectors["a.offer_list_offer_title_link"].first.inner_text.return_value = "BI Analyst"
-    selectors["img[alt]"].first.count.return_value = 1
-    selectors["img[alt]"].first.get_attribute.return_value = "Acme"
+    company_icon = selectors["svg.lucide-building"]
+    company_icon.first.count.return_value = 1
+
+    company_element = company_icon.first.locator.return_value.locator.return_value.first
+    company_element.count.return_value = 1
+    company_element.inner_text.return_value = "Acme"
     selectors["svg.lucide-map-pin + div"].all_inner_texts.return_value = []
     selectors["span"].all_inner_texts.return_value = []
     selectors["p"].all_inner_texts.return_value = []

@@ -16,7 +16,7 @@ class TheProtocolScraper(BaseScraper):
     source = "scraper_theprotocol"
 
     def __init__(self) -> None:
-        self.urls = scraper_config.get_list(["scraper_theprotocol", "urls"])
+        self.urls = scraper_config.get_list(["scraper_theprotocolit", "urls"])
         self.headless = os.getenv("PLAYWRIGHT_HEADLESS", "1").strip().lower() not in {"0", "false", "no"}
 
     def get_offer_id(self, offer: dict[str, Any]) -> str | None:

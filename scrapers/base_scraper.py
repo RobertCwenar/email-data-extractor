@@ -32,6 +32,9 @@ class BaseScraper:
 
     def run_scraper(self) -> list[dict[str, Any]]:
         offers: list[dict[str, Any]] = []
+        logger.info("Scraper URLs: %s", self.urls)
+        logger.info("Scraper URLs count: %s", len(self.urls))
+
         for url in self.urls:
             page_offers = self.get_offers_from_page(url)
             scraped_at = datetime.now(WARSAW_TIMEZONE).strftime("%Y-%m-%d")

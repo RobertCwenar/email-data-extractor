@@ -13,22 +13,19 @@ def test_scraper_uses_its_configured_urls(monkeypatch) -> None:
     scraper = JustJoinScraper()
 
     assert scraper.urls == urls
-    assert scraper.source == "scraper_justjoin"
-    get_list.assert_called_once_with(["scraper_justjoin", "urls"])
+    assert scraper.source == "scraper_justjoinit"
+    get_list.assert_called_once_with(["scraper_justjoinit", "urls"])
 
 
 def test_adapter_extracts_fields_from_current_card_structure() -> None:
     link, card = MagicMock(), MagicMock()
     link.locator.return_value = card
     link.get_attribute.return_value = "/job-offer/acme-senior-analyst-123abc"
+    link.inner_text.return_value = "Senior Data Analyst"
 
-    title = MagicMock()
-    title.first.count.return_value = 1
-    title.first.inner_text.return_value = "Senior Data Analyst"
-
-    image = MagicMock()
-    image.first.count.return_value = 1
-    image.first.get_attribute.return_value = "Acme"
+    company = MagicMock()
+    company.first.count.return_value = 1
+    company.first.inner_text.return_value = "Acme"
 
     location_icon = MagicMock()
     location_icon.first.count.return_value = 1
@@ -37,7 +34,6 @@ def test_adapter_extracts_fields_from_current_card_structure() -> None:
     location_element.count.return_value = 1
     location_element.inner_text.return_value = "Wroclaw"
 
-    # Work mode
     mode_icon = MagicMock()
     mode_icon.first.count.return_value = 1
 
@@ -45,7 +41,6 @@ def test_adapter_extracts_fields_from_current_card_structure() -> None:
     mode_element.count.return_value = 1
     mode_element.inner_text.return_value = "Remote"
 
-    # Other fields
     spans = MagicMock()
     spans.all_inner_texts.return_value = [
         "Mid",
@@ -54,13 +49,11 @@ def test_adapter_extracts_fields_from_current_card_structure() -> None:
     ]
 
     card.locator.side_effect = {
-        "a.offer_list_offer_title_link": title,
-        "img[alt]": image,
+        "p": company,
         "svg.lucide-map-pin": location_icon,
         "svg.lucide-building2": mode_icon,
         "span": spans,
     }.__getitem__
-
     offer = justjoin_card_to_record(
         link,
         "https://justjoin.it/job-offers/wroclaw/data",

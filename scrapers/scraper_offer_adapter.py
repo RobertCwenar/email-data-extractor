@@ -31,7 +31,7 @@ ROCKETJOBS_CONTRACTS = {
 }
 LINKEDIN_CARD_SELECTOR = '[componentkey^="job-card-component-ref-"]'
 PRACUJ_CARD_SELECTOR = "div[data-test='default-offer']"
-JUSTJOIN_CARD_SELECTOR = "a[href*='/job-offer/']"
+JUSTJOIN_CARD_SELECTOR = "a.offer_list_offer_title_link"
 THEPROTOCOL_CARD_SELECTOR = "a[href*='/praca/'][href*='oferta']"
 
 PRACUJ_SELECTORS = {
@@ -109,8 +109,9 @@ def rocketjobs_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | 
     if not title:
         title = re.sub(r"^Zobacz ofert\u0119\s*", "", link.get_attribute("title") or "", flags=re.IGNORECASE).strip()
 
-    image = card.locator("img[alt]").first
-    company = image.get_attribute("alt") if image.count() else None
+    company_icon = card.locator("svg.lucide-building").first
+    company_element = company_icon.locator("xpath=../..").locator("p").first if company_icon.count() else None
+    company = company_element.inner_text().strip() if company_element and company_element.count() else None
     company = re.sub(r"^Image:\s*", "", company or "", flags=re.IGNORECASE).strip()
     offer_url = link.get_attribute("href")
     if not title or not company or not offer_url or re.search(r"logo|rocketjobs", company, re.IGNORECASE):
@@ -172,13 +173,15 @@ def linkedin_card_to_record(card: Locator) -> dict[str, Any]:
 
 
 def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
-    card = link.locator("xpath=ancestor-or-self::*[.//img[@alt] and .//svg[contains(@class, 'lucide-map-pin')]][1]")
+    # Struktura: a -> h3 -> div -> div (kontener karty)
+    card = link.locator("xpath=../../..")
 
     offer_url = link.get_attribute("href")
-    title = _text(card, "a.offer_list_offer_title_link") or link.inner_text().strip()
+    title = link.inner_text().strip() or None
 
-    image = card.locator("img[alt]").first
-    company = image.get_attribute("alt") if image.count() else None
+    # Pierwszy paragraf zawiera nazwę firmy
+    company_element = card.locator("p").first
+    company = company_element.inner_text().strip() if company_element.count() else None
 
     location_icon = card.locator("svg.lucide-map-pin").first
     location_element = location_icon.locator("xpath=../..").locator("p").first if location_icon.count() else None
@@ -188,8 +191,7 @@ def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | No
     work_mode_element = work_mode_icon.locator("xpath=../..").locator("p").first if work_mode_icon.count() else None
     work_mode = work_mode_element.inner_text().strip() if work_mode_element and work_mode_element.count() else None
 
-    spans = card.locator("span").all_inner_texts()
-    normalized_spans = [text.strip() for text in spans if text.strip()]
+    spans = [text.strip() for text in card.locator("span").all_inner_texts() if text.strip()]
 
     if not title or not company or not offer_url:
         logger.warning(
@@ -202,19 +204,19 @@ def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | No
 
     return {
         "title": title,
-        "company": company.strip(),
+        "company": company,
         "location": location or "Nie podano",
         "level": next(
-            (text for text in normalized_spans if text.casefold() in {"intern", "junior", "mid", "senior", "expert"}),
+            (text for text in spans if text.casefold() in {"intern", "junior", "mid", "senior", "expert"}),
             None,
         ),
         "contract": next(
-            (text for text in normalized_spans if text.casefold() in {"b2b", "permanent", "mandate contract"}),
+            (text for text in spans if text.casefold() in {"b2b", "permanent", "mandate contract"}),
             None,
         ),
         "work_mode": work_mode,
         "salary": next(
-            (text for text in normalized_spans if re.search(r"\d.*(?:PLN|zł|EUR|USD)", text, re.IGNORECASE)),
+            (text for text in spans if re.search(r"\d.*(?:PLN|zł|EUR|USD)", text, re.IGNORECASE)),
             None,
         ),
         "url": urljoin(page_url, offer_url),
