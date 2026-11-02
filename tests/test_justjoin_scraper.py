@@ -1,4 +1,7 @@
+import json
+from datetime import datetime
 from unittest.mock import MagicMock
+from zoneinfo import ZoneInfo
 
 from config import scraper_config
 from scrapers.justjoin_scraper import JustJoinScraper
@@ -97,3 +100,36 @@ def test_get_offers_from_page_waits_for_cards_deduplicates_and_closes_browser(mo
     cards.first.wait_for.assert_called_once_with(state="attached", timeout=30000)
     assert parse.call_count == 2
     browser.close.assert_called_once_with()
+
+
+def test_run_scraper_backfills_missing_offer_ids_from_saved_urls(tmp_path) -> None:
+    output_file = tmp_path / "filter_justjoin_offers.json"
+    today = datetime.now(ZoneInfo("Europe/Warsaw")).strftime("%Y-%m-%d")
+    url = "https://justjoin.it/job-offer/acme-data-analyst-wroclaw-data"
+    output_file.write_text(
+        json.dumps(
+            [
+                {
+                    "title": "Data Analyst",
+                    "company": "Acme",
+                    "location": "Wroclaw",
+                    "url": url,
+                    "offer_id": None,
+                    "scraped_at": today,
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    scraper = JustJoinScraper()
+    scraper.urls = []
+    scraper.output_file = str(output_file)
+
+    new_offers = scraper.run_scraper()
+    saved_offers = json.loads(output_file.read_text(encoding="utf-8"))
+    loaded_offers = scraper.load_saved_offers()
+
+    expected_id = "acme-data-analyst-wroclaw-data"
+    assert new_offers == []
+    assert saved_offers[0]["offer_id"] == expected_id
+    assert loaded_offers[0]["offer_id"] == expected_id

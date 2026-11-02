@@ -128,6 +128,33 @@ async def test_scraper_offer_keeps_scraper_contract_and_skips_ai_validation():
 
 
 @pytest.mark.asyncio
+async def test_successful_scrape_ingests_existing_saved_offers_when_no_new_records():
+    record = {
+        "title": "Data Analyst",
+        "company": "Acme",
+        "location": "Warsaw",
+        "salary": None,
+        "contract": "Permanent",
+    }
+    scraper = MagicMock(source="scraper_justjoinit")
+    scraper.run_scraper.return_value = []
+    scraper.load_saved_offers.return_value = [record]
+    workflow, db_query, db_insert, _, _, ai, _ = make_workflow(scrapers=[scraper])
+
+    result = await workflow.run()
+
+    assert result == {42}
+    scraper.run_scraper.assert_called_once_with()
+    scraper.load_saved_offers.assert_called_once_with()
+    db_query.find_same_source_duplicate_id.assert_called_once()
+    assert db_query.find_same_source_duplicate_id.call_args.args[1] == "scraper_justjoinit"
+    db_insert.save_offers.assert_called_once()
+    assert db_insert.save_offers.call_args.args[0].title == "Data Analyst"
+    assert db_insert.save_offers.call_args.kwargs == {"source": "scraper_justjoinit"}
+    ai.validate_salary_api.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_existing_same_source_offer_with_contract_is_not_inserted_again():
     offer = JobOffer(title="Analyst", company="Acme", location="Warsaw")
     parser = MagicMock(source="RocketJobs")

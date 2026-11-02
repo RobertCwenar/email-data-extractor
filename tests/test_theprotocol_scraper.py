@@ -1,6 +1,7 @@
 from unittest.mock import MagicMock
 
 from scrapers.scraper_offer_adapter import theprotocol_card_to_record
+from scrapers.theprotocol_scraper import TheProtocolScraper
 
 
 def test_adapter_extracts_fields_from_card(monkeypatch) -> None:
@@ -57,3 +58,20 @@ def test_adapter_returns_none_when_required_data_is_missing(monkeypatch) -> None
     offer = theprotocol_card_to_record(link, "https://theprotocol.it")
 
     assert offer is None
+
+
+def test_scraper_returns_no_offers_and_closes_browser_on_http_error(monkeypatch) -> None:
+    playwright_context, browser, page = MagicMock(), MagicMock(), MagicMock()
+    playwright_context.__enter__.return_value.chromium.launch.return_value = browser
+    browser.new_page.return_value = page
+    page.goto.return_value.status = 403
+    monkeypatch.setattr(
+        "scrapers.theprotocol_scraper.sync_playwright",
+        lambda: playwright_context,
+    )
+
+    offers = TheProtocolScraper().get_offers_from_page("https://theprotocol.it/praca")
+
+    assert offers == []
+    page.wait_for_selector.assert_not_called()
+    browser.close.assert_called_once_with()

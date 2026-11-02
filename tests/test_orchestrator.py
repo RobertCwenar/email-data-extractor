@@ -17,6 +17,8 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     pracuj_url = "https://pracuj.example/jobs"
     linkedin_url = "https://linkedin.example/jobs"
     rocketjobs_url = "https://rocketjobs.example/jobs"
+    justjoin_url = "https://justjoin.example/jobs"
+    theprotocol_url = "https://theprotocol.example/jobs"
 
     def configured_urls(keys):
         if keys == ["scraper", "urls"]:
@@ -25,6 +27,10 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
             return [linkedin_url]
         if keys == ["scraper_rocketjobs", "urls"]:
             return [rocketjobs_url]
+        if keys == ["scraper_justjoinit", "urls"]:
+            return [justjoin_url]
+        if keys == ["scraper_theprotocolit", "urls"]:
+            return [theprotocol_url]
         return []
 
     monkeypatch.setattr(scraper_config, "get_list", configured_urls)
@@ -87,6 +93,31 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
             "url": "https://rocketjobs.example/oferta-pracy/bi-analyst",
         }
     ]
+    justjoin_offers = [
+        {
+            "title": "Data Operations Analyst",
+            "company": "Example JustJoin",
+            "location": "Warszawa",
+            "level": "Mid",
+            "contract": "Permanent",
+            "work_mode": "Hybrid",
+            "salary": None,
+            "url": "https://justjoin.it/job-offer/example-data-operations-analyst-warszawa-data",
+            "offer_id": "example-data-operations-analyst-warszawa-data",
+        }
+    ]
+    theprotocol_offers = [
+        {
+            "title": "SQL Data Analyst",
+            "company": "Example Protocol",
+            "location": "Krakow",
+            "contract": "B2B",
+            "work_mode": "Hybrid",
+            "salary": None,
+            "url": "https://theprotocol.it/praca/sql-data-analyst%2Coferta%2C12345",
+            "offer_id": "12345",
+        }
+    ]
 
     mock_offer = MagicMock()
     mock_offer.title = "Python Developer"
@@ -102,7 +133,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
 
     mock_db = MagicMock()
     mock_db_insert = MagicMock()
-    mock_db_insert.save_offers.side_effect = [101, 102, 103, 104]
+    mock_db_insert.save_offers.side_effect = [101, 102, 103, 104, 105, 106]
     mock_db_query = MagicMock()
     mock_db_update = MagicMock()
     mock_db_schema = MagicMock()
@@ -137,25 +168,46 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
             "get_offers_from_page",
             return_value=rocketjobs_offers,
         ) as rocketjobs_fetch,
+        patch.object(
+            JustJoinScraper,
+            "get_offers_from_page",
+            return_value=justjoin_offers,
+        ) as justjoin_fetch,
+        patch.object(
+            TheProtocolScraper,
+            "get_offers_from_page",
+            return_value=theprotocol_offers,
+        ) as theprotocol_fetch,
     ):
         await main()
 
     pracuj_fetch.assert_called_once_with(pracuj_url)
     linkedin_fetch.assert_called_once_with(linkedin_url)
     rocketjobs_fetch.assert_called_once_with(rocketjobs_url)
-    assert mock_filter.should_save.call_count == 4
-    assert mock_db_insert.save_offers.call_count == 4
+    justjoin_fetch.assert_called_once_with(justjoin_url)
+    theprotocol_fetch.assert_called_once_with(theprotocol_url)
+    assert mock_filter.should_save.call_count == 6
+    assert mock_db_insert.save_offers.call_count == 6
     mock_db_update.normalize_offer_locations.assert_called_once_with()
-    (rocketjobs_saved_offer,) = mock_db_insert.save_offers.call_args_list[-1].args
+    rocketjobs_call = next(
+        call for call in mock_db_insert.save_offers.call_args_list if call.kwargs.get("source") == "scraper_rocketjobs"
+    )
+    (rocketjobs_saved_offer,) = rocketjobs_call.args
     assert rocketjobs_saved_offer.title == "BI Analyst"
-    assert mock_db_insert.save_offers.call_args_list[-1].kwargs == {"source": "scraper_rocketjobs"}
+    saved_sources = {call.kwargs["source"] for call in mock_db_insert.save_offers.call_args_list}
+    assert "scraper_justjoinit" in saved_sources
+    assert "scraper_theprotocol" in saved_sources
 
     pracuj_saved = json.loads((tmp_path / "filter_pracuj_offers.json").read_text(encoding="utf-8"))
     linkedin_saved = json.loads((tmp_path / "filter_linkedin_offers.json").read_text(encoding="utf-8"))
     rocketjobs_saved = json.loads((tmp_path / "filter_rocketjobs_offers.json").read_text(encoding="utf-8"))
+    justjoin_saved = json.loads((tmp_path / "filter_justjoin_offers.json").read_text(encoding="utf-8"))
+    theprotocol_saved = json.loads((tmp_path / "filter_theprotocol_offers.json").read_text(encoding="utf-8"))
     assert pracuj_saved[0]["offer_id"] == "1001"
     assert linkedin_saved[0]["offer_id"] == "2002"
     assert rocketjobs_saved[0]["title"] == "BI Analyst"
+    assert justjoin_saved[0]["offer_id"] == "example-data-operations-analyst-warszawa-data"
+    assert theprotocol_saved[0]["offer_id"] == "12345"
 
 
 @pytest.mark.asyncio
