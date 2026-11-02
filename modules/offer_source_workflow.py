@@ -47,8 +47,12 @@ class OfferSourceWorkflow:
             batches.append(("email", parser.source, offers))
         for scraper in self.scrapers:
             try:
-                load_offers = scraper.load_saved_offers if self.offline_scrapers else scraper.run_scraper
-                records = await asyncio.to_thread(load_offers)
+                if self.offline_scrapers:
+                    records = await asyncio.to_thread(scraper.load_saved_offers)
+                else:
+                    newly_scraped = await asyncio.to_thread(scraper.run_scraper)
+                    saved_records = await asyncio.to_thread(scraper.load_saved_offers)
+                    records = saved_records if isinstance(saved_records, list) and saved_records else newly_scraped
                 logger.info("Loaded %s offers from %s", len(records), scraper.__class__.__name__)
                 batches.append(("scraper", getattr(scraper, "source", "scraper"), records))
             except Exception:

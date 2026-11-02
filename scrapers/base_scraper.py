@@ -61,6 +61,13 @@ class BaseScraper:
         except FileNotFoundError, json.JSONDecodeError:
             existing_offers = []
 
+        for existing_offer in existing_offers:
+            if not isinstance(existing_offer, dict):
+                continue
+            offer_id = self.get_offer_id(existing_offer)
+            if offer_id is not None:
+                existing_offer["offer_id"] = offer_id
+
         existing_keys = {
             (self._offer_key(offer), offer.get("scraped_at")) for offer in existing_offers if isinstance(offer, dict)
         }
@@ -100,7 +107,11 @@ class BaseScraper:
             if raw_offer.get("scraped_at") != today:
                 continue
             try:
-                offers.append(StructureScraper.model_validate(raw_offer).model_dump())
+                offer = StructureScraper.model_validate(raw_offer).model_dump()
+                offer_id = self.get_offer_id(offer)
+                if offer_id is not None:
+                    offer["offer_id"] = offer_id
+                offers.append(offer)
             except Exception:
                 logger.exception("Ignoring invalid saved scraper record in %s", output_path)
 

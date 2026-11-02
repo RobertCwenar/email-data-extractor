@@ -5,9 +5,11 @@ import pytest
 
 from config import scraper_config
 from orchestrator import main
+from scrapers.justjoin_scraper import JustJoinScraper
 from scrapers.linkedin_scraper import LinkedInScraper
 from scrapers.pracuj_scraper import Scraper
 from scrapers.rocketjobs_scraper import RocketJobsScraper
+from scrapers.theprotocol_scraper import TheProtocolScraper
 
 
 @pytest.mark.asyncio
@@ -36,6 +38,16 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
         RocketJobsScraper,
         "output_file",
         str(tmp_path / "filter_rocketjobs_offers.json"),
+    )
+    monkeypatch.setattr(
+        JustJoinScraper,
+        "output_file",
+        str(tmp_path / "filter_justjoin_offers.json"),
+    )
+    monkeypatch.setattr(
+        TheProtocolScraper,
+        "output_file",
+        str(tmp_path / "filter_theprotocol_offers.json"),
     )
 
     pracuj_offers = [

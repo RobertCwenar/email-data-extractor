@@ -6,7 +6,11 @@ from playwright.sync_api import sync_playwright
 
 from config import scraper_config
 from scrapers.base_scraper import BaseScraper
-from scrapers.scraper_offer_adapter import JUSTJOIN_CARD_SELECTOR, justjoin_card_to_record
+from scrapers.scraper_offer_adapter import (
+    JUSTJOIN_CARD_SELECTOR,
+    justjoin_card_to_record,
+    justjoin_offer_id_from_url,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +22,9 @@ class JustJoinScraper(BaseScraper):
     def __init__(self) -> None:
         self.urls = scraper_config.get_list(["scraper_justjoinit", "urls"])
         self.headless = os.getenv("PLAYWRIGHT_HEADLESS", "1").strip().lower() not in {"0", "false", "no"}
+
+    def get_offer_id(self, offer: dict[str, Any]) -> str | None:
+        return offer.get("offer_id") or justjoin_offer_id_from_url(offer.get("url"))
 
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         with sync_playwright() as playwright:

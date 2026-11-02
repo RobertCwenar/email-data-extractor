@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import date
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import unquote, urljoin, urlsplit
 
 from playwright.sync_api import Locator
 
@@ -202,6 +202,8 @@ def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | No
         )
         return None
 
+    normalized_url = urljoin(page_url, offer_url)
+
     return {
         "title": title,
         "company": company,
@@ -219,9 +221,19 @@ def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | No
             (text for text in spans if re.search(r"\d.*(?:PLN|zł|EUR|USD)", text, re.IGNORECASE)),
             None,
         ),
-        "url": urljoin(page_url, offer_url),
-        "offer_id": offer_url.rstrip("/").rsplit("-", 1)[-1],
+        "url": normalized_url,
+        "offer_id": justjoin_offer_id_from_url(normalized_url),
     }
+
+
+def justjoin_offer_id_from_url(url: str | None) -> str | None:
+    """Use JustJoin.it's offer slug as a stable source-specific identifier."""
+    if not url:
+        return None
+
+    path = unquote(urlsplit(url).path).rstrip("/")
+    slug = path.rsplit("/", 1)[-1]
+    return slug or None
 
 
 def theprotocol_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:

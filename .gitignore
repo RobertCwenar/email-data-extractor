@@ -21,4 +21,5 @@ Structure_parser.txt
 *etl.log
 *.sql
 linkedin_profile/
+linkedni_profile/
 uv.lock

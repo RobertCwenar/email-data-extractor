@@ -68,7 +68,7 @@ def test_adapter_extracts_fields_from_current_card_structure() -> None:
         "work_mode": "Remote",
         "salary": "17 - 21k PLN / month",
         "url": "https://justjoin.it/job-offer/acme-senior-analyst-123abc",
-        "offer_id": "123abc",
+        "offer_id": "acme-senior-analyst-123abc",
     }
 
 
