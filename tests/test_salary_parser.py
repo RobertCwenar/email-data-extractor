@@ -1,5 +1,5 @@
 from offer import JobOffer
-from parsers.salary_parsers import SalaryParser
+from parsers.salary_parser import SalaryParser
 
 
 def test_extract_offer_text():

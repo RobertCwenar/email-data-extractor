@@ -2,7 +2,7 @@ import email
 import imaplib
 from email.message import Message
 from email.utils import parsedate_to_datetime
-from typing import cast
+from typing import Any, cast
 
 from bs4 import BeautifulSoup
 
@@ -12,7 +12,7 @@ from modules.ai_service import AIService
 from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from offer import JobOffer
-from parsers.salary_parsers import SalaryParser
+from parsers.salary_parser import SalaryParser
 
 
 class EmailParser(BaseParser):
@@ -21,7 +21,7 @@ class EmailParser(BaseParser):
         ai_service: AIService,
         db_service: InsertDB,
         filter_service: FilterService,
-        email_config,
+        email_config: Any,
         folder_name: str,
         source: str,
         cache: FileCache,
@@ -33,6 +33,12 @@ class EmailParser(BaseParser):
         self.source = source
         self.cache = cache
         self.salary_parser = salary_parser
+        self._pending_cache_ids: set[str] = set()
+
+    def commit_processed_messages(self) -> None:
+        for cache_id in self._pending_cache_ids:
+            self.cache.add(cache_id)
+        self._pending_cache_ids.clear()
 
     def _connect(self) -> imaplib.IMAP4_SSL:
         mail = imaplib.IMAP4_SSL(
@@ -45,7 +51,7 @@ class EmailParser(BaseParser):
         )
         return mail
 
-    def _get_mail_ids(self, mail) -> list[bytes]:
+    def _get_mail_ids(self, mail: imaplib.IMAP4_SSL) -> list[bytes]:
         mail.select(self.folder_name)
 
         status, response = mail.search(None, "UNSEEN")
@@ -103,6 +109,8 @@ class EmailParser(BaseParser):
             html = self._get_html(msg) if msg else None
 
             if not html or msg is None:
+                if msg is not None:
+                    self._pending_cache_ids.add(cache_id)
                 continue
 
             text = self._html_to_text(html)
@@ -122,6 +130,6 @@ class EmailParser(BaseParser):
                 offer_text = offer_texts.get(id(offer), "")
                 offers_result.append((offer, offer_text, cache_id))
 
-            self.cache.add(cache_id)
+            self._pending_cache_ids.add(cache_id)
         mail.logout()
         return offers_result

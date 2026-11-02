@@ -1,48 +1,50 @@
 import logging
-import sqlite3
 
-DB = "new_offers.db"
+from dotenv import load_dotenv
+
+from database.connection import Database
 
 logger = logging.getLogger(__name__)
+load_dotenv()
 
 
-def migrate_job_details():
-    with sqlite3.connect(DB) as conn:
-        cursor = conn.cursor()
+def migrate_job_details() -> None:
+    db = Database()
 
-    cursor.execute("""
-        SELECT id, title
-        FROM Offers
-    """)
+    with db._connect() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, title
+                FROM Offers
+            """)
 
-    offers = cursor.fetchall()
+            offers = cursor.fetchall()
 
-    logger.info(f"Found {len(offers)} offers")
+            logger.info(f"Found {len(offers)} offers")
 
-    for offer in offers:
-        try:
-            cursor.execute(
-                """
-                INSERT INTO JobDetails
-                (offer_id, clean_title, level, category)
-                VALUES (?, ?, ?, ?)
-                """,
-                (
-                    offer[0],
-                    offer[1],
-                    None,
-                    None,
-                ),
-            )
-        except sqlite3.Error as e:
-            logger.warning(f"Could not save JobDetails for offer {offer[0]} {offer[1]}: {e}")
+            for offer_id, title in offers:
+                cursor.execute(
+                    """
+                    INSERT INTO JobDetails
+                    (offer_id, clean_title, level, category)
+                    VALUES (%s, %s, %s, %s)
+                    """,
+                    (
+                        offer_id,
+                        title,
+                        None,
+                        None,
+                    ),
+                )
 
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM JobDetails
-    """)
-
-    logger.info(f"JobDetails after: {cursor.fetchone()[0]}")
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM JobDetails
+            """)
+            result = cursor.fetchone()
+            if result is not None:
+                count = result[0]
+                logger.info(f"JobDetails contains {count} records")
 
 
 if __name__ == "__main__":

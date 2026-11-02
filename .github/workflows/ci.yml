@@ -1,7 +1,6 @@
 name: CI
 
 on:
-  push:
   pull_request:
 
 jobs:
@@ -22,6 +21,11 @@ jobs:
 
       - name: Install dependencies
         run: uv sync
+
+      - name: Prepare test configuration
+        run: |
+          cp filter_keywords_example.json filter_keywords.json
+          cp scraper_urls_example.json scraper_urls.json
 
       - name: ruff linting
         run: |

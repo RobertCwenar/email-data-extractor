@@ -39,7 +39,7 @@ class JobClassifier:
 
         return "unknown"
 
-    async def classify_category(self, clean_title: str):
+    async def classify_category(self, clean_title: str) -> str:
         cache_key = self._normalize_title(clean_title)
 
         if cache_key in self.category_cache:

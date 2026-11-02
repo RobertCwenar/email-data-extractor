@@ -1,28 +1,32 @@
 import logging
-import sqlite3
+
+from dotenv import load_dotenv
+
+from database.connection import Database
 
 logger = logging.getLogger(__name__)
 
-db_name = "new_offers.db"
+load_dotenv()
 
 
-def migrate_salary_status():
-    with sqlite3.connect(db_name) as conn:
-        cursor = conn.cursor()
+def migrate_salary_status() -> None:
+    db = Database()
 
-        cursor.execute(
-            """
-            UPDATE Offers
-            Set salary_status = CASE
-                WHEN salary_min IS NOT NULL
-                    OR salary_max is not null
-                    THEN 'offer'
-                ELSE 'estimated'
-            END
-            WHERE salary_status IS NULL
-            """
-        )
-        logger.info(f"Update rows: {cursor.rowcount}")
+    with db._connect() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE Offers
+                Set salary_status = CASE
+                    WHEN salary_min IS NOT NULL
+                        OR salary_max is not null
+                        THEN 'offer'
+                    ELSE 'estimated'
+                END
+                WHERE salary_status IS NULL
+                """
+            )
+            logger.info(f"Update rows: {cursor.rowcount}")
 
 
 if __name__ == "__main__":

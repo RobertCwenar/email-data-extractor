@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Optional
+from typing import Any, Optional
 
 from offer import JobOffer
 
@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class FilterService:
-    def __init__(self, config) -> None:
+    def __init__(self, config: Any) -> None:
         self.config = config
 
     def is_valid_offer(self, offer: JobOffer) -> bool:

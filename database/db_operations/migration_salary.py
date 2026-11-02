@@ -1,50 +1,49 @@
 import logging
-import sqlite3
 
-DB = "new_offers.db"
+from dotenv import load_dotenv
+
+from database.connection import Database
 
 logger = logging.getLogger(__name__)
 
+load_dotenv()
 
-def migrate_job_salary():
-    with sqlite3.connect(DB) as conn:
-        cursor = conn.cursor()
 
-        cursor.execute("""
-            SELECT id, salary_min, salary_max
-            FROM Offers
-        """)
+def migrate_job_salary() -> None:
+    with Database()._connect() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("""
+                SELECT id, salary_min, salary_max
+                FROM Offers
+            """)
 
-        offers = cursor.fetchall()
+            offers = cursor.fetchall()
 
-        logger.info(f"Found {len(offers)} offers")
+            logger.info(f"Found {len(offers)} offers")
 
-        for offer_id, salary_min, salary_max in offers:
-            try:
+            for offer_id, salary_min, salary_max in offers:
                 cursor.execute(
                     """
                     INSERT INTO JobContracts
                     (offer_id, salary_min_offer, salary_max_offer)
-                    VALUES (?, ?, ?)
+                    VALUES (%s, %s, %s)
                     """,
-                    (
-                        offer_id,
-                        salary_min,
-                        salary_max,
-                    ),
+                    (offer_id, salary_min, salary_max),
                 )
 
-            except sqlite3.Error as e:
-                logger.warning(f"Could not save JobContracts for offer {offer_id}: {e}")
+            cursor.execute("""
+                SELECT COUNT(*)
+                FROM JobContracts
+            """)
 
-        cursor.execute("""
-            SELECT COUNT(*)
-            FROM JobContracts
-        """)
+            count_row = cursor.fetchone()
+            if count_row is None:
+                logger.warning("Could not determine JobContracts count")
+                return
 
-        count = cursor.fetchone()[0]
+            count = count_row[0]
 
-        logger.info(f"JobContracts contains {count} records")
+            logger.info(f"JobContracts contains {count} records")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import time
+from typing import Any
 
 from google import genai
 from google.genai.errors import ClientError, ServerError
@@ -27,6 +28,7 @@ class AIService:
         self._last_api_call = 0.0
         self._api_delay = API_DELAY
         self._models = config.get_list(["ai_models"])
+        self._unavailable_models: set[str] = set()
 
     async def _wait_before_api_call(self) -> None:
         async with self._api_lock:
@@ -42,10 +44,12 @@ class AIService:
         self,
         prompt: str,
         response_schema: dict,
-    ):
+    ) -> Any:
         last_error = None
 
         for model in self._models:
+            if model in self._unavailable_models:
+                continue
             try:
                 await self._wait_before_api_call()
 
@@ -66,11 +70,17 @@ class AIService:
 
             except (ServerError, ClientError) as error:
                 last_error = error
+                is_rate_limited = getattr(error, "code", None) == 429 or "429" in str(error)
+                if is_rate_limited:
+                    self._unavailable_models.add(model)
 
                 logger.warning("AI request failed with model %s: %s", model, error)
 
         if last_error is not None:
             raise last_error
+
+        if self._unavailable_models:
+            raise RuntimeError("All AI models are currently unavailable")
 
         raise RuntimeError("No AI models configured")
 
@@ -103,6 +113,11 @@ class AIService:
 
         return parsed_response.offers
 
+    @retry(
+        retry=retry_if_exception_type(ServerError),
+        wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
+        stop=stop_after_attempt(RETRY_ATTEMPTS),
+    )
     async def validate_category_api(
         self,
         clean_title: str,
