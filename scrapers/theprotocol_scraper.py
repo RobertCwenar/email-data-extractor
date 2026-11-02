@@ -26,43 +26,91 @@ class TheProtocolScraper(BaseScraper):
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=self.headless)
-                page = browser.new_page(viewport={"width": 1440, "height": 1200})
-                response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                logger.info("theprotocol.it HTTP status: %s", response.status if response else None)
-                if response and response.status >= 400:
-                    raise RuntimeError(f"theprotocol.it returned HTTP {response.status}: {url}")
 
-                page.wait_for_selector(THEPROTOCOL_CARD_SELECTOR, timeout=30000)
-                previous_count = stable_rounds = 0
-                for _ in range(12):
-                    page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                    page.wait_for_timeout(1000)
-                    current_count = page.locator(THEPROTOCOL_CARD_SELECTOR).count()
-                    if current_count == previous_count:
-                        stable_rounds += 1
-                        if stable_rounds >= 2:
-                            break
-                    else:
-                        stable_rounds = 0
-                    previous_count = current_count
+                try:
+                    page = browser.new_page(viewport={"width": 1440, "height": 1200})
 
-                offers: list[dict[str, Any]] = []
-                seen_urls: set[str] = set()
-                cards = page.locator(THEPROTOCOL_CARD_SELECTOR)
-                for index, link in enumerate(cards.all(), start=1):
-                    try:
-                        offer = theprotocol_card_to_record(link, url)
-                        if not offer:
-                            logger.warning("theprotocol.it: missing required data for card %s", index)
-                            continue
-                        if offer["url"] not in seen_urls:
-                            seen_urls.add(offer["url"])
-                            offers.append(offer)
-                    except Exception:
-                        logger.exception("theprotocol.it: failed to process card %s", index)
-                logger.info("theprotocol.it offers retrieved: %s", len(offers))
-                browser.close()
-                return offers
+                    response = page.goto(
+                        url,
+                        wait_until="domcontentloaded",
+                        timeout=60000,
+                    )
+
+                    logger.info(
+                        "theprotocol.it HTTP status: %s",
+                        response.status if response else None,
+                    )
+
+                    if response and response.status >= 400:
+                        raise RuntimeError(f"theprotocol.it returned HTTP {response.status}: {url}")
+
+                    page.wait_for_selector(
+                        THEPROTOCOL_CARD_SELECTOR,
+                        timeout=30000,
+                    )
+
+                    previous_count = 0
+                    stable_rounds = 0
+
+                    for _ in range(12):
+                        page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                        page.wait_for_timeout(1000)
+
+                        current_count = page.locator(THEPROTOCOL_CARD_SELECTOR).count()
+
+                        if current_count == previous_count:
+                            stable_rounds += 1
+                            if stable_rounds >= 2:
+                                break
+                        else:
+                            stable_rounds = 0
+
+                        previous_count = current_count
+
+                    offers: list[dict[str, Any]] = []
+                    seen_urls: set[str] = set()
+
+                    cards = page.locator(THEPROTOCOL_CARD_SELECTOR)
+
+                    for index, link in enumerate(cards.all(), start=1):
+                        try:
+                            offer = theprotocol_card_to_record(link, url)
+
+                            if not offer:
+                                logger.warning(
+                                    "theprotocol.it: missing required data for card %s",
+                                    index,
+                                )
+                                continue
+
+                            if offer["url"] not in seen_urls:
+                                seen_urls.add(offer["url"])
+                                offers.append(offer)
+
+                        except Exception:
+                            logger.exception(
+                                "theprotocol.it: failed to process card %s",
+                                index,
+                            )
+
+                    logger.info(
+                        "theprotocol.it offers retrieved: %s",
+                        len(offers),
+                    )
+
+                    return offers
+
+                finally:
+                    browser.close()
+
         except Exception:
-            logger.exception("theprotocol.it: page scraping failed for %s", url)
+            logger.exception(
+                "theprotocol.it: page scraping failed for %s",
+                url,
+            )
             return []
+
+
+if __name__ == "__main__":
+    scraper = TheProtocolScraper()
+    scraper.run_scraper()

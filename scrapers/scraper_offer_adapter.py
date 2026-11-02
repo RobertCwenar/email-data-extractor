@@ -172,127 +172,86 @@ def linkedin_card_to_record(card: Locator) -> dict[str, Any]:
 
 
 def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
-    """Extract the common offer fields from a JustJoin.it listing card."""
-    card = link.locator("xpath=../..")
-    offer_url = link.get_attribute("href")
-    title = _text(card, "h2") or _text(card, "h3") or _text(link, "h2") or _text(link, "h3")
+    card = link.locator("xpath=ancestor-or-self::*[.//img[@alt] and .//svg[contains(@class, 'lucide-map-pin')]][1]")
 
-    # Current listing cards expose the company logo as an image with its name
-    # in alt text. Keep text based fallbacks for cards without a logo.
+    offer_url = link.get_attribute("href")
+    title = _text(card, "a.offer_list_offer_title_link") or link.inner_text().strip()
+
     image = card.locator("img[alt]").first
     company = image.get_attribute("alt") if image.count() else None
-    company = re.sub(r"^(?:Image:\s*)", "", company or "", flags=re.IGNORECASE).strip()
 
-    lines = [re.sub(r"\s+", " ", line).strip() for line in card.inner_text().splitlines()]
-    lines = [line for line in lines if line]
-    if not title and lines:
-        title = lines[0]
-    if not company:
-        company = next((line for line in lines if line != title and not re.search(r"\d", line)), None)
-    if not offer_url or not title:
+    location_icon = card.locator("svg.lucide-map-pin").first
+    location_element = location_icon.locator("xpath=../..").locator("p").first if location_icon.count() else None
+    location = location_element.inner_text().strip() if location_element and location_element.count() else None
+
+    work_mode_icon = card.locator("svg.lucide-building2").first
+    work_mode_element = work_mode_icon.locator("xpath=../..").locator("p").first if work_mode_icon.count() else None
+    work_mode = work_mode_element.inner_text().strip() if work_mode_element and work_mode_element.count() else None
+
+    spans = card.locator("span").all_inner_texts()
+    normalized_spans = [text.strip() for text in spans if text.strip()]
+
+    if not title or not company or not offer_url:
+        logger.warning(
+            "JustJoin.it missing data | title=%s | company=%s | url=%s",
+            title,
+            company,
+            offer_url,
+        )
         return None
-
-    location = None
-    for selector in ("[data-testid*='location']", "[class*='location']"):
-        location = _text(card, selector)
-        if location:
-            break
-    if not location:
-        location = next((line for line in lines if line.casefold() in {"remote", "hybrid", "office"}), None)
 
     return {
         "title": title,
-        "company": company,
+        "company": company.strip(),
         "location": location or "Nie podano",
         "level": next(
-            (line for line in lines if line.casefold() in {"junior", "mid", "senior", "expert", "intern"}), None
+            (text for text in normalized_spans if text.casefold() in {"intern", "junior", "mid", "senior", "expert"}),
+            None,
         ),
         "contract": next(
-            (line for line in lines if line.casefold() in {"b2b", "permanent", "mandate contract", "umowa o pracę"}),
+            (text for text in normalized_spans if text.casefold() in {"b2b", "permanent", "mandate contract"}),
             None,
         ),
-        "work_mode": next(
-            (
-                line
-                for line in lines
-                if line.casefold() in {"remote", "hybrid", "office", "zdalnie", "hybrydowo", "stacjonarnie"}
-            ),
+        "work_mode": work_mode,
+        "salary": next(
+            (text for text in normalized_spans if re.search(r"\d.*(?:PLN|zł|EUR|USD)", text, re.IGNORECASE)),
             None,
         ),
-        "salary": next((line for line in lines if re.search(r"\d.*(?:PLN|zł|EUR|USD)", line, re.IGNORECASE)), None),
         "url": urljoin(page_url, offer_url),
         "offer_id": offer_url.rstrip("/").rsplit("-", 1)[-1],
     }
 
 
 def theprotocol_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
-    """Extract offer data from a theprotocol.it search result link/card."""
+    """Extract offer data from a theprotocol.it search result card."""
     card = link.locator("xpath=../..")
+
     offer_url = link.get_attribute("href")
-    title = (
-        _text(card, "[data-test='offer-title']")
-        or _text(card, "h2")
-        or _text(card, "h3")
-        or _text(link, "h2")
-        or _text(link, "h3")
-        or (link.inner_text().strip() or None)
-    )
+    title = _text(card, "[data-test='offer-title']")
     company = _text(card, "[data-test='link-company-profile']")
     location = _text(card, "[data-test='text-region']")
     contract = _text(card, "[data-test='offer-additional-info-2']")
     work_mode = _text(card, "[data-test='offer-additional-info-3']")
     salary = _text(card, "[data-test='offer-salary']")
 
-    lines = [re.sub(r"\s+", " ", line).strip() for line in card.inner_text().splitlines()]
-    lines = [line for line in lines if line]
-    if not company:
-        image = card.locator("img[alt]").first
-        company = image.get_attribute("alt") if image.count() else None
-        company = re.sub(r"^(?:Image:\s*)", "", company or "", flags=re.IGNORECASE).strip() or None
-    if not company:
-        company = next((line for line in lines if line != title and not re.search(r"\d", line)), None)
-    if not title or not offer_url:
+    if not title or not company or not offer_url:
+        logger.warning(
+            "theprotocol.it missing data | title=%s | company=%s | url=%s",
+            title,
+            company,
+            offer_url,
+        )
         return None
 
-    if not location:
-        location = next(
-            (
-                line
-                for line in lines
-                if re.search(r"\b(?:Warszawa|Kraków|Wrocław|Gdańsk|Remote)\b", line, re.IGNORECASE)
-            ),
-            None,
-        )
-    if not work_mode:
-        work_mode = next(
-            (
-                line
-                for line in lines
-                if line.casefold()
-                in {
-                    "hybrydowa",
-                    "hybrydowo",
-                    "hybrid",
-                    "zdalna",
-                    "zdalnie",
-                    "remote",
-                    "stacjonarna",
-                    "stacjonarnie",
-                    "office",
-                }
-            ),
-            None,
-        )
-    if not salary:
-        salary = next(
-            (line for line in lines if re.search(r"\d.*(?:zł|PLN|EUR|USD)\s*/", line, re.IGNORECASE)),
-            None,
-        )
+    offer_id_match = re.search(
+        r"(?:,|%2C)oferta(?:,|%2C)([^/?#]+)",
+        offer_url,
+        re.IGNORECASE,
+    )
 
-    offer_id_match = re.search(r"(?:,|%2C)oferta(?:,|%2C)([^/?#]+)", offer_url, re.IGNORECASE)
     return {
-        "title": title,
-        "company": company,
+        "title": title.strip(),
+        "company": company.strip(),
         "location": location or "Nie podano",
         "contract": contract,
         "work_mode": work_mode,

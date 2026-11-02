@@ -17,36 +17,59 @@ def test_scraper_uses_its_configured_urls(monkeypatch) -> None:
     get_list.assert_called_once_with(["scraper_justjoin", "urls"])
 
 
-def test_adapter_extracts_offer_fields_and_normalizes_url() -> None:
+def test_adapter_extracts_fields_from_current_card_structure() -> None:
     link, card = MagicMock(), MagicMock()
     link.locator.return_value = card
     link.get_attribute.return_value = "/job-offer/acme-senior-analyst-123abc"
 
-    values = {
-        "h3": "Senior Data Analyst",
-        "img[alt]": "",
-        "[data-testid*='location']": "Wrocław",
-    }
-    elements = {}
+    title = MagicMock()
+    title.first.count.return_value = 1
+    title.first.inner_text.return_value = "Senior Data Analyst"
 
-    def locator(selector: str) -> MagicMock:
-        if selector not in elements:
-            element = MagicMock()
-            element.first.count.return_value = int(selector in values)
-            element.first.inner_text.return_value = values.get(selector, "")
-            element.first.get_attribute.return_value = "Acme" if selector == "img[alt]" else None
-            elements[selector] = element
-        return elements[selector]
+    image = MagicMock()
+    image.first.count.return_value = 1
+    image.first.get_attribute.return_value = "Acme"
 
-    card.locator.side_effect = locator
-    card.inner_text.return_value = "Senior Data Analyst\nMid\nB2B\nRemote\n17 - 21k PLN / month"
+    location_icon = MagicMock()
+    location_icon.first.count.return_value = 1
 
-    offer = justjoin_card_to_record(link, "https://justjoin.it/job-offers/wroclaw/data")
+    location_element = location_icon.first.locator.return_value.locator.return_value.first
+    location_element.count.return_value = 1
+    location_element.inner_text.return_value = "Wroclaw"
+
+    # Work mode
+    mode_icon = MagicMock()
+    mode_icon.first.count.return_value = 1
+
+    mode_element = mode_icon.first.locator.return_value.locator.return_value.first
+    mode_element.count.return_value = 1
+    mode_element.inner_text.return_value = "Remote"
+
+    # Other fields
+    spans = MagicMock()
+    spans.all_inner_texts.return_value = [
+        "Mid",
+        "B2B",
+        "17 - 21k PLN / month",
+    ]
+
+    card.locator.side_effect = {
+        "a.offer_list_offer_title_link": title,
+        "img[alt]": image,
+        "svg.lucide-map-pin": location_icon,
+        "svg.lucide-building2": mode_icon,
+        "span": spans,
+    }.__getitem__
+
+    offer = justjoin_card_to_record(
+        link,
+        "https://justjoin.it/job-offers/wroclaw/data",
+    )
 
     assert offer == {
         "title": "Senior Data Analyst",
         "company": "Acme",
-        "location": "Wrocław",
+        "location": "Wroclaw",
         "level": "Mid",
         "contract": "B2B",
         "work_mode": "Remote",
@@ -56,21 +79,19 @@ def test_adapter_extracts_offer_fields_and_normalizes_url() -> None:
     }
 
 
-def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
+def test_get_offers_from_page_waits_for_cards_deduplicates_and_closes_browser(monkeypatch) -> None:
     context, browser, page = MagicMock(), MagicMock(), MagicMock()
     context.__enter__.return_value.chromium.launch.return_value = browser
     browser.new_page.return_value = page
-    page.goto.return_value.status = 200
     cards = MagicMock()
     page.locator.return_value = cards
-    cards.count.return_value = 1
     cards.all.return_value = [MagicMock(), MagicMock()]
     monkeypatch.setattr("scrapers.justjoin_scraper.sync_playwright", lambda: context)
 
     offer = {
         "title": "Data Analyst",
         "company": "Acme",
-        "location": "Wrocław",
+        "location": "Wroclaw",
         "url": "https://justjoin.it/job-offer/acme-data-analyst-123abc",
         "offer_id": "123abc",
     }
@@ -80,5 +101,6 @@ def test_get_offers_from_page_deduplicates_cards_by_url(monkeypatch) -> None:
     result = JustJoinScraper().get_offers_from_page("https://justjoin.it/job-offers/wroclaw/data")
 
     assert result == [offer]
+    cards.first.wait_for.assert_called_once_with(state="attached", timeout=30000)
     assert parse.call_count == 2
     browser.close.assert_called_once_with()
