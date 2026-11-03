@@ -32,7 +32,7 @@ ROCKETJOBS_CONTRACTS = {
 LINKEDIN_CARD_SELECTOR = '[componentkey^="job-card-component-ref-"]'
 PRACUJ_CARD_SELECTOR = "div[data-test='default-offer']"
 JUSTJOIN_CARD_SELECTOR = "a.offer_list_offer_title_link"
-THEPROTOCOL_CARD_SELECTOR = "a[href*='/praca/'][href*='oferta']"
+THEPROTOCOL_CARD_SELECTOR = "a[data-test='list-item-offer']"
 
 PRACUJ_SELECTORS = {
     "title": "[data-test='offer-title']",
@@ -173,7 +173,7 @@ def linkedin_card_to_record(card: Locator) -> dict[str, Any]:
 
 
 def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
-    # Struktura: a -> h3 -> div -> div (kontener karty)
+
     card = link.locator("xpath=../../..")
 
     offer_url = link.get_attribute("href")
@@ -227,7 +227,6 @@ def justjoin_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | No
 
 
 def justjoin_offer_id_from_url(url: str | None) -> str | None:
-    """Use JustJoin.it's offer slug as a stable source-specific identifier."""
     if not url:
         return None
 
@@ -238,39 +237,49 @@ def justjoin_offer_id_from_url(url: str | None) -> str | None:
 
 def theprotocol_card_to_record(link: Locator, page_url: str) -> dict[str, Any] | None:
     """Extract offer data from a theprotocol.it search result card."""
-    card = link.locator("xpath=../..")
+
+    card = link
 
     offer_url = link.get_attribute("href")
-    title = _text(card, "[data-test='offer-title']")
-    company = _text(card, "[data-test='link-company-profile']")
-    location = _text(card, "[data-test='text-region']")
-    contract = _text(card, "[data-test='offer-additional-info-2']")
-    work_mode = _text(card, "[data-test='offer-additional-info-3']")
-    salary = _text(card, "[data-test='offer-salary']")
+    if not offer_url:
+        return None
 
-    if not title or not company or not offer_url:
+    full_url = urljoin(page_url, offer_url)
+
+    title = _text(card, "[data-test='text-jobTitle']")
+    company = _text(card, "[data-test='text-employerName']")
+    work_mode = _text(card, "[data-test='text-workModes']")
+    salary = _text(card, "[data-test='text-salary']")
+
+    locations = [
+        location.strip()
+        for location in card.locator("[data-test='chip-location']").all_inner_texts()
+        if location.strip()
+    ]
+
+    if not title or not company:
         logger.warning(
             "theprotocol.it missing data | title=%s | company=%s | url=%s",
             title,
             company,
-            offer_url,
+            full_url,
         )
         return None
 
     offer_id_match = re.search(
-        r"(?:,|%2C)oferta(?:,|%2C)([^/?#]+)",
-        offer_url,
+        r",oferta,([^/?#]+)",
+        full_url,
         re.IGNORECASE,
     )
 
     return {
         "title": title.strip(),
         "company": company.strip(),
-        "location": location or "Nie podano",
-        "contract": contract,
+        "location": ", ".join(locations) if locations else "Nie podano",
+        "contract": None,
         "work_mode": work_mode,
         "salary": salary,
-        "url": urljoin(page_url, offer_url),
+        "url": full_url,
         "offer_id": offer_id_match.group(1) if offer_id_match else None,
     }
 

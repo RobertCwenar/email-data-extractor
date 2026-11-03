@@ -19,23 +19,35 @@ class TheProtocolScraper(BaseScraper):
         self.urls = scraper_config.get_list(["scraper_theprotocolit", "urls"])
         self.headless = os.getenv("PLAYWRIGHT_HEADLESS", "1").strip().lower() not in {"0", "false", "no"}
 
-    def get_offer_id(self, offer: dict[str, Any]) -> str | None:
-        return offer.get("offer_id") or super().get_offer_id(offer)
-
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         try:
             with sync_playwright() as playwright:
                 browser = playwright.chromium.launch(headless=self.headless)
 
                 try:
-                    page = browser.new_page(viewport={"width": 1440, "height": 1200})
+                    context = browser.new_context(
+                        viewport={"width": 1440, "height": 1200},
+                        locale="pl-PL",
+                        timezone_id="Europe/Warsaw",
+                        user_agent=(
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                            "AppleWebKit/537.36 (KHTML, like Gecko) "
+                            "Chrome/142.0.0.0 Safari/537.36"
+                        ),
+                    )
+
+                    page = context.new_page()
 
                     response = page.goto(
                         url,
                         wait_until="domcontentloaded",
                         timeout=60000,
                     )
-
+                    print("HTTP STATUS:", response.status if response else None)
+                    print("FINAL URL:", page.url)
+                    print("TITLE:", page.title())
+                    print("USER AGENT:", page.evaluate("navigator.userAgent"))
+                    print("CONTENT:", page.locator("body").inner_text()[:2000])
                     logger.info(
                         "theprotocol.it HTTP status: %s",
                         response.status if response else None,

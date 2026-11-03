@@ -6,16 +6,23 @@ from scrapers.theprotocol_scraper import TheProtocolScraper
 
 def test_adapter_extracts_fields_from_card(monkeypatch) -> None:
     link = MagicMock()
-    link.locator.return_value = MagicMock()
-    link.get_attribute.return_value = "/praca/analyst,oferta,12345"
+    link.get_attribute.return_value = "/szczegoly/praca/analyst,oferta,12345"
+
+    locations = MagicMock()
+    locations.all_inner_texts.return_value = ["Wrocław"]
+
+    def locator_side_effect(selector):
+        if selector == "[data-test='chip-location']":
+            return locations
+        return MagicMock()
+
+    link.locator.side_effect = locator_side_effect
 
     fields = {
-        "[data-test='offer-title']": "Data Analyst",
-        "[data-test='link-company-profile']": "Acme",
-        "[data-test='text-region']": "Wrocław",
-        "[data-test='offer-additional-info-2']": "B2B",
-        "[data-test='offer-additional-info-3']": "Remote",
-        "[data-test='offer-salary']": "15 000 PLN / month",
+        "[data-test='text-jobTitle']": "Data Analyst",
+        "[data-test='text-employerName']": "Acme",
+        "[data-test='text-workModes']": "Remote",
+        "[data-test='text-salary']": "15 000 PLN / month (B2B)",
     }
 
     monkeypatch.setattr(
@@ -23,31 +30,27 @@ def test_adapter_extracts_fields_from_card(monkeypatch) -> None:
         lambda element, selector: fields.get(selector),
     )
 
-    offer = theprotocol_card_to_record(
-        link,
-        "https://theprotocol.it",
-    )
+    offer = theprotocol_card_to_record(link, "https://theprotocol.it")
 
     assert offer == {
         "title": "Data Analyst",
         "company": "Acme",
         "location": "Wrocław",
-        "contract": "B2B",
+        "contract": None,
         "work_mode": "Remote",
-        "salary": "15 000 PLN / month",
-        "url": "https://theprotocol.it/praca/analyst,oferta,12345",
+        "salary": "15 000 PLN / month (B2B)",
+        "url": "https://theprotocol.it/szczegoly/praca/analyst,oferta,12345",
         "offer_id": "12345",
     }
 
 
 def test_adapter_returns_none_when_required_data_is_missing(monkeypatch) -> None:
     link = MagicMock()
-    link.locator.return_value = MagicMock()
-    link.get_attribute.return_value = "/praca/analyst,oferta,12345"
+    link.get_attribute.return_value = "/szczegoly/praca/analyst,oferta,12345"
 
     fields = {
-        "[data-test='offer-title']": "Data Analyst",
-        "[data-test='link-company-profile']": None,
+        "[data-test='text-jobTitle']": "Data Analyst",
+        "[data-test='text-employerName']": None,
     }
 
     monkeypatch.setattr(
