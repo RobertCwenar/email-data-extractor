@@ -42,5 +42,5 @@ class AppConfig:
 
 
 # Creates a shared configuration object used across the application.
-config = AppConfig("filter_keywords.json")
+config = AppConfig("filters/filter_keywords.json")
 scraper_config = AppConfig("scraper_urls.json")

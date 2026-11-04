@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-data_path = Path("filter_keywords_example.json")
+data_path = Path(__file__).resolve().parents[1] / "filters" / "filter_keywords_example.json"
 
 
 def load_json():

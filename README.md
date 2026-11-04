@@ -108,10 +108,10 @@ Copy `.env_template` to `.env` and set the required mailbox, Gemini API, and Pos
 
 The active `filter_keywords.json` and `scraper_urls.json` files are local configuration. Create them from `filter_keywords_example.json` and `scraper_urls_example.json` before running the pipeline. Add the URLs you want to scrape under `scraper_justjoin.urls`, `scraper_theprotocol.urls`, `scraper_linkedin.urls`, or `scraper_rocketjobs.urls`; Pracuj.pl URLs use `scraper.urls`.
 
-In the current repository, the filter example is located at `filters/filter_keywords_example.json`. The scraper classes read URL lists from `scraper.urls` (Pracuj.pl), `scraper_linkedin.urls`, `scraper_rocketjobs.urls`, `scraper_justjoinit.urls`, and `scraper_theprotocolit.urls`. Use those keys in the active `scraper_urls.json` file. To create the root-level files expected by `config.py`, use:
+In the current repository, the filter config is stored at `filters/filter_keywords.json`, with its example at `filters/filter_keywords_example.json`. The scraper classes read URL lists from `scraper.urls` (Pracuj.pl), `scraper_linkedin.urls`, `scraper_rocketjobs.urls`, `scraper_justjoinit.urls`, and `scraper_theprotocolit.urls`. Use those keys in the active `scraper_urls.json` file. Create the local config files with:
 
 ```powershell
-Copy-Item filters/filter_keywords_example.json filter_keywords.json
+Copy-Item filters/filter_keywords_example.json filters/filter_keywords.json
 Copy-Item scraper_urls_example.json scraper_urls.json
 ```
 
