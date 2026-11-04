@@ -43,6 +43,7 @@ The pipeline collects offers from configured email sources and the Pracuj.pl, Li
 ## Features
 
 - Extracts job offers from six configured email sources (RocketJobs, Pracuj.pl, LinkedIn, justjoin.it, theprotocol.it, and Jooble) and from the Pracuj.pl and LinkedIn web scrapers
+- The current scraper set also includes RocketJobs, JustJoin.it, and theprotocol.it.
 - Parses, filters, deduplicates, and normalizes offer data
 - Uses Pydantic models to validate data
 - Stores offers and contract data in PostgreSQL
@@ -79,6 +80,10 @@ Email sources (IMAP)                 Job board URLs
 
 The pipeline inserts offers and contracts before classification; the final step updates those records in the same PostgreSQL database. Power BI integration is planned and is not part of the current data flow.
 
+The current pipeline is coordinated by `OfferSourceWorkflow` in `modules/offer_source_workflow.py`. It runs all configured email parsers and job board scrapers, converts scraper records to the shared offer model, applies filtering and same-source duplicate checks, then saves offers and contracts. Classification, salary estimation, salary normalization, and final salary selection run after source processing. If the live run fails, `orchestrator.py` retries after 60 seconds with live scrapers disabled and uses saved scraper output.
+
+The current scraper implementations cover Pracuj.pl, LinkedIn, RocketJobs, JustJoin.it, and theprotocol.it. Site-specific parsing is in each scraper module; shared browser output validation and persistence are handled by `scrapers/base_scraper.py` and `scrapers/scraper_offer_adapter.py`.
+
 ## Usage and Installation
 
 ### 1. Clone the repository
@@ -102,6 +107,13 @@ uv run playwright install chromium
 Copy `.env_template` to `.env` and set the required mailbox, Gemini API, and PostgreSQL values. The variable names are `EMAIL`, `PASSWORD`, `EMAIL_HOST`, `EMAIL_PORT`, `KEY_API`, `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, and `POSTGRES_PASSWORD`. If `EMAIL_PORT` is omitted, the application uses `993`.
 
 The active `filter_keywords.json` and `scraper_urls.json` files are local configuration. Create them from `filter_keywords_example.json` and `scraper_urls_example.json` before running the pipeline. Add the URLs you want to scrape under `scraper_justjoin.urls`, `scraper_theprotocol.urls`, `scraper_linkedin.urls`, or `scraper_rocketjobs.urls`; Pracuj.pl URLs use `scraper.urls`.
+
+In the current repository, the filter example is located at `filters/filter_keywords_example.json`. The scraper classes read URL lists from `scraper.urls` (Pracuj.pl), `scraper_linkedin.urls`, `scraper_rocketjobs.urls`, `scraper_justjoinit.urls`, and `scraper_theprotocolit.urls`. Use those keys in the active `scraper_urls.json` file. To create the root-level files expected by `config.py`, use:
+
+```powershell
+Copy-Item filters/filter_keywords_example.json filter_keywords.json
+Copy-Item scraper_urls_example.json scraper_urls.json
+```
 
 PostgreSQL must be running and reachable with the configured connection values. The application creates its tables when it starts.
 
@@ -172,12 +184,15 @@ The GitHub Actions workflow runs on pull requests. It installs dependencies, pre
 ├── docs/
 │   ├── business.md
 │   └── technical.md
+├── filters/
+│   └── filter_keywords_example.json
 │
 │
 │
 ├── integration_tests/
 │   ├── __init__.py
 │   ├── test_offers_db.py
+│   ├── test_rocketjobs_location_dom.py
 │   └── test_save_offer_2_contracts.py
 │
 ├── modules/
@@ -204,8 +219,12 @@ The GitHub Actions workflow runs on pull requests. It installs dependencies, pre
 ├── scrapers/
 │   ├── __init__.py
 │   ├── base_scraper.py
+│   ├── debug_rocketjobs.py
+│   ├── justjoin_scraper.py
 │   ├── linkedin_scraper.py
 │   ├── pracuj_scraper.py
+│   ├── rocketjobs_scraper.py
+│   ├── theprotocol_scraper.py
 │   └── scraper_offer_adapter.py
 │
 ├── tests/
@@ -216,17 +235,21 @@ The GitHub Actions workflow runs on pull requests. It installs dependencies, pre
 │   ├── test_filter_json.py
 │   ├── test_filter_service.py
 │   ├── test_job_classification_service.py
+│   ├── test_justjoin_scraper.py
 │   ├── test_json.py
 │   ├── test_linkedin_scraper.py
 │   ├── test_offer_source_workflow.py
 │   ├── test_orchestrator.py
 │   ├── test_pydantic.py
+│   ├── test_rocketjobs_scraper.py
 │   ├── test_salary_parser.py
 │   ├── test_salary_processor_salary.py
 │   ├── test_salary_processor_selection.py
 │   ├── test_salary_status.py
 │   ├── test_scraper.py
+│   ├── test_scraper_parsers.py
 │   ├── test_scraper_record_to_contract.py
+│   ├── test_theprotocol_scraper.py
 │   ├── test_update_status.py
 │   └── test_validate_ai.py
 │

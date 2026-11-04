@@ -5,12 +5,18 @@
       "https://www.pracuj.pl/praca/controlling;kw/wroclaw;wp?rd=30&et=17%2C4"
     ]
   },
-  "scraper_justjoin": {
+  "scraper_linkedin": {
+    "urls": []
+  },
+  "scraper_rocketjobs": {
+    "urls": []
+  },
+  "scraper_justjoinit": {
     "urls": [
       "https://justjoin.it/job-offers/wroclaw/data"
     ]
   },
-  "scraper_theprotocol": {
+  "scraper_theprotocolit": {
     "urls": [
       "https://theprotocol.it/praca"
     ]

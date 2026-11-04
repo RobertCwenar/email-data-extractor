@@ -27,7 +27,7 @@ jobs:
 
       - name: Prepare test configuration
         run: |
-          cp filter_keywords_example.json filter_keywords.json
+          cp filters/filter_keywords_example.json filter_keywords.json
           cp scraper_urls_example.json scraper_urls.json
 
       - name: ruff linting
