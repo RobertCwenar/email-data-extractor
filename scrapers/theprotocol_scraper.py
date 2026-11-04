@@ -43,11 +43,6 @@ class TheProtocolScraper(BaseScraper):
                         wait_until="domcontentloaded",
                         timeout=60000,
                     )
-                    print("HTTP STATUS:", response.status if response else None)
-                    print("FINAL URL:", page.url)
-                    print("TITLE:", page.title())
-                    print("USER AGENT:", page.evaluate("navigator.userAgent"))
-                    print("CONTENT:", page.locator("body").inner_text()[:2000])
                     logger.info(
                         "theprotocol.it HTTP status: %s",
                         response.status if response else None,
