@@ -1,6 +1,6 @@
 import asyncio
 import logging
-from typing import Literal
+from typing import Any, Literal, TypeAlias
 
 from database.inserts import InsertDB
 from modules.ai_service import AIService
@@ -13,6 +13,10 @@ from scrapers.scraper_offer_adapter import scraper_record_to_contract, scraper_r
 logger = logging.getLogger(__name__)
 
 SourceKind = Literal["email", "scraper"]
+EmailOfferRecord: TypeAlias = tuple[JobOffer, str, str | None]
+ScraperRecord: TypeAlias = dict[str, Any]
+OfferRecord: TypeAlias = EmailOfferRecord | ScraperRecord
+OfferBatch: TypeAlias = tuple[SourceKind, str, list[OfferRecord]]
 
 
 class OfferSourceWorkflow:
@@ -40,7 +44,7 @@ class OfferSourceWorkflow:
         self.offline_scrapers = offline_scrapers
 
     async def run(self) -> set[int]:
-        batches: list[tuple[SourceKind, str, list[tuple[JobOffer, str, str | None]]]] = []
+        batches: list[OfferBatch] = []
         for parser in self.email_parsers:
             logger.info("Processing source: %s", parser.source)
             offers = await parser.fetch_offers()
@@ -67,8 +71,8 @@ class OfferSourceWorkflow:
 
         for source_kind, source_name, offers in batches:
             for item in offers:
-                if source_kind == "scraper":
-                    record = item
+                if isinstance(item, dict):
+                    record: ScraperRecord = item
                     offer = scraper_record_to_offer(record)
                     offer_text = ""
                 else:
@@ -93,8 +97,8 @@ class OfferSourceWorkflow:
 
                 offer_ids.add(offer_id)
 
-                if source_kind == "scraper":
-                    contracts = [scraper_record_to_contract(record)]
+                if isinstance(item, dict):
+                    contracts = [scraper_record_to_contract(item)]
                 else:
                     contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
 
