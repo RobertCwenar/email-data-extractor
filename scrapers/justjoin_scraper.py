@@ -48,20 +48,6 @@ class JustJoinScraper(BaseScraper):
                 logger.info("JustJoin.it title: %s", page.title())
                 logger.info("JustJoin.it cards found: %s", cards.count())
 
-                if cards.count():
-                    logger.info(
-                        "JUSTJOIN CARD HTML:\n%s",
-                        cards.first.evaluate("""
-                            el => {
-                                let node = el;
-                                const result = [];
-                                for (let i = 0; node && i < 6; i++, node = node.parentElement) {
-                                    result.push(node.outerHTML.slice(0, 5000));
-                                }
-                                return result.join("\\n\\n--- PARENT ---\\n\\n");
-                            }
-                        """),
-                    )
                 offers = []
                 seen_urls = set()
 

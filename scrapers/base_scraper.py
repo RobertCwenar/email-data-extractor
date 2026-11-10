@@ -11,6 +11,7 @@ from offer import StructureScraper
 
 logger = logging.getLogger(__name__)
 WARSAW_TIMEZONE = ZoneInfo("Europe/Warsaw")
+FILTERS_DIR = Path("filters")
 
 
 class BaseScraper:
@@ -52,7 +53,8 @@ class BaseScraper:
             normalized_offers.append(offer)
         offers = normalized_offers
 
-        output_path = Path(self.output_file)
+        output_path = self._output_path()
+        output_path.parent.mkdir(parents=True, exist_ok=True)
         try:
             with output_path.open("r", encoding="utf-8") as file:
                 existing_offers = json.load(file)
@@ -88,7 +90,7 @@ class BaseScraper:
         return new_offers
 
     def load_saved_offers(self) -> list[dict[str, Any]]:
-        output_path = Path(self.output_file)
+        output_path = self._output_path()
         try:
             with output_path.open("r", encoding="utf-8") as file:
                 saved_offers = json.load(file)
@@ -117,6 +119,10 @@ class BaseScraper:
 
         logger.info("Loaded %s saved offers from %s without scraping", len(offers), output_path)
         return offers
+
+    def _output_path(self) -> Path:
+        output_path = Path(self.output_file)
+        return output_path if output_path.is_absolute() else FILTERS_DIR / output_path
 
     def _offer_key(self, offer: dict[str, Any]) -> tuple[str, str]:
         company = offer.get("company")
