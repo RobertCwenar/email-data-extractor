@@ -128,12 +128,15 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
 
 
 async def main() -> None:
-    try:
-        await _run_pipeline(skip_scrapers=False)
-    except Exception:
-        logger.exception("ETL failed. Retrying in 60 seconds without scrapers.")
-        await asyncio.sleep(60)
-        await _run_pipeline(skip_scrapers=True)
+    skip_scrapers = False
+    while True:
+        try:
+            await _run_pipeline(skip_scrapers=skip_scrapers)
+            return
+        except Exception:
+            logger.exception("ETL failed. Retrying in 90 seconds without scrapers.")
+            skip_scrapers = True
+            await asyncio.sleep(90)
 
 
 if __name__ == "__main__":
