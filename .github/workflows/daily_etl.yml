@@ -18,15 +18,6 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     env:
-      EMAIL: ${{ secrets.EMAIL }}
-      PASSWORD: ${{ secrets.PASSWORD }}
-      EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
-      EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
-      KEY_API: ${{ secrets.KEY_API }}
-      DATABASE_URL: ${{ secrets.DATABASE_URL }}
-      FILTER_KEYWORDS_JSON: ${{ secrets.FILTER_KEYWORDS_JSON }}
-      SCRAPER_URLS_JSON: ${{ secrets.SCRAPER_URLS_JSON }}
-      LINKEDIN_STORAGE_STATE_B64: ${{ secrets.LINKEDIN_STORAGE_STATE_B64 }}
       PLAYWRIGHT_HEADLESS: "1"
       LINKEDIN_STORAGE_STATE_PATH: linkedni_storage_state.json
 
@@ -47,6 +38,28 @@ jobs:
           uv sync
           uv run playwright install --with-deps chromium
 
+      - name: Validate required secrets
+        shell: python
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+          EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
+          KEY_API: ${{ secrets.KEY_API }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          FILTER_KEYWORDS_JSON: ${{ secrets.FILTER_KEYWORDS_JSON }}
+          SCRAPER_URLS_JSON: ${{ secrets.SCRAPER_URLS_JSON }}
+        run: |
+          import os
+
+          required = [
+              "EMAIL", "PASSWORD", "EMAIL_HOST", "EMAIL_PORT", "KEY_API", "DATABASE_URL",
+              "FILTER_KEYWORDS_JSON", "SCRAPER_URLS_JSON",
+          ]
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+
       - name: Restore runtime state
         uses: actions/cache@v4
         with:
@@ -58,19 +71,15 @@ jobs:
 
       - name: Create runtime configuration
         shell: python
+        env:
+          FILTER_KEYWORDS_JSON: ${{ secrets.FILTER_KEYWORDS_JSON }}
+          SCRAPER_URLS_JSON: ${{ secrets.SCRAPER_URLS_JSON }}
+          LINKEDIN_STORAGE_STATE_B64: ${{ secrets.LINKEDIN_STORAGE_STATE_B64 }}
         run: |
           import base64
           import json
           import os
           from pathlib import Path
-
-          required = [
-              "EMAIL", "PASSWORD", "EMAIL_HOST", "EMAIL_PORT", "KEY_API", "DATABASE_URL",
-              "FILTER_KEYWORDS_JSON", "SCRAPER_URLS_JSON",
-          ]
-          missing = [name for name in required if not os.environ.get(name)]
-          if missing:
-              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
 
           Path("filters").mkdir(exist_ok=True)
           Path("mail_records").mkdir(exist_ok=True)
@@ -93,6 +102,13 @@ jobs:
               )
 
       - name: Run pipeline
+        env:
+          EMAIL: ${{ secrets.EMAIL }}
+          PASSWORD: ${{ secrets.PASSWORD }}
+          EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+          EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
+          KEY_API: ${{ secrets.KEY_API }}
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: uv run python orchestrator.py
 
       - name: Save ETL log
