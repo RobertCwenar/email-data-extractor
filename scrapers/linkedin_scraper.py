@@ -1,4 +1,6 @@
 import logging
+import os
+from pathlib import Path
 from typing import Any
 
 from playwright.sync_api import Locator, sync_playwright
@@ -117,10 +119,16 @@ class LinkedInScraper(BaseScraper):
 
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         with sync_playwright() as p:
-            context = p.chromium.launch_persistent_context(
-                user_data_dir="linkedni_profile",
-                headless=False,
-            )
+            headless = os.getenv("PLAYWRIGHT_HEADLESS", "0").strip().lower() not in {"0", "false", "no"}
+            storage_state_path = os.getenv("LINKEDIN_STORAGE_STATE_PATH", "").strip()
+            if storage_state_path and Path(storage_state_path).is_file():
+                browser = p.chromium.launch(headless=headless)
+                context = browser.new_context(storage_state=storage_state_path)
+            else:
+                context = p.chromium.launch_persistent_context(
+                    user_data_dir="linkedni_profile",
+                    headless=headless,
+                )
             page = context.pages[0] if context.pages else context.new_page()
 
             page.goto(url, wait_until="domcontentloaded", timeout=60000)

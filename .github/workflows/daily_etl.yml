@@ -1,0 +1,105 @@
+name: Daily job offer ETL
+
+on:
+  schedule:
+    - cron: "13 5 * * *"
+      timezone: "Europe/Warsaw"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-job-offer-etl
+  cancel-in-progress: false
+
+jobs:
+  run-etl:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      EMAIL: ${{ secrets.EMAIL }}
+      PASSWORD: ${{ secrets.PASSWORD }}
+      EMAIL_HOST: ${{ secrets.EMAIL_HOST }}
+      EMAIL_PORT: ${{ secrets.EMAIL_PORT }}
+      KEY_API: ${{ secrets.KEY_API }}
+      DATABASE_URL: ${{ secrets.DATABASE_URL }}
+      FILTER_KEYWORDS_JSON: ${{ secrets.FILTER_KEYWORDS_JSON }}
+      SCRAPER_URLS_JSON: ${{ secrets.SCRAPER_URLS_JSON }}
+      LINKEDIN_STORAGE_STATE_B64: ${{ secrets.LINKEDIN_STORAGE_STATE_B64 }}
+      PLAYWRIGHT_HEADLESS: "1"
+      LINKEDIN_STORAGE_STATE_PATH: linkedni_storage_state.json
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.14.4"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Install dependencies and Chromium
+        run: |
+          uv sync
+          uv run playwright install --with-deps chromium
+
+      - name: Restore runtime state
+        uses: actions/cache@v4
+        with:
+          path: |
+            mail_records/
+            filters/filter_*_offers.json
+          key: etl-runtime-state-${{ github.run_id }}
+          restore-keys: etl-runtime-state-
+
+      - name: Create runtime configuration
+        shell: python
+        run: |
+          import base64
+          import json
+          import os
+          from pathlib import Path
+
+          required = [
+              "EMAIL", "PASSWORD", "EMAIL_HOST", "EMAIL_PORT", "KEY_API", "DATABASE_URL",
+              "FILTER_KEYWORDS_JSON", "SCRAPER_URLS_JSON",
+          ]
+          missing = [name for name in required if not os.environ.get(name)]
+          if missing:
+              raise SystemExit("Missing GitHub Actions secrets: " + ", ".join(missing))
+
+          Path("filters").mkdir(exist_ok=True)
+          Path("mail_records").mkdir(exist_ok=True)
+          Path("filters/filter_keywords.json").write_text(
+              os.environ["FILTER_KEYWORDS_JSON"], encoding="utf-8"
+          )
+          scraper_urls_text = os.environ["SCRAPER_URLS_JSON"]
+          scraper_urls = json.loads(scraper_urls_text)
+          Path("scraper_urls.json").write_text(scraper_urls_text, encoding="utf-8")
+
+          linkedin_urls = scraper_urls.get("scraper_linkedin", {}).get("urls", [])
+          state = os.environ.get("LINKEDIN_STORAGE_STATE_B64", "").strip()
+          if linkedin_urls and not state:
+              raise SystemExit(
+                  "LinkedIn URLs are configured; add the LINKEDIN_STORAGE_STATE_B64 secret."
+              )
+          if state:
+              Path(os.environ["LINKEDIN_STORAGE_STATE_PATH"]).write_bytes(
+                  base64.b64decode(state, validate=True)
+              )
+
+      - name: Run pipeline
+        run: uv run python orchestrator.py
+
+      - name: Save ETL log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: etl-log-${{ github.run_id }}
+          path: etl.log
+          if-no-files-found: ignore
+          retention-days: 7
