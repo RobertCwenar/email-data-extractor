@@ -1,6 +1,9 @@
 name: Daily job offer ETL
 
 on:
+  push:
+    branches:
+      - feat/neon-integration
   schedule:
     - cron: "13 5 * * *"
       timezone: "Europe/Warsaw"
