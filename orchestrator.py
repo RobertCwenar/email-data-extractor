@@ -127,14 +127,42 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     logger.info("ETL finished successfully")
 
 
+def _is_api_quota_error(error: Exception) -> bool:
+    current_error: BaseException | None = error
+    seen: set[int] = set()
+
+    while current_error is not None and id(current_error) not in seen:
+        seen.add(id(current_error))
+        status_code = getattr(current_error, "code", None)
+        if status_code in {429, "429"} or "RESOURCE_EXHAUSTED" in str(current_error):
+            return True
+        current_error = current_error.__cause__ or current_error.__context__
+
+    return False
+
+
 async def main() -> None:
     skip_scrapers = False
+    max_attempts = int(os.getenv("ETL_MAX_ATTEMPTS", "0"))
+    attempt = 0
+
     while True:
         try:
             await _run_pipeline(skip_scrapers=skip_scrapers)
             return
-        except Exception:
-            logger.exception("ETL failed. Retrying in 90 seconds without scrapers.")
+        except Exception as error:
+            attempt += 1
+            logger.exception("ETL attempt %s failed.", attempt)
+
+            if _is_api_quota_error(error):
+                logger.error("Stopping ETL because the AI API quota or rate limit was reached.")
+                raise
+
+            if max_attempts > 0 and attempt >= max_attempts:
+                logger.error("Stopping ETL after reaching the configured limit of %s attempts.", max_attempts)
+                raise
+
+            logger.info("Retrying in 90 seconds without scrapers.")
             skip_scrapers = True
             await asyncio.sleep(90)
 

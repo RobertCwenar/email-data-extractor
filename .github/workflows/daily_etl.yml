@@ -23,6 +23,7 @@ jobs:
     env:
       PLAYWRIGHT_HEADLESS: "1"
       LINKEDIN_STORAGE_STATE_PATH: linkedni_storage_state.json
+      ETL_MAX_ATTEMPTS: "2"
 
     steps:
       - name: Check out repository
