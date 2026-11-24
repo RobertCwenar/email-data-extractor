@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import Any
 
 from playwright.sync_api import sync_playwright
@@ -19,13 +20,14 @@ class Scraper(BaseScraper):
 
     def __init__(self) -> None:
         self.urls = scraper_config.get_list(["scraper", "urls"])
+        self.headless = os.getenv("PLAYWRIGHT_HEADLESS", "0").strip().lower() not in {"0", "false", "no"}
 
     def get_offer_id(self, offer: dict[str, Any]) -> str | None:
         return offer.get("offer_id") or pracuj_offer_id_from_url(offer.get("url"))
 
     def get_offers_from_page(self, url: str) -> list[dict[str, Any]]:
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=False)
+            browser = p.chromium.launch(headless=self.headless)
 
             page = browser.new_page()
             response = page.goto(url, wait_until="commit", timeout=30000)

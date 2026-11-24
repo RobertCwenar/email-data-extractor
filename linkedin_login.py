@@ -10,4 +10,5 @@ with sync_playwright() as p:
 
     input("Log in to LinkedIn, then press Enter here...")
 
+    context.storage_state(path="linkedin_storage_state.json")
     context.close()
