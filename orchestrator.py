@@ -10,7 +10,6 @@ from database.connection import Database
 from database.deduplication import Deduplication
 from database.inserts import InsertDB
 from database.queries import QueryDB
-from database.schema import DBSchema
 from database.updates import UpdateDB
 from modules.ai_service import AIService
 from modules.email_sources import build_email_parsers
@@ -62,9 +61,7 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     db_query = QueryDB(db)
     deduplication = Deduplication(db)
     db_update = UpdateDB(db)
-    db_schema = DBSchema(db)
 
-    db_schema.create_tables()
     offer_status = OfferStatus(db_query, db_update)
     offer_status.update_ended_offers()
     filter_service = FilterService(config)
