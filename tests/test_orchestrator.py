@@ -136,7 +136,6 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     mock_db_insert.save_offers.side_effect = [101, 102, 103, 104, 105, 106]
     mock_db_query = MagicMock()
     mock_db_update = MagicMock()
-    mock_db_schema = MagicMock()
 
     mock_db_query.get_offer_history.return_value = []
     mock_db_query.get_offers_for_status.return_value = []
@@ -153,7 +152,6 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
         patch("orchestrator.InsertDB", return_value=mock_db_insert),
         patch("orchestrator.QueryDB", return_value=mock_db_query),
         patch("orchestrator.UpdateDB", return_value=mock_db_update),
-        patch("orchestrator.DBSchema", return_value=mock_db_schema),
         patch("orchestrator.FilterService", return_value=mock_filter),
         patch("orchestrator.build_email_parsers", return_value=[mock_parser]),
         patch("orchestrator.Deduplication", return_value=mock_db_query),
@@ -224,4 +222,4 @@ async def test_main_retries_once_with_saved_scraper_data_after_failure():
     assert run_pipeline.await_count == 2
     assert run_pipeline.await_args_list[0].kwargs == {"skip_scrapers": False}
     assert run_pipeline.await_args_list[1].kwargs == {"skip_scrapers": True}
-    wait.assert_awaited_once_with(60)
+    wait.assert_awaited_once_with(90)
