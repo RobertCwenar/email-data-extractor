@@ -148,7 +148,6 @@ class QueryDB:
                     ON jd.offer_id = o.id
                 WHERE jc.salary_min_offer IS NULL
                     AND jc.salary_max_offer IS NULL
-                    AND jc.salary_estimation_done IS FALSE
                     AND jd.level IS NOT NULL
                     AND jd.category IS NOT NULL
                 """)

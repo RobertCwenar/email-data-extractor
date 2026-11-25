@@ -22,13 +22,9 @@ class JobClassificationService:
     async def process_jobs(self) -> None:
 
         jobs = self.db_query.get_jobs_for_classification()
-        total_jobs = len(jobs)
-        logger.info("Classifying %s offers", total_jobs)
         classifications_by_title: dict[str, tuple[Any, ...] | None] = {}
 
         for index, (offer_id, title, company, date, has_details) in enumerate(jobs, start=1):
-            if index == 1 or index % 50 == 0 or index == total_jobs:
-                logger.info("Classification progress: %s/%s", index, total_jobs)
             if not title:
                 continue
 
@@ -56,19 +52,14 @@ class JobClassificationService:
                     category,
                 )
 
-        logger.info("Finished classifying %s offers", total_jobs)
-
     async def process_salary_estimations(self) -> set[int]:
         contracts = self.db_query.get_job_contracts_for_salary_estimator()
 
-        total_contracts = len(contracts)
-        logger.info("Estimating salaries for %s contracts", total_contracts)
+        logger.debug("Contracts for salary estimation: %s", len(contracts))
         estimated_offers: dict[int, tuple[float | None, float | None, str, int]] = {}
         contract_updates: list[tuple[str, str, str, float | None, float | None, int]] = []
 
-        for index, (contract_id, offer_id, title, company, date, level, category) in enumerate(contracts, start=1):
-            if index == 1 or index % 500 == 0 or index == total_contracts:
-                logger.info("Salary estimation progress: %s/%s", index, total_contracts)
+        for contract_id, offer_id, title, company, date, level, category in contracts:
             classification = JobClassification(
                 offer_id=offer_id,
                 clean_title=title,
@@ -87,17 +78,13 @@ class JobClassificationService:
             estimated_offers[offer_id] = (salary_min, salary_max, "estimated", offer_id)
             contract_updates.append(("UoP", "PLN", "monthly", salary_min, salary_max, contract_id))
 
-        logger.info("Applying salary estimates to %s contracts", total_contracts)
         with self.db_query.db._connect() as conn:
             self.db_update.update_offer_salaries(list(estimated_offers.values()), conn)
             self.db_update.update_job_contract_salaries(contract_updates, conn)
 
-        logger.info("Finished salary estimation for %s contracts", total_contracts)
         return set(estimated_offers)
 
     async def process_salary_selection(self, offer_ids: set[int]) -> None:
-        total_offers = len(offer_ids)
-        logger.info("Selecting final salaries for %s offers", total_offers)
         if not offer_ids:
             return
 
@@ -109,9 +96,7 @@ class JobClassificationService:
         contract_updates: list[tuple[float | None, float | None, int]] = []
         offer_updates: dict[int, tuple[float | None, float | None, str, int]] = {}
 
-        for index, offer_id in enumerate(sorted(offer_ids), start=1):
-            if index == 1 or index % 500 == 0 or index == total_offers:
-                logger.info("Salary selection progress: %s/%s", index, total_offers)
+        for offer_id in sorted(offer_ids):
             contracts = []
             for row in contracts_by_offer.get(offer_id, []):
                 contract_id = row[0]
@@ -142,7 +127,6 @@ class JobClassificationService:
                     offer_id,
                 )
 
-        logger.info("Saving salary selections for %s offers", len(offer_updates))
         with self.db_query.db._connect() as conn:
             if contract_updates:
                 self.db_update.update_job_contract_monthlies(contract_updates, conn)

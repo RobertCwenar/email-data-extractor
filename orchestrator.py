@@ -70,13 +70,7 @@ async def _run_pipeline_with_database(db: Database, *, skip_scrapers: bool) -> N
     deduplication = Deduplication(db)
     db_update = UpdateDB(db)
     schema = DBSchema(db)
-    logger.info("Ensuring database schema and ETL indexes")
     schema.create_tables()
-    logger.info("Marking contracts already in Neon as legacy salary records")
-    schema.mark_legacy_salary_estimations_complete()
-    schema.create_performance_indexes()
-    logger.info("Database schema and ETL indexes are ready")
-
     offer_status = OfferStatus(db_query, db_update)
     logger.info("Updating ended offer statuses")
     offer_status.update_ended_offers()
@@ -135,8 +129,8 @@ async def _run_pipeline_with_database(db: Database, *, skip_scrapers: bool) -> N
 
     logger.info("Starting offer classification and salary processing")
     await classification_service.process_jobs()
-    estimated_offer_ids = await classification_service.process_salary_estimations()
-    offer_ids.update(estimated_offer_ids)
+    await classification_service.process_salary_estimations()
+    offer_ids.update(db_query.get_job_contract_offer_ids())
     await classification_service.process_salary_selection(offer_ids)
 
     logger.info("ETL finished successfully")

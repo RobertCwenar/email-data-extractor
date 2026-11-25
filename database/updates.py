@@ -28,8 +28,7 @@ class UpdateDB:
                 salary_currency = %s,
                 salary_period = %s,
                 salary_min_monthly = %s,
-                salary_max_monthly = %s,
-                salary_estimation_done = TRUE
+                salary_max_monthly = %s
             WHERE id = %s
                 """,
                 (
@@ -54,8 +53,7 @@ class UpdateDB:
                     salary_currency = %s,
                     salary_period = %s,
                     salary_min_monthly = %s,
-                    salary_max_monthly = %s,
-                    salary_estimation_done = TRUE
+                    salary_max_monthly = %s
                 WHERE id = %s
                 """,
                 values,
