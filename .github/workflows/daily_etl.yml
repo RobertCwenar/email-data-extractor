@@ -2,7 +2,7 @@ name: Daily job offer ETL
 
 on:
   schedule:
-    - cron: "0 6 * * 1-6"
+    - cron: "45 4 * * 1-6"
       timezone: "Europe/Warsaw"
   workflow_dispatch:
 
@@ -16,7 +16,7 @@ concurrency:
 jobs:
   run-etl:
     runs-on: ubuntu-24.04
-    timeout-minutes: 60
+    timeout-minutes: 70
     env:
       PLAYWRIGHT_HEADLESS: "1"
       LINKEDIN_STORAGE_STATE_PATH: linkedni_storage_state.json
