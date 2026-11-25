@@ -2,7 +2,7 @@ name: Daily job offer ETL
 
 on:
   schedule:
-    - cron: "45 4 * * 1-6"
+    - cron: "20 5 * * 1-6"
       timezone: "Europe/Warsaw"
   workflow_dispatch:
 
@@ -19,7 +19,7 @@ jobs:
     timeout-minutes: 70
     env:
       PLAYWRIGHT_HEADLESS: "1"
-      LINKEDIN_STORAGE_STATE_PATH: linkedni_storage_state.json
+      LINKEDIN_STORAGE_STATE_PATH: linkedin_storage_state.json
 
     steps:
       - name: Check out repository
