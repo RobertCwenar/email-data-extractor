@@ -1,3 +1,4 @@
+from datetime import date
 from typing import Any
 
 from offer import JobOffer
@@ -37,3 +38,12 @@ class Deduplication:
                 (offer_id,),
             )
             return cursor.fetchone() is not None
+
+    def has_source_offers_for_date(self, source: str, offer_date: date) -> bool:
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT EXISTS (SELECT 1 FROM Offers WHERE source = %s AND date = %s)",
+                (source, offer_date.isoformat()),
+            )
+            row = cursor.fetchone()
+            return bool(row[0]) if row else False

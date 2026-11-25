@@ -22,12 +22,19 @@ class JobClassificationService:
     async def process_jobs(self) -> None:
 
         jobs = self.db_query.get_jobs_for_classification()
+        total_jobs = len(jobs)
+        logger.info("Classifying %s offers", total_jobs)
+        classifications_by_title: dict[str, tuple[Any, ...] | None] = {}
 
-        for offer_id, title, company, date in jobs:
+        for index, (offer_id, title, company, date, has_details) in enumerate(jobs, start=1):
+            if index == 1 or index % 50 == 0 or index == total_jobs:
+                logger.info("Classification progress: %s/%s", index, total_jobs)
             if not title:
                 continue
 
-            cached = self.db_query.get_classification_by_title(title)
+            if title not in classifications_by_title:
+                classifications_by_title[title] = self.db_query.get_classification_by_title(title)
+            cached = classifications_by_title[title]
 
             if cached and cached[1]:
                 logger.debug(f"Classification cache: {title}")
@@ -37,8 +44,9 @@ class JobClassificationService:
                 logger.debug(f"New Classification: {title}")
                 level = self.classifier.classify_level(title)
                 category = await self.classifier.classify_category(title)
+                classifications_by_title[title] = (level, category)
 
-            if self.db_query.job_details_exists(offer_id):
+            if has_details:
                 self.db_update.update_job_category(offer_id, category)
             else:
                 self.db_insert.save_job_details(
@@ -48,91 +56,95 @@ class JobClassificationService:
                     category,
                 )
 
-    async def process_salary_estimations(self) -> None:
+        logger.info("Finished classifying %s offers", total_jobs)
+
+    async def process_salary_estimations(self) -> set[int]:
         contracts = self.db_query.get_job_contracts_for_salary_estimator()
 
-        logger.debug(f"Contracts for salary estimation: {len(contracts)}")
+        total_contracts = len(contracts)
+        logger.info("Estimating salaries for %s contracts", total_contracts)
+        estimated_offers: dict[int, tuple[float | None, float | None, str, int]] = {}
+        contract_updates: list[tuple[str, str, str, float | None, float | None, int]] = []
+
+        for index, (contract_id, offer_id, title, company, date, level, category) in enumerate(contracts, start=1):
+            if index == 1 or index % 500 == 0 or index == total_contracts:
+                logger.info("Salary estimation progress: %s/%s", index, total_contracts)
+            classification = JobClassification(
+                offer_id=offer_id,
+                clean_title=title,
+                level=level,
+                category=category,
+            )
+
+            salary_min, salary_max = self.salary_estimator.salary_logic(
+                classification,
+                company,
+                title,
+                date,
+            )
+
+            logger.debug("Salary re-estimation for: %s %s %s", offer_id, salary_min, salary_max)
+            estimated_offers[offer_id] = (salary_min, salary_max, "estimated", offer_id)
+            contract_updates.append(("UoP", "PLN", "monthly", salary_min, salary_max, contract_id))
+
+        logger.info("Applying salary estimates to %s contracts", total_contracts)
         with self.db_query.db._connect() as conn:
-            for contract_id, offer_id, title, company, date, level, category in contracts:
-                classification = JobClassification(
-                    offer_id=offer_id,
-                    clean_title=title,
-                    level=level,
-                    category=category,
-                )
+            self.db_update.update_offer_salaries(list(estimated_offers.values()), conn)
+            self.db_update.update_job_contract_salaries(contract_updates, conn)
 
-                salary_min, salary_max = self.salary_estimator.salary_logic(
-                    classification,
-                    company,
-                    title,
-                    date,
-                )
-
-                logger.debug(f"Salary re-estimation for: {offer_id} {salary_min} {salary_max}")
-
-                self.db_update.update_offer_salary(
-                    offer_id,
-                    salary_min,
-                    salary_max,
-                    salary_status="estimated",
-                    conn=conn,
-                )
-
-                self.db_update.update_job_contract_salary(
-                    contract_id,
-                    "UoP",
-                    "PLN",
-                    "monthly",
-                    salary_min,
-                    salary_max,
-                    conn,
-                )
+        logger.info("Finished salary estimation for %s contracts", total_contracts)
+        return set(estimated_offers)
 
     async def process_salary_selection(self, offer_ids: set[int]) -> None:
-        with self.db_query.db._connect() as conn:
-            for offer_id in offer_ids:
-                rows = self.db_query.get_job_contracts(offer_id, conn)
+        total_offers = len(offer_ids)
+        logger.info("Selecting final salaries for %s offers", total_offers)
+        if not offer_ids:
+            return
 
-                contracts = []
+        rows = self.db_query.get_job_contracts_for_offers(offer_ids)
+        contracts_by_offer: dict[int, list[tuple[Any, ...]]] = {}
+        for row in rows:
+            contracts_by_offer.setdefault(row[1], []).append(row)
 
-                for row in rows:
-                    contract_id = row[0]
-                    contract = JobContract(
-                        offer_id=offer_id,
-                        contract_type=row[1],
-                        salary_currency=row[2],
-                        salary_period=row[3],
-                        salary_min_offer=row[4],
-                        salary_max_offer=row[5],
-                        salary_min_monthly=row[6],
-                        salary_max_monthly=row[7],
-                    )
-                    old_min_monthly = contract.salary_min_monthly
-                    old_max_monthly = contract.salary_max_monthly
+        contract_updates: list[tuple[float | None, float | None, int]] = []
+        offer_updates: dict[int, tuple[float | None, float | None, str, int]] = {}
 
-                    contract = self.salary_processor.normalize_salary(contract)
-
-                    if contract.salary_min_monthly != old_min_monthly or contract.salary_max_monthly != old_max_monthly:
-                        self.db_update.update_job_contract_monthly(
-                            contract_id,
-                            contract.salary_min_monthly,
-                            contract.salary_max_monthly,
-                            conn,
-                        )
-
-                    contracts.append(contract)
-
-                selected_contract = self.salary_processor.select_contract(contracts)
-                logger.debug(
-                    "Salary selection: offer_id=%s, selected=%s",
-                    offer_id,
-                    selected_contract,
+        for index, offer_id in enumerate(sorted(offer_ids), start=1):
+            if index == 1 or index % 500 == 0 or index == total_offers:
+                logger.info("Salary selection progress: %s/%s", index, total_offers)
+            contracts = []
+            for row in contracts_by_offer.get(offer_id, []):
+                contract_id = row[0]
+                contract = JobContract(
+                    offer_id=offer_id,
+                    contract_type=row[2],
+                    salary_currency=row[3],
+                    salary_period=row[4],
+                    salary_min_offer=row[5],
+                    salary_max_offer=row[6],
+                    salary_min_monthly=row[7],
+                    salary_max_monthly=row[8],
                 )
-                if selected_contract:
-                    self.db_update.update_offer_salary(
-                        offer_id=offer_id,
-                        salary_min=selected_contract.salary_min_monthly,
-                        salary_max=selected_contract.salary_max_monthly,
-                        salary_status=self.salary_processor.get_salary_status(selected_contract),
-                        conn=conn,
-                    )
+                old_monthly = (contract.salary_min_monthly, contract.salary_max_monthly)
+                contract = self.salary_processor.normalize_salary(contract)
+                new_monthly = (contract.salary_min_monthly, contract.salary_max_monthly)
+                if new_monthly != old_monthly:
+                    contract_updates.append((*new_monthly, contract_id))
+                contracts.append(contract)
+
+            selected_contract = self.salary_processor.select_contract(contracts)
+            logger.debug("Salary selection: offer_id=%s, selected=%s", offer_id, selected_contract)
+            if selected_contract:
+                offer_updates[offer_id] = (
+                    selected_contract.salary_min_monthly,
+                    selected_contract.salary_max_monthly,
+                    self.salary_processor.get_salary_status(selected_contract),
+                    offer_id,
+                )
+
+        logger.info("Saving salary selections for %s offers", len(offer_updates))
+        with self.db_query.db._connect() as conn:
+            if contract_updates:
+                self.db_update.update_job_contract_monthlies(contract_updates, conn)
+            if offer_updates:
+                self.db_update.update_offer_salaries(list(offer_updates.values()), conn)

@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 from datetime import datetime
 from typing import Any
 
@@ -18,10 +19,24 @@ class SalaryHistory:
         ] = {}
         self.salary_statistics = SalaryStatistics()
         self.history: list[SalaryHistoryRecord] = []
+        self._history_by_job: dict[tuple[str | None, str | None], list[tuple[datetime, SalaryHistoryRecord]]] = {}
 
     def process_history(self) -> None:
         history_data = self.db_read.get_salary_history()
         self.history = self.get_history(history_data)
+        history_by_job: dict[
+            tuple[str | None, str | None],
+            list[tuple[datetime, SalaryHistoryRecord]],
+        ] = defaultdict(list)
+        for offer in self.history:
+            if offer.date and (offer.salary_min is not None or offer.salary_max is not None):
+                try:
+                    offer_date = datetime.fromisoformat(offer.date)
+                except ValueError:
+                    logger.warning("Ignoring invalid salary history date: %s", offer.date)
+                    continue
+                history_by_job[(offer.company, offer.title)].append((offer_date, offer))
+        self._history_by_job = dict(history_by_job)
         groups = self.group_history(self.history)
         self.statistics = {}
 
@@ -131,30 +146,11 @@ class SalaryHistory:
 
         target_date = datetime.fromisoformat(date)
 
-        matches = []
-
-        for offer in self.history:
-            if offer.company != company:
-                continue
-
-            if offer.title != title:
-                continue
-
-            if offer.date == date:
-                continue
-
-            if offer.salary_min is None and offer.salary_max is None:
-                continue
-
-            if not offer.date:
-                continue
-
-            offer_date = datetime.fromisoformat(offer.date)
-
-            difference = abs((target_date - offer_date).days)
-
-            if difference <= months * 30:
-                matches.append((difference, offer))
+        matches = [
+            (abs((target_date - offer_date).days), offer)
+            for offer_date, offer in self._history_by_job.get((company, title), [])
+            if offer.date != date and abs((target_date - offer_date).days) <= months * 30
+        ]
 
         if not matches:
             return None

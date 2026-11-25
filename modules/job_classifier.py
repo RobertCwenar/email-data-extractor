@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import re
 from typing import Literal, get_args
@@ -104,8 +103,6 @@ class JobClassifier:
                 return best_category
 
         logger.debug(f"AI Category: {clean_title}")
-
-        await asyncio.sleep(2)
 
         result = await self.ai_service.validate_category_api(
             clean_title,

@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from datetime import datetime
 from typing import Any, Literal, TypeAlias
+from zoneinfo import ZoneInfo
 
 from database.inserts import InsertDB
 from modules.ai_service import AIService
@@ -11,6 +13,7 @@ from offer import JobContract, JobOffer
 from scrapers.scraper_offer_adapter import scraper_record_to_contract, scraper_record_to_offer
 
 logger = logging.getLogger(__name__)
+WARSAW_TIMEZONE = ZoneInfo("Europe/Warsaw")
 
 SourceKind = Literal["email", "scraper"]
 EmailOfferRecord: TypeAlias = tuple[JobOffer, str, str | None]
@@ -51,14 +54,36 @@ class OfferSourceWorkflow:
             batches.append(("email", parser.source, offers))
         for scraper in self.scrapers:
             try:
+                source_name = getattr(scraper, "source", "scraper")
+                saved_records = await asyncio.to_thread(scraper.load_saved_offers)
                 if self.offline_scrapers:
-                    records = await asyncio.to_thread(scraper.load_saved_offers)
+                    records = saved_records
+                elif isinstance(saved_records, list) and saved_records:
+                    records = saved_records
+                    logger.info(
+                        "Using %s saved offers from today for %s; skipping live scrape",
+                        len(records),
+                        scraper.__class__.__name__,
+                    )
+                elif self.db_query.has_source_offers_for_date(
+                    source_name,
+                    datetime.now(WARSAW_TIMEZONE).date(),
+                ):
+                    records = []
+                    logger.info(
+                        "Database already has %s offers for today; skipping live scrape",
+                        source_name,
+                    )
                 else:
                     newly_scraped = await asyncio.to_thread(scraper.run_scraper)
-                    saved_records = await asyncio.to_thread(scraper.load_saved_offers)
-                    records = saved_records if isinstance(saved_records, list) and saved_records else newly_scraped
+                    saved_after_scrape = await asyncio.to_thread(scraper.load_saved_offers)
+                    records = (
+                        saved_after_scrape
+                        if isinstance(saved_after_scrape, list) and saved_after_scrape
+                        else newly_scraped
+                    )
                 logger.info("Loaded %s offers from %s", len(records), scraper.__class__.__name__)
-                batches.append(("scraper", getattr(scraper, "source", "scraper"), records))
+                batches.append(("scraper", source_name, records))
             except Exception:
                 logger.exception("Scraper failed: %s; loading its saved output", scraper.__class__.__name__)
                 try:
@@ -68,9 +93,14 @@ class OfferSourceWorkflow:
                     logger.exception("Could not load saved output for %s", scraper.__class__.__name__)
 
         offer_ids: set[int] = set()
+        seen_offers: dict[tuple[str | None, str | None, str | None, str], int] = {}
 
         for source_kind, source_name, offers in batches:
-            for item in offers:
+            logger.info("Processing %s records from %s", len(offers), source_name)
+            for index, item in enumerate(offers, start=1):
+                if index == 1 or index % 50 == 0 or index == len(offers):
+                    logger.info("%s progress: %s/%s", source_name, index, len(offers))
+
                 if isinstance(item, dict):
                     record: ScraperRecord = item
                     offer = scraper_record_to_offer(record)
@@ -81,22 +111,17 @@ class OfferSourceWorkflow:
                 if not self.filter_service.should_save(offer):
                     continue
 
-                same_source_duplicate_id = self.db_query.find_same_source_duplicate_id(offer, source_name)
-                if isinstance(same_source_duplicate_id, int):
-                    offer_id = same_source_duplicate_id
-                    if self.db_query.has_job_contract(offer_id):
-                        offer_ids.add(offer_id)
-                        logger.info("Skipping already persisted offer: %s | %s", offer.title, offer.company)
-                        continue
-                else:
-                    offer.offer_status = self.offer_status.get_offer_status(offer)
-                    saved_offer_id = self.db_insert.save_offers(offer, source=source_name)
-                    if saved_offer_id is None:
-                        continue
-                    offer_id = saved_offer_id
+                offer_key = (offer.date, offer.title, offer.company, source_name)
+                duplicate = seen_offers.get(offer_key)
+                if duplicate is None:
+                    duplicate = self.db_query.find_same_source_duplicate_id(offer, source_name)
 
-                offer_ids.add(offer_id)
+                if duplicate is not None:
+                    seen_offers[offer_key] = duplicate
+                    logger.debug("Skipping already persisted offer: %s | %s", offer.title, offer.company)
+                    continue
 
+                offer.offer_status = self.offer_status.get_offer_status(offer)
                 if isinstance(item, dict):
                     contracts = [scraper_record_to_contract(item)]
                 else:
@@ -106,8 +131,6 @@ class OfferSourceWorkflow:
                     contracts = [JobContract(contract_type="UoP")]
 
                 for contract in contracts:
-                    contract.offer_id = offer_id
-
                     if source_kind == "email":
                         contract = self.salary_processor.resolve_contract_type(
                             contract,
@@ -115,7 +138,17 @@ class OfferSourceWorkflow:
                         )
 
                     self.salary_processor.normalize_salary(contract)
-                    self.db_insert.save_job_contract(contract)
+
+                offer_id = self.db_insert.save_offer_with_contracts(
+                    offer,
+                    source=source_name,
+                    contracts=contracts,
+                )
+                if offer_id is None:
+                    continue
+                offer_ids.add(offer_id)
+
+                seen_offers[offer_key] = offer_id
 
         for parser in self.email_parsers:
             commit_processed_messages = getattr(parser, "commit_processed_messages", None)

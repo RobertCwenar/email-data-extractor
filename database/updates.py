@@ -1,3 +1,5 @@
+from typing import Any
+
 from psycopg import Connection
 
 from database.connection import Database
@@ -26,7 +28,8 @@ class UpdateDB:
                 salary_currency = %s,
                 salary_period = %s,
                 salary_min_monthly = %s,
-                salary_max_monthly = %s
+                salary_max_monthly = %s,
+                salary_estimation_done = TRUE
             WHERE id = %s
                 """,
                 (
@@ -37,6 +40,40 @@ class UpdateDB:
                     salary_max_monthly,
                     contract_id,
                 ),
+            )
+
+    def update_job_contract_salaries(self, values: list[tuple[Any, ...]], conn: Connection) -> None:
+        if not values:
+            return
+
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """
+                UPDATE JobContracts
+                SET contract_type = %s,
+                    salary_currency = %s,
+                    salary_period = %s,
+                    salary_min_monthly = %s,
+                    salary_max_monthly = %s,
+                    salary_estimation_done = TRUE
+                WHERE id = %s
+                """,
+                values,
+            )
+
+    def update_job_contract_monthlies(self, values: list[tuple[Any, ...]], conn: Connection) -> None:
+        if not values:
+            return
+
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """
+                UPDATE JobContracts
+                SET salary_min_monthly = %s,
+                    salary_max_monthly = %s
+                WHERE id = %s
+                """,
+                values,
             )
 
     def update_job_contract(self, contract_id: int, contract: JobContract) -> None:
@@ -89,6 +126,22 @@ class UpdateDB:
                     salary_status,
                     offer_id,
                 ),
+            )
+
+    def update_offer_salaries(self, values: list[tuple[Any, ...]], conn: Connection) -> None:
+        if not values:
+            return
+
+        with conn.cursor() as cursor:
+            cursor.executemany(
+                """
+                UPDATE Offers
+                SET salary_min = %s,
+                    salary_max = %s,
+                    salary_status = %s
+                WHERE id = %s
+                """,
+                values,
             )
 
     def update_job_classification(

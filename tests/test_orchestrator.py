@@ -133,7 +133,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
 
     mock_db = MagicMock()
     mock_db_insert = MagicMock()
-    mock_db_insert.save_offers.side_effect = [101, 102, 103, 104, 105, 106]
+    mock_db_insert.save_offer_with_contracts.side_effect = [101, 102, 103, 104, 105, 106]
     mock_db_query = MagicMock()
     mock_db_update = MagicMock()
 
@@ -142,6 +142,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     mock_db_query.get_salary_history.return_value = []
     mock_db_query.get_job_contract_offer_ids.return_value = []
     mock_db_query.find_same_source_duplicate_id.return_value = None
+    mock_db_query.has_source_offers_for_date.return_value = False
 
     mock_filter = MagicMock()
     mock_filter.should_save.return_value = True
@@ -185,14 +186,16 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     justjoin_fetch.assert_called_once_with(justjoin_url)
     theprotocol_fetch.assert_called_once_with(theprotocol_url)
     assert mock_filter.should_save.call_count == 6
-    assert mock_db_insert.save_offers.call_count == 6
+    assert mock_db_insert.save_offer_with_contracts.call_count == 6
     mock_db_update.normalize_offer_locations.assert_called_once_with()
     rocketjobs_call = next(
-        call for call in mock_db_insert.save_offers.call_args_list if call.kwargs.get("source") == "scraper_rocketjobs"
+        call
+        for call in mock_db_insert.save_offer_with_contracts.call_args_list
+        if call.kwargs.get("source") == "scraper_rocketjobs"
     )
     (rocketjobs_saved_offer,) = rocketjobs_call.args
     assert rocketjobs_saved_offer.title == "BI Analyst"
-    saved_sources = {call.kwargs["source"] for call in mock_db_insert.save_offers.call_args_list}
+    saved_sources = {call.kwargs["source"] for call in mock_db_insert.save_offer_with_contracts.call_args_list}
     assert "scraper_justjoinit" in saved_sources
     assert "scraper_theprotocol" in saved_sources
 
@@ -222,4 +225,4 @@ async def test_main_retries_once_with_saved_scraper_data_after_failure():
     assert run_pipeline.await_count == 2
     assert run_pipeline.await_args_list[0].kwargs == {"skip_scrapers": False}
     assert run_pipeline.await_args_list[1].kwargs == {"skip_scrapers": True}
-    wait.assert_awaited_once_with(90)
+    wait.assert_awaited_once_with(30)

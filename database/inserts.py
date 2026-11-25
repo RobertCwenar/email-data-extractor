@@ -46,6 +46,51 @@ class InsertDB:
                 return None
             return result[0]
 
+    def save_offer_with_contracts(
+        self,
+        job: JobOffer,
+        source: str,
+        contracts: list[JobContract],
+    ) -> Any | None:
+        """Insert an offer and all of its contracts in one database transaction."""
+        job.date = normalize_date(job.date)
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            if job.company:
+                cursor.execute(
+                    "INSERT INTO Companies (company) VALUES (%s) ON CONFLICT (company) DO NOTHING",
+                    (job.company,),
+                )
+
+            cursor.execute(
+                """
+                INSERT INTO Offers (
+                    title, company, location, salary_min, salary_max,
+                    date, source, salary_status, offer_status
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    job.title,
+                    job.company,
+                    job.location,
+                    job.salary_min,
+                    job.salary_max,
+                    job.date,
+                    source,
+                    job.salary_status,
+                    job.offer_status,
+                ),
+            )
+            result = cursor.fetchone()
+            if result is None:
+                return None
+
+            offer_id = result[0]
+            for contract in contracts:
+                contract.offer_id = offer_id
+                self._insert_contract(cursor, contract)
+            return offer_id
+
     # Save company to the Companies table and return its ID
     def save_company(self, company_name: str) -> Any | None:
         if not company_name:
@@ -74,31 +119,28 @@ class InsertDB:
     def save_job_contract(self, contract: JobContract) -> None:
         with self.db._connect() as conn:
             with conn.cursor() as cursor:
-                cursor.execute(
-                    """
-                    INSERT INTO JobContracts (
-                        offer_id,
-                        contract_type,
-                        salary_currency,
-                        salary_period,
-                        salary_min_offer,
-                        salary_max_offer, 
-                        salary_min_monthly, 
-                        salary_max_monthly
-                    )
-                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                    """,
-                    (
-                        contract.offer_id,
-                        contract.contract_type,
-                        contract.salary_currency,
-                        contract.salary_period,
-                        contract.salary_min_offer,
-                        contract.salary_max_offer,
-                        contract.salary_min_monthly,
-                        contract.salary_max_monthly,
-                    ),
-                )
+                self._insert_contract(cursor, contract)
+
+    @staticmethod
+    def _insert_contract(cursor, contract: JobContract) -> None:
+        cursor.execute(
+            """
+            INSERT INTO JobContracts (
+                offer_id, contract_type, salary_currency, salary_period,
+                salary_min_offer, salary_max_offer, salary_min_monthly, salary_max_monthly
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                contract.offer_id,
+                contract.contract_type,
+                contract.salary_currency,
+                contract.salary_period,
+                contract.salary_min_offer,
+                contract.salary_max_offer,
+                contract.salary_min_monthly,
+                contract.salary_max_monthly,
+            ),
+        )
 
     # Save job details to the JobDetails table
     def save_job_details(

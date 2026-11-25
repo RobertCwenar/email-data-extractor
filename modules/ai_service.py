@@ -4,7 +4,9 @@ import time
 from typing import Any
 
 from google import genai
+from google.genai import types
 from google.genai.errors import ClientError, ServerError
+from httpx import TransportError
 from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
 
 from config import config
@@ -14,16 +16,19 @@ logger = logging.getLogger(__name__)
 
 
 RETRY_MULTIPLIER = 1
-RETRY_MIN_WAIT = 6
-RETRY_MAX_WAIT = 60
-RETRY_ATTEMPTS = 10
+RETRY_MIN_WAIT = 2
+RETRY_MAX_WAIT = 10
+RETRY_ATTEMPTS = 3
 API_DELAY = 5.0
 
 
 # Function to parse job offers from text using the API
 class AIService:
     def __init__(self, api_key: str) -> None:
-        self.client = genai.Client(api_key=api_key)
+        self.client = genai.Client(
+            api_key=api_key,
+            http_options=types.HttpOptions(timeout=30_000),
+        )
         self._api_lock = asyncio.Lock()
         self._last_api_call = 0.0
         self._api_delay = API_DELAY
@@ -68,7 +73,7 @@ class AIService:
 
                 return response
 
-            except (ServerError, ClientError) as error:
+            except (ServerError, ClientError, TransportError) as error:
                 last_error = error
                 is_rate_limited = getattr(error, "code", None) == 429 or "429" in str(error)
                 if is_rate_limited:
@@ -85,7 +90,7 @@ class AIService:
         raise RuntimeError("No AI models configured")
 
     @retry(
-        retry=retry_if_exception_type(ServerError),
+        retry=retry_if_exception_type((ServerError, TransportError)),
         wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
         stop=stop_after_attempt(RETRY_ATTEMPTS),
     )
@@ -114,7 +119,7 @@ class AIService:
         return parsed_response.offers
 
     @retry(
-        retry=retry_if_exception_type(ServerError),
+        retry=retry_if_exception_type((ServerError, TransportError)),
         wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
         stop=stop_after_attempt(RETRY_ATTEMPTS),
     )
@@ -146,7 +151,7 @@ class AIService:
         return parsed
 
     @retry(
-        retry=retry_if_exception_type(ServerError),
+        retry=retry_if_exception_type((ServerError, TransportError)),
         wait=wait_exponential(multiplier=RETRY_MULTIPLIER, min=RETRY_MIN_WAIT, max=RETRY_MAX_WAIT),
         stop=stop_after_attempt(RETRY_ATTEMPTS),
     )

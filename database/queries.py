@@ -63,7 +63,7 @@ class QueryDB:
         with self.db._connect() as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT o.id, o.title, o.company, o.date
+                    SELECT o.id, o.title, o.company, o.date, jd.offer_id IS NOT NULL
                     FROM Offers o
                     LEFT JOIN JobDetails jd ON jd.offer_id = o.id
                     WHERE jd.offer_id IS NULL
@@ -148,11 +148,37 @@ class QueryDB:
                     ON jd.offer_id = o.id
                 WHERE jc.salary_min_offer IS NULL
                     AND jc.salary_max_offer IS NULL
+                    AND jc.salary_estimation_done IS FALSE
                     AND jd.level IS NOT NULL
                     AND jd.category IS NOT NULL
                 """)
 
                 return cursor.fetchall()
+
+    def get_job_contracts_for_offers(self, offer_ids: set[int]) -> list[tuple[Any, ...]]:
+        if not offer_ids:
+            return []
+
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    id,
+                    offer_id,
+                    contract_type,
+                    salary_currency,
+                    salary_period,
+                    salary_min_offer,
+                    salary_max_offer,
+                    salary_min_monthly,
+                    salary_max_monthly
+                FROM JobContracts
+                WHERE offer_id = ANY(%s)
+                ORDER BY offer_id, id
+                """,
+                (list(offer_ids),),
+            )
+            return cursor.fetchall()
 
     def get_all_job_details_for_migration(self) -> list[tuple[Any, ...]]:
         with self.db._connect() as conn:

@@ -10,6 +10,7 @@ from database.connection import Database
 from database.deduplication import Deduplication
 from database.inserts import InsertDB
 from database.queries import QueryDB
+from database.schema import DBSchema
 from database.updates import UpdateDB
 from modules.ai_service import AIService
 from modules.email_sources import build_email_parsers
@@ -53,16 +54,31 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
         "disabled" if skip_scrapers else "enabled",
     )
 
+    db = Database()
+    try:
+        await _run_pipeline_with_database(db, skip_scrapers=skip_scrapers)
+    finally:
+        db.close()
+
+
+async def _run_pipeline_with_database(db: Database, *, skip_scrapers: bool) -> None:
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
-    db = Database()
 
     db_insert = InsertDB(db)
     db_query = QueryDB(db)
     deduplication = Deduplication(db)
     db_update = UpdateDB(db)
+    schema = DBSchema(db)
+    logger.info("Ensuring database schema and ETL indexes")
+    schema.create_tables()
+    logger.info("Marking contracts already in Neon as legacy salary records")
+    schema.mark_legacy_salary_estimations_complete()
+    schema.create_performance_indexes()
+    logger.info("Database schema and ETL indexes are ready")
 
     offer_status = OfferStatus(db_query, db_update)
+    logger.info("Updating ended offer statuses")
     offer_status.update_ended_offers()
     filter_service = FilterService(config)
 
@@ -74,6 +90,7 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     }
 
     salary_history = SalaryHistory(db_query)
+    logger.info("Processing salary history")
     salary_history.process_history()
 
     salary_estimator = SalaryEstimator(salary_history)
@@ -113,27 +130,30 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     )
 
     offer_ids = await source_workflow.run()
+    logger.info("Normalizing offer locations")
     db_update.normalize_offer_locations()
 
+    logger.info("Starting offer classification and salary processing")
     await classification_service.process_jobs()
-    await classification_service.process_salary_estimations()
-
-    offer_ids.update(db_query.get_job_contract_offer_ids())
+    estimated_offer_ids = await classification_service.process_salary_estimations()
+    offer_ids.update(estimated_offer_ids)
     await classification_service.process_salary_selection(offer_ids)
 
     logger.info("ETL finished successfully")
 
 
 async def main() -> None:
-    skip_scrapers = False
-    while True:
+    max_attempts = 2
+    for attempt in range(max_attempts):
         try:
-            await _run_pipeline(skip_scrapers=skip_scrapers)
+            await _run_pipeline(skip_scrapers=attempt > 0)
             return
         except Exception:
-            logger.exception("ETL failed. Retrying in 90 seconds without scrapers.")
-            skip_scrapers = True
-            await asyncio.sleep(90)
+            if attempt + 1 >= max_attempts:
+                logger.exception("ETL failed after %s attempts; stopping.", max_attempts)
+                raise
+            logger.exception("ETL attempt %s failed. Retrying once in 30 seconds without scrapers.", attempt + 1)
+            await asyncio.sleep(30)
 
 
 if __name__ == "__main__":

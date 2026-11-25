@@ -1,4 +1,8 @@
+import logging
+
 from database.connection import Database
+
+logger = logging.getLogger(__name__)
 
 
 class DBSchema:
@@ -51,9 +55,16 @@ class DBSchema:
                     salary_max_offer DOUBLE PRECISION,
                     salary_min_monthly DOUBLE PRECISION,
                     salary_max_monthly DOUBLE PRECISION,
+                    salary_estimation_done BOOLEAN NOT NULL DEFAULT FALSE,
                     FOREIGN KEY (offer_id) REFERENCES Offers(id)
                 )
                 """)
+                cursor.execute(
+                    """
+                    ALTER TABLE JobContracts
+                    ADD COLUMN IF NOT EXISTS salary_estimation_done BOOLEAN NOT NULL DEFAULT FALSE
+                    """
+                )
 
     # Create the Companies table
     def create_companies_table(self) -> None:
@@ -70,3 +81,54 @@ class DBSchema:
         self.create_companies_table()
         self.create_job_details_table()
         self.create_job_contracts_table()
+
+    def mark_legacy_salary_estimations_complete(self) -> None:
+        migration_key = "job_contract_salary_estimation_new_records_only_v1"
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS ETLMigrations (
+                    migration_key TEXT PRIMARY KEY,
+                    applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                )
+                """
+            )
+            cursor.execute(
+                """
+                INSERT INTO ETLMigrations (migration_key)
+                VALUES (%s)
+                ON CONFLICT (migration_key) DO NOTHING
+                RETURNING migration_key
+                """,
+                (migration_key,),
+            )
+            if cursor.fetchone() is not None:
+                cursor.execute(
+                    """
+                    UPDATE JobContracts
+                    SET salary_estimation_done = TRUE
+                    WHERE salary_estimation_done IS FALSE
+                    """
+                )
+                logger.info(
+                    "Marked %s existing contracts as legacy; salary fields were left unchanged",
+                    cursor.rowcount,
+                )
+
+    def create_performance_indexes(self) -> None:
+        with self.db._connect() as conn, conn.cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS offers_source_duplicate_lookup_idx
+                ON Offers (date, title, company, source, id)
+                """
+            )
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS job_contracts_pending_salary_estimation_idx
+                ON JobContracts (id)
+                WHERE salary_min_offer IS NULL
+                    AND salary_max_offer IS NULL
+                    AND salary_estimation_done IS FALSE
+                """
+            )
