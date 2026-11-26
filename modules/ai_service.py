@@ -51,7 +51,9 @@ class AIService:
             if model in self._unavailable_models:
                 continue
             try:
+                logger.info("AI request starting: model=%s, prompt_chars=%s", model, len(prompt))
                 await self._wait_before_api_call()
+                started_at = time.monotonic()
 
                 response = await asyncio.to_thread(
                     self.client.models.generate_content,
@@ -64,7 +66,7 @@ class AIService:
                     },
                 )
 
-                logger.info("AI request successful with model: %s", model)
+                logger.info("AI request successful with model: %s (%.2fs)", model, time.monotonic() - started_at)
 
                 return response
 

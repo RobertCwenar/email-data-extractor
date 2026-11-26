@@ -23,11 +23,12 @@ class UpdateDB:
                 """
                 UPDATE JobContracts
                 SET contract_type = %s,
-                salary_currency = %s,
-                salary_period = %s,
-                salary_min_monthly = %s,
-                salary_max_monthly = %s
-            WHERE id = %s
+                    salary_currency = %s,
+                    salary_period = %s,
+                    salary_min_monthly = %s,
+                    salary_max_monthly = %s,
+                    salary_estimation_done = TRUE
+                WHERE id = %s
                 """,
                 (
                     contract_type,

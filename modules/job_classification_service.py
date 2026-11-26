@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 from offer import JobClassification, JobContract
@@ -22,10 +23,16 @@ class JobClassificationService:
     async def process_jobs(self) -> None:
 
         jobs = self.db_query.get_jobs_for_classification()
+        total = len(jobs)
+        logger.info("Loaded %s jobs for classification", total)
 
-        for offer_id, title, company, date in jobs:
+        for index, (offer_id, title, company, date) in enumerate(jobs, start=1):
             if not title:
+                logger.info("Skipping classification %s/%s: offer_id=%s has no title", index, total, offer_id)
                 continue
+
+            started_at = time.monotonic()
+            logger.info("Classifying job %s/%s: offer_id=%s title=%r", index, total, offer_id, title)
 
             cached = self.db_query.get_classification_by_title(title)
 
@@ -47,13 +54,25 @@ class JobClassificationService:
                     level,
                     category,
                 )
+            logger.info(
+                "Classified job %s/%s: offer_id=%s category=%s (%.2fs)",
+                index,
+                total,
+                offer_id,
+                category,
+                time.monotonic() - started_at,
+            )
 
-    async def process_salary_estimations(self) -> None:
+    async def process_salary_estimations(self, offer_ids: set[int]) -> None:
         contracts = self.db_query.get_job_contracts_for_salary_estimator()
+        contracts = [contract for contract in contracts if contract[1] in offer_ids]
 
-        logger.debug(f"Contracts for salary estimation: {len(contracts)}")
+        logger.info("Loaded %s new-offer contracts for salary estimation", len(contracts))
         with self.db_query.db._connect() as conn:
-            for contract_id, offer_id, title, company, date, level, category in contracts:
+            for index, (contract_id, offer_id, title, company, date, level, category) in enumerate(contracts, start=1):
+                logger.info(
+                    "Estimating salary %s/%s: contract_id=%s offer_id=%s", index, len(contracts), contract_id, offer_id
+                )
                 classification = JobClassification(
                     offer_id=offer_id,
                     clean_title=title,
@@ -87,10 +106,20 @@ class JobClassificationService:
                     salary_max,
                     conn,
                 )
+                logger.info(
+                    "Salary estimated %s/%s: contract_id=%s range=%s-%s",
+                    index,
+                    len(contracts),
+                    contract_id,
+                    salary_min,
+                    salary_max,
+                )
 
     async def process_salary_selection(self, offer_ids: set[int]) -> None:
+        logger.info("Opening database connection for salary selection (%s offers)", len(offer_ids))
         with self.db_query.db._connect() as conn:
-            for offer_id in offer_ids:
+            for index, offer_id in enumerate(offer_ids, start=1):
+                logger.info("Selecting salary %s/%s: offer_id=%s", index, len(offer_ids), offer_id)
                 rows = self.db_query.get_job_contracts(offer_id, conn)
 
                 contracts = []
@@ -136,3 +165,15 @@ class JobClassificationService:
                         salary_status=self.salary_processor.get_salary_status(selected_contract),
                         conn=conn,
                     )
+                if selected_contract:
+                    logger.info(
+                        "Salary selected %s/%s: offer_id=%s status=%s monthly_range=%s-%s",
+                        index,
+                        len(offer_ids),
+                        offer_id,
+                        self.salary_processor.get_salary_status(selected_contract),
+                        selected_contract.salary_min_monthly,
+                        selected_contract.salary_max_monthly,
+                    )
+                else:
+                    logger.info("No salary contract selected %s/%s: offer_id=%s", index, len(offer_ids), offer_id)

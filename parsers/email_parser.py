@@ -1,5 +1,6 @@
 import email
 import imaplib
+import logging
 from email.message import Message
 from email.utils import parsedate_to_datetime
 from typing import Any, cast
@@ -13,6 +14,8 @@ from modules.filter_service import FilterService
 from modules.processed_cache import FileCache
 from offer import JobOffer
 from parsers.salary_parser import SalaryParser
+
+logger = logging.getLogger(__name__)
 
 
 class EmailParser(BaseParser):
@@ -41,6 +44,7 @@ class EmailParser(BaseParser):
         self._pending_cache_ids.clear()
 
     def _connect(self) -> imaplib.IMAP4_SSL:
+        logger.info("Connecting to mail server %s:%s", self.email_config["host"], self.email_config["port"])
         mail = imaplib.IMAP4_SSL(
             self.email_config["host"],
             self.email_config["port"],
@@ -49,6 +53,7 @@ class EmailParser(BaseParser):
             self.email_config["user"],
             self.email_config["password"],
         )
+        logger.info("Authenticated to mail server; folder=%s", self.folder_name)
         return mail
 
     def _get_mail_ids(self, mail: imaplib.IMAP4_SSL) -> list[bytes]:
@@ -96,10 +101,20 @@ class EmailParser(BaseParser):
     async def fetch_offers(self) -> list[tuple[JobOffer, str, str]]:
         offers_result: list[tuple[JobOffer, str, str]] = []
 
+        logger.info("Connecting to fetch unseen email offers: source=%s", self.source)
         mail = self._connect()
+        logger.info("Selecting folder and searching unseen messages: source=%s", self.source)
         mail_ids = self._get_mail_ids(mail)
+        logger.info("Found %s unseen messages: source=%s", len(mail_ids), self.source)
 
-        for mail_id in mail_ids:
+        for index, mail_id in enumerate(mail_ids, start=1):
+            logger.info(
+                "Fetching message %s/%s: source=%s id=%s",
+                index,
+                len(mail_ids),
+                self.source,
+                mail_id.decode(errors="replace"),
+            )
             cache_id = mail_id.decode()
 
             if self.cache.contains(cache_id):
@@ -116,6 +131,7 @@ class EmailParser(BaseParser):
             text = self._html_to_text(html)
 
             offers = await self.ai.parser_offers_api(text)
+            logger.info("Extracted %s offers from message %s/%s", len(offers), index, len(mail_ids))
 
             mail_date = parsedate_to_datetime(msg["Date"]).date().isoformat()
 
@@ -131,5 +147,7 @@ class EmailParser(BaseParser):
                 offers_result.append((offer, offer_text, cache_id))
 
             self._pending_cache_ids.add(cache_id)
+        logger.info("Logging out from mail server: source=%s", self.source)
         mail.logout()
+        logger.info("Email fetch finished: source=%s offers=%s", self.source, len(offers_result))
         return offers_result

@@ -42,22 +42,28 @@ class OfferSourceWorkflow:
         self.ai = ai
         self.salary_processor = salary_processor
         self.offline_scrapers = offline_scrapers
+        self.new_offer_ids: set[int] = set()
 
     async def run(self) -> set[int]:
         batches: list[OfferBatch] = []
         for parser in self.email_parsers:
-            logger.info("Processing source: %s", parser.source)
+            logger.info("Processing email source: %s", parser.source)
             offers = await parser.fetch_offers()
+            logger.info("Email source %s returned %s offers", parser.source, len(offers))
             batches.append(("email", parser.source, offers))
         for scraper in self.scrapers:
             try:
+                logger.info("Starting scraper: %s (offline=%s)", scraper.__class__.__name__, self.offline_scrapers)
                 if self.offline_scrapers:
+                    logger.info("Loading saved offers: %s", scraper.__class__.__name__)
                     records = await asyncio.to_thread(scraper.load_saved_offers)
                 else:
+                    logger.info("Running scraper: %s", scraper.__class__.__name__)
                     newly_scraped = await asyncio.to_thread(scraper.run_scraper)
+                    logger.info("Scraper finished: %s; loading saved offers", scraper.__class__.__name__)
                     saved_records = await asyncio.to_thread(scraper.load_saved_offers)
                     records = saved_records if isinstance(saved_records, list) and saved_records else newly_scraped
-                logger.info("Loaded %s offers from %s", len(records), scraper.__class__.__name__)
+                logger.info("Scraper load finished: %s offers from %s", len(records), scraper.__class__.__name__)
                 batches.append(("scraper", getattr(scraper, "source", "scraper"), records))
             except Exception:
                 logger.exception("Scraper failed: %s; loading its saved output", scraper.__class__.__name__)
@@ -68,9 +74,11 @@ class OfferSourceWorkflow:
                     logger.exception("Could not load saved output for %s", scraper.__class__.__name__)
 
         offer_ids: set[int] = set()
+        self.new_offer_ids = set()
 
         for source_kind, source_name, offers in batches:
-            for item in offers:
+            logger.info("Processing batch: source=%s kind=%s offers=%s", source_name, source_kind, len(offers))
+            for index, item in enumerate(offers, start=1):
                 if isinstance(item, dict):
                     record: ScraperRecord = item
                     offer = scraper_record_to_offer(record)
@@ -81,6 +89,7 @@ class OfferSourceWorkflow:
                 if not self.filter_service.should_save(offer):
                     continue
 
+                logger.info("Offer %s/%s: checking duplicate: %s | %s", index, len(offers), offer.title, offer.company)
                 same_source_duplicate_id = self.db_query.find_same_source_duplicate_id(offer, source_name)
                 if isinstance(same_source_duplicate_id, int):
                     offer_id = same_source_duplicate_id
@@ -88,18 +97,25 @@ class OfferSourceWorkflow:
                         offer_ids.add(offer_id)
                         logger.info("Skipping already persisted offer: %s | %s", offer.title, offer.company)
                         continue
+                    logger.info(
+                        "Completing existing offer without contract: offer_id=%s title=%s", offer_id, offer.title
+                    )
                 else:
+                    logger.info("Offer %s/%s: calculating status: %s", index, len(offers), offer.title)
                     offer.offer_status = self.offer_status.get_offer_status(offer)
+                    logger.info("Offer %s/%s: saving offer: %s", index, len(offers), offer.title)
                     saved_offer_id = self.db_insert.save_offers(offer, source=source_name)
                     if saved_offer_id is None:
                         continue
                     offer_id = saved_offer_id
+                    self.new_offer_ids.add(offer_id)
 
                 offer_ids.add(offer_id)
 
                 if isinstance(item, dict):
                     contracts = [scraper_record_to_contract(item)]
                 else:
+                    logger.info("Offer %s/%s: validating salary with AI: %s", index, len(offers), offer.title)
                     contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
 
                 if not contracts:
@@ -115,11 +131,15 @@ class OfferSourceWorkflow:
                         )
 
                     self.salary_processor.normalize_salary(contract)
+                    logger.info("Offer %s/%s: saving contract for offer_id=%s", index, len(offers), offer_id)
                     self.db_insert.save_job_contract(contract)
+
+                logger.info("Offer %s/%s processed: offer_id=%s", index, len(offers), offer_id)
 
         for parser in self.email_parsers:
             commit_processed_messages = getattr(parser, "commit_processed_messages", None)
             if callable(commit_processed_messages):
+                logger.info("Committing processed-message cache: %s", parser.source)
                 commit_processed_messages()
 
         return offer_ids

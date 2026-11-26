@@ -52,6 +52,7 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
         "ETL started (scrapers=%s)",
         "disabled" if skip_scrapers else "enabled",
     )
+    logger.info("Initializing AI and database services")
 
     api_key = os.getenv("KEY_API", "").strip()
     ai = AIService(api_key)
@@ -63,7 +64,9 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     db_update = UpdateDB(db)
 
     offer_status = OfferStatus(db_query, db_update)
+    logger.info("Updating ended offer statuses")
     offer_status.update_ended_offers()
+    logger.info("Ended offer statuses updated")
     filter_service = FilterService(config)
 
     email_config = {
@@ -74,7 +77,11 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     }
 
     salary_history = SalaryHistory(db_query)
+    logger.info("Processing salary history")
     salary_history.process_history()
+    logger.info(
+        "Salary history processed: %s records, %s groups", len(salary_history.history), len(salary_history.statistics)
+    )
 
     salary_estimator = SalaryEstimator(salary_history)
     salary_processor = SalaryProcessor()
@@ -113,13 +120,26 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
     )
 
     offer_ids = await source_workflow.run()
+    new_offer_ids = source_workflow.new_offer_ids
+    logger.info(
+        "Offer source workflow finished: %s seen offer IDs, %s newly inserted offers",
+        len(offer_ids),
+        len(new_offer_ids),
+    )
+    logger.info("Normalizing offer locations")
     db_update.normalize_offer_locations()
+    logger.info("Offer locations normalized")
 
+    logger.info("Starting job classification")
     await classification_service.process_jobs()
-    await classification_service.process_salary_estimations()
+    logger.info("Job classification finished")
+    logger.info("Starting salary estimations")
+    await classification_service.process_salary_estimations(new_offer_ids)
+    logger.info("Salary estimations finished")
 
-    offer_ids.update(db_query.get_job_contract_offer_ids())
-    await classification_service.process_salary_selection(offer_ids)
+    logger.info("Starting salary selection for %s newly added offers", len(new_offer_ids))
+    await classification_service.process_salary_selection(new_offer_ids)
+    logger.info("Salary selection finished")
 
     logger.info("ETL finished successfully")
 
