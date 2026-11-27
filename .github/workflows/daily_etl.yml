@@ -2,8 +2,7 @@ name: Daily job offer ETL
 
 on:
   schedule:
-    - cron: "37 13 27 11 *"
-      timezone: "Europe/Warsaw"
+    - cron: "37 13 * * *"
   workflow_dispatch:
 
 permissions:
