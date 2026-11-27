@@ -25,3 +25,27 @@ def test_duplicate_lookup_is_limited_to_date_and_source():
     assert "company = %s" in query
     assert "source = %s" in query
     assert parameters == ("2026-10-19", "Data Analyst", "Acme", "scraper_linkedin")
+
+
+def test_batch_duplicate_lookup_returns_offer_id_and_contract_status():
+    db = MagicMock()
+    cursor = db._connect.return_value.__enter__.return_value.cursor.return_value
+    cursor.fetchall.return_value = [
+        ("2026-10-19", "Data Analyst", "Acme", 27, True),
+    ]
+
+    deduplication = Deduplication(db)
+
+    offer = JobOffer(
+        title="Data Analyst",
+        company="Acme",
+        location="Warsaw",
+        date="2026-10-19",
+    )
+
+    result = deduplication.find_same_source_duplicates_batch(
+        [offer],
+        "scraper_linkedin",
+    )
+
+    assert result == {("2026-10-19", "Data Analyst", "Acme", "scraper_linkedin"): (27, True)}

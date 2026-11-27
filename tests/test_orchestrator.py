@@ -141,7 +141,7 @@ async def test_main_runs_real_scraper_classes_with_mocked_page_fetches(tmp_path,
     mock_db_query.get_offers_for_status.return_value = []
     mock_db_query.get_salary_history.return_value = []
     mock_db_query.get_job_contract_offer_ids.return_value = []
-    mock_db_query.find_same_source_duplicate_id.return_value = None
+    mock_db_query.find_same_source_duplicates_batch.return_value = {}
 
     mock_filter = MagicMock()
     mock_filter.should_save.return_value = True

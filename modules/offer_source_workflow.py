@@ -78,44 +78,99 @@ class OfferSourceWorkflow:
 
         for source_kind, source_name, offers in batches:
             logger.info("Processing batch: source=%s kind=%s offers=%s", source_name, source_kind, len(offers))
+
+            filtered_offers = []
+
             for index, item in enumerate(offers, start=1):
                 if isinstance(item, dict):
-                    record: ScraperRecord = item
-                    offer = scraper_record_to_offer(record)
+                    offer = scraper_record_to_offer(item)
                     offer_text = ""
                 else:
                     offer, offer_text, _cache_id = item
 
-                if not self.filter_service.should_save(offer):
-                    continue
+                if self.filter_service.should_save(offer):
+                    filtered_offers.append((index, item, offer, offer_text))
 
-                logger.info("Offer %s/%s: checking duplicate: %s | %s", index, len(offers), offer.title, offer.company)
-                same_source_duplicate_id = self.db_query.find_same_source_duplicate_id(offer, source_name)
-                if isinstance(same_source_duplicate_id, int):
-                    offer_id = same_source_duplicate_id
-                    if self.db_query.has_job_contract(offer_id):
+            if not filtered_offers:
+                continue
+
+            batch_duplicates = self.db_query.find_same_source_duplicates_batch(
+                [offer for _, _, offer, _ in filtered_offers],
+                source_name,
+            )
+
+            for index, item, offer, offer_text in filtered_offers:
+                logger.info(
+                    "Offer %s/%s: checking duplicate: %s | %s",
+                    index,
+                    len(offers),
+                    offer.title,
+                    offer.company,
+                )
+
+                duplicate_key = (
+                    offer.date,
+                    offer.title,
+                    offer.company,
+                    source_name,
+                )
+
+                duplicate_data = batch_duplicates.get(duplicate_key)
+
+                if duplicate_data is not None:
+                    offer_id, has_contract = duplicate_data
+
+                    if has_contract:
                         offer_ids.add(offer_id)
-                        logger.info("Skipping already persisted offer: %s | %s", offer.title, offer.company)
+                        logger.info(
+                            "Skipping already persisted offer: %s | %s",
+                            offer.title,
+                            offer.company,
+                        )
                         continue
+
                     logger.info(
-                        "Completing existing offer without contract: offer_id=%s title=%s", offer_id, offer.title
+                        "Completing existing offer without contract: offer_id=%s title=%s",
+                        offer_id,
+                        offer.title,
                     )
+
                 else:
-                    logger.info("Offer %s/%s: calculating status: %s", index, len(offers), offer.title)
+                    logger.info(
+                        "Offer %s/%s: calculating status: %s",
+                        index,
+                        len(offers),
+                        offer.title,
+                    )
                     offer.offer_status = self.offer_status.get_offer_status(offer)
-                    logger.info("Offer %s/%s: saving offer: %s", index, len(offers), offer.title)
+
+                    logger.info(
+                        "Offer %s/%s: saving offer: %s",
+                        index,
+                        len(offers),
+                        offer.title,
+                    )
                     saved_offer_id = self.db_insert.save_offers(offer, source=source_name)
+
                     if saved_offer_id is None:
                         continue
+
                     offer_id = saved_offer_id
                     self.new_offer_ids.add(offer_id)
+
+                    batch_duplicates[duplicate_key] = (offer_id, False)
 
                 offer_ids.add(offer_id)
 
                 if isinstance(item, dict):
                     contracts = [scraper_record_to_contract(item)]
                 else:
-                    logger.info("Offer %s/%s: validating salary with AI: %s", index, len(offers), offer.title)
+                    logger.info(
+                        "Offer %s/%s: validating salary with AI: %s",
+                        index,
+                        len(offers),
+                        offer.title,
+                    )
                     contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
 
                 if not contracts:
@@ -131,10 +186,23 @@ class OfferSourceWorkflow:
                         )
 
                     self.salary_processor.normalize_salary(contract)
-                    logger.info("Offer %s/%s: saving contract for offer_id=%s", index, len(offers), offer_id)
+
+                    logger.info(
+                        "Offer %s/%s: saving contract for offer_id=%s",
+                        index,
+                        len(offers),
+                        offer_id,
+                    )
                     self.db_insert.save_job_contract(contract)
 
-                logger.info("Offer %s/%s processed: offer_id=%s", index, len(offers), offer_id)
+                batch_duplicates[duplicate_key] = (offer_id, True)
+
+                logger.info(
+                    "Offer %s/%s processed: offer_id=%s",
+                    index,
+                    len(offers),
+                    offer_id,
+                )
 
         for parser in self.email_parsers:
             commit_processed_messages = getattr(parser, "commit_processed_messages", None)

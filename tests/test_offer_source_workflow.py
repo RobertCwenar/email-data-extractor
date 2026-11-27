@@ -8,8 +8,7 @@ from offer import JobContract, JobOffer
 
 def make_workflow(*, email_parsers=None, scrapers=None, offline_scrapers=False):
     db_query = MagicMock()
-    db_query.find_same_source_duplicate_id.return_value = None
-    db_query.has_job_contract.return_value = False
+    db_query.find_same_source_duplicates_batch.return_value = {}
     db_insert = MagicMock()
     db_insert.save_offers.return_value = 42
     filter_service = MagicMock()
@@ -45,7 +44,7 @@ async def test_filtered_offer_is_not_deduplicated_or_saved():
     result = await workflow.run()
 
     assert result == set()
-    db_query.find_same_source_duplicate_id.assert_not_called()
+    db_query.find_same_source_duplicates_batch.assert_not_called()
     db_insert.save_offers.assert_not_called()
     ai.validate_salary_api.assert_not_awaited()
 
@@ -60,7 +59,10 @@ async def test_offer_is_deduplicated_only_against_its_exact_source():
     result = await workflow.run()
 
     assert result == {42}
-    db_query.find_same_source_duplicate_id.assert_called_once_with(offer, "RocketJobs")
+    db_query.find_same_source_duplicates_batch.assert_called_once_with(
+        [offer],
+        "RocketJobs",
+    )
     db_insert.save_offers.assert_called_once_with(offer, source="RocketJobs")
     ai.validate_salary_api.assert_awaited_once_with("offer text")
 
@@ -115,8 +117,8 @@ async def test_scraper_offer_keeps_scraper_contract_and_skips_ai_validation():
     result = await workflow.run()
 
     assert result == {42}
-    same_source_args = db_query.find_same_source_duplicate_id.call_args.args
-    assert same_source_args[0].title == "Engineer"
+    same_source_args = db_query.find_same_source_duplicates_batch.call_args.args
+    assert same_source_args[0][0].title == "Engineer"
     assert same_source_args[1] == "scraper_linkedin"
     contract = db_insert.save_job_contract.call_args.args[0]
     assert contract.offer_id == 42
@@ -146,8 +148,10 @@ async def test_successful_scrape_ingests_existing_saved_offers_when_no_new_recor
     assert result == {42}
     scraper.run_scraper.assert_called_once_with()
     scraper.load_saved_offers.assert_called_once_with()
-    db_query.find_same_source_duplicate_id.assert_called_once()
-    assert db_query.find_same_source_duplicate_id.call_args.args[1] == "scraper_justjoinit"
+    args = db_query.find_same_source_duplicates_batch.call_args.args
+    assert len(args[0]) == 1
+    assert args[0][0].title == "Data Analyst"
+    assert args[1] == "scraper_justjoinit"
     db_insert.save_offers.assert_called_once()
     assert db_insert.save_offers.call_args.args[0].title == "Data Analyst"
     assert db_insert.save_offers.call_args.kwargs == {"source": "scraper_justjoinit"}
@@ -160,8 +164,11 @@ async def test_existing_same_source_offer_with_contract_is_not_inserted_again():
     parser = MagicMock(source="RocketJobs")
     parser.fetch_offers = AsyncMock(return_value=[(offer, "offer text", "cache-1")])
     workflow, db_query, db_insert, _, _, ai, _ = make_workflow(email_parsers=[parser])
-    db_query.find_same_source_duplicate_id.return_value = 42
-    db_query.has_job_contract.return_value = True
+    offer.date = "2026-11-27"
+
+    db_query.find_same_source_duplicates_batch.return_value = {
+        ("2026-11-27", "Analyst", "Acme", "RocketJobs"): (42, True)
+    }
 
     result = await workflow.run()
 
@@ -177,8 +184,11 @@ async def test_existing_same_source_offer_without_contract_is_completed_in_place
     parser = MagicMock(source="RocketJobs")
     parser.fetch_offers = AsyncMock(return_value=[(offer, "offer text", "cache-1")])
     workflow, db_query, db_insert, _, _, ai, _ = make_workflow(email_parsers=[parser])
-    db_query.find_same_source_duplicate_id.return_value = 42
-    db_query.has_job_contract.return_value = False
+    offer.date = "2026-11-27"
+
+    db_query.find_same_source_duplicates_batch.return_value = {
+        ("2026-11-27", "Analyst", "Acme", "RocketJobs"): (42, False)
+    }
 
     result = await workflow.run()
 
