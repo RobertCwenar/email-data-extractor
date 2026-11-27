@@ -43,7 +43,7 @@ class TheProtocolScraper(BaseScraper):
                         wait_until="domcontentloaded",
                         timeout=60000,
                     )
-                    logger.info(
+                    logger.debug(
                         "theprotocol.it HTTP status: %s",
                         response.status if response else None,
                     )
@@ -100,7 +100,7 @@ class TheProtocolScraper(BaseScraper):
                                 index,
                             )
 
-                    logger.info(
+                    logger.debug(
                         "theprotocol.it offers retrieved: %s",
                         len(offers),
                     )

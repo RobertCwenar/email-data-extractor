@@ -31,10 +31,10 @@ class Scraper(BaseScraper):
 
             page = browser.new_page()
             response = page.goto(url, wait_until="commit", timeout=30000)
-            logger.info("Pracuj.pl HTTP status: %s", response.status if response else None)
+            logger.debug("Pracuj.pl HTTP status: %s", response.status if response else None)
             page.wait_for_timeout(5000)
             cards = page.locator(PRACUJ_CARD_SELECTOR)
-            logger.info("Number of offer cards on the page: %s", cards.count())
+            logger.debug("Number of offer cards on the page: %s", cards.count())
             offers: list[dict[str, Any]] = []
 
             for card in cards.all():

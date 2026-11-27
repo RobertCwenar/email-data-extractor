@@ -139,7 +139,6 @@ async def _run_pipeline(*, skip_scrapers: bool = False) -> None:
 
     logger.info("Starting salary selection for %s newly added offers", len(new_offer_ids))
     await classification_service.process_salary_selection(new_offer_ids)
-    logger.info("Salary selection finished")
 
     logger.info("ETL finished successfully")
 

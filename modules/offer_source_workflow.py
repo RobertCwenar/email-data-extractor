@@ -53,17 +53,17 @@ class OfferSourceWorkflow:
             batches.append(("email", parser.source, offers))
         for scraper in self.scrapers:
             try:
-                logger.info("Starting scraper: %s (offline=%s)", scraper.__class__.__name__, self.offline_scrapers)
+                logger.debug("Starting scraper: %s (offline=%s)", scraper.__class__.__name__, self.offline_scrapers)
                 if self.offline_scrapers:
-                    logger.info("Loading saved offers: %s", scraper.__class__.__name__)
+                    logger.debug("Loading saved offers: %s", scraper.__class__.__name__)
                     records = await asyncio.to_thread(scraper.load_saved_offers)
                 else:
-                    logger.info("Running scraper: %s", scraper.__class__.__name__)
+                    logger.debug("Running scraper: %s", scraper.__class__.__name__)
                     newly_scraped = await asyncio.to_thread(scraper.run_scraper)
-                    logger.info("Scraper finished: %s; loading saved offers", scraper.__class__.__name__)
+                    logger.debug("Scraper finished: %s; loading saved offers", scraper.__class__.__name__)
                     saved_records = await asyncio.to_thread(scraper.load_saved_offers)
                     records = saved_records if isinstance(saved_records, list) and saved_records else newly_scraped
-                logger.info("Scraper load finished: %s offers from %s", len(records), scraper.__class__.__name__)
+                logger.debug("Scraper load finished: %s offers from %s", len(records), scraper.__class__.__name__)
                 batches.append(("scraper", getattr(scraper, "source", "scraper"), records))
             except Exception:
                 logger.exception("Scraper failed: %s; loading its saved output", scraper.__class__.__name__)
@@ -100,14 +100,6 @@ class OfferSourceWorkflow:
             )
 
             for index, item, offer, offer_text in filtered_offers:
-                logger.info(
-                    "Offer %s/%s: checking duplicate: %s | %s",
-                    index,
-                    len(offers),
-                    offer.title,
-                    offer.company,
-                )
-
                 duplicate_key = (
                     offer.date,
                     offer.title,
@@ -122,34 +114,16 @@ class OfferSourceWorkflow:
 
                     if has_contract:
                         offer_ids.add(offer_id)
-                        logger.info(
+                        logger.debug(
                             "Skipping already persisted offer: %s | %s",
                             offer.title,
                             offer.company,
                         )
                         continue
 
-                    logger.info(
-                        "Completing existing offer without contract: offer_id=%s title=%s",
-                        offer_id,
-                        offer.title,
-                    )
-
                 else:
-                    logger.info(
-                        "Offer %s/%s: calculating status: %s",
-                        index,
-                        len(offers),
-                        offer.title,
-                    )
                     offer.offer_status = self.offer_status.get_offer_status(offer)
 
-                    logger.info(
-                        "Offer %s/%s: saving offer: %s",
-                        index,
-                        len(offers),
-                        offer.title,
-                    )
                     saved_offer_id = self.db_insert.save_offers(offer, source=source_name)
 
                     if saved_offer_id is None:
@@ -165,12 +139,6 @@ class OfferSourceWorkflow:
                 if isinstance(item, dict):
                     contracts = [scraper_record_to_contract(item)]
                 else:
-                    logger.info(
-                        "Offer %s/%s: validating salary with AI: %s",
-                        index,
-                        len(offers),
-                        offer.title,
-                    )
                     contracts = await self.ai.validate_salary_api(offer_text) if offer_text else []
 
                 if not contracts:
@@ -187,22 +155,9 @@ class OfferSourceWorkflow:
 
                     self.salary_processor.normalize_salary(contract)
 
-                    logger.info(
-                        "Offer %s/%s: saving contract for offer_id=%s",
-                        index,
-                        len(offers),
-                        offer_id,
-                    )
                     self.db_insert.save_job_contract(contract)
 
                 batch_duplicates[duplicate_key] = (offer_id, True)
-
-                logger.info(
-                    "Offer %s/%s processed: offer_id=%s",
-                    index,
-                    len(offers),
-                    offer_id,
-                )
 
         for parser in self.email_parsers:
             commit_processed_messages = getattr(parser, "commit_processed_messages", None)

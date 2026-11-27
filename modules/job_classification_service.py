@@ -28,11 +28,11 @@ class JobClassificationService:
 
         for index, (offer_id, title, company, date) in enumerate(jobs, start=1):
             if not title:
-                logger.info("Skipping classification %s/%s: offer_id=%s has no title", index, total, offer_id)
+                logger.debug("Skipping classification %s/%s: offer_id=%s has no title", index, total, offer_id)
                 continue
 
             started_at = time.monotonic()
-            logger.info("Classifying job %s/%s: offer_id=%s title=%r", index, total, offer_id, title)
+            logger.debug("Classifying job %s/%s: offer_id=%s title=%r", index, total, offer_id, title)
 
             cached = self.db_query.get_classification_by_title(title)
 
@@ -54,7 +54,7 @@ class JobClassificationService:
                     level,
                     category,
                 )
-            logger.info(
+            logger.debug(
                 "Classified job %s/%s: offer_id=%s category=%s (%.2fs)",
                 index,
                 total,
@@ -70,7 +70,7 @@ class JobClassificationService:
         logger.info("Loaded %s new-offer contracts for salary estimation", len(contracts))
         with self.db_query.db._connect() as conn:
             for index, (contract_id, offer_id, title, company, date, level, category) in enumerate(contracts, start=1):
-                logger.info(
+                logger.debug(
                     "Estimating salary %s/%s: contract_id=%s offer_id=%s", index, len(contracts), contract_id, offer_id
                 )
                 classification = JobClassification(
@@ -106,7 +106,7 @@ class JobClassificationService:
                     salary_max,
                     conn,
                 )
-                logger.info(
+                logger.debug(
                     "Salary estimated %s/%s: contract_id=%s range=%s-%s",
                     index,
                     len(contracts),
@@ -116,10 +116,10 @@ class JobClassificationService:
                 )
 
     async def process_salary_selection(self, offer_ids: set[int]) -> None:
-        logger.info("Opening database connection for salary selection (%s offers)", len(offer_ids))
+        logger.debug("Opening database connection for salary selection (%s offers)", len(offer_ids))
         with self.db_query.db._connect() as conn:
             for index, offer_id in enumerate(offer_ids, start=1):
-                logger.info("Selecting salary %s/%s: offer_id=%s", index, len(offer_ids), offer_id)
+                logger.debug("Selecting salary %s/%s: offer_id=%s", index, len(offer_ids), offer_id)
                 rows = self.db_query.get_job_contracts(offer_id, conn)
 
                 contracts = []
@@ -166,7 +166,7 @@ class JobClassificationService:
                         conn=conn,
                     )
                 if selected_contract:
-                    logger.info(
+                    logger.debug(
                         "Salary selected %s/%s: offer_id=%s status=%s monthly_range=%s-%s",
                         index,
                         len(offer_ids),
@@ -176,4 +176,4 @@ class JobClassificationService:
                         selected_contract.salary_max_monthly,
                     )
                 else:
-                    logger.info("No salary contract selected %s/%s: offer_id=%s", index, len(offer_ids), offer_id)
+                    logger.debug("No salary contract selected %s/%s: offer_id=%s", index, len(offer_ids), offer_id)

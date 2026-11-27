@@ -100,7 +100,7 @@ class LinkedInScraper(BaseScraper):
             )
             if current_keys - previous_keys:
                 stable_rounds = 0
-                logger.info("Loaded additional LinkedIn offers: %s", len(current_keys))
+                logger.debug("Loaded additional LinkedIn offers: %s", len(current_keys))
             else:
                 stable_rounds += 1
 
@@ -149,7 +149,7 @@ class LinkedInScraper(BaseScraper):
                         if key is not None:
                             seen_keys.add(key)
 
-                logger.info(
+                logger.debug(
                     "LinkedIn page %s: cards=%s, unique offers collected=%s",
                     page_number,
                     len(page_offers),

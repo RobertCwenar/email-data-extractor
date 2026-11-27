@@ -34,7 +34,7 @@ class JustJoinScraper(BaseScraper):
             page = browser.new_page(viewport={"width": 1440, "height": 1200})
 
             try:
-                logger.info("Opening JustJoin.it: %s", url)
+                logger.debug("Opening JustJoin.it: %s", url)
 
                 page.goto(
                     url,
@@ -44,9 +44,9 @@ class JustJoinScraper(BaseScraper):
 
                 cards = page.locator(JUSTJOIN_CARD_SELECTOR)
                 cards.first.wait_for(state="attached", timeout=30000)
-                logger.info("JustJoin.it URL: %s", page.url)
-                logger.info("JustJoin.it title: %s", page.title())
-                logger.info("JustJoin.it cards found: %s", cards.count())
+                logger.debug("JustJoin.it URL: %s", page.url)
+                logger.debug("JustJoin.it title: %s", page.title())
+                logger.debug("JustJoin.it cards found: %s", cards.count())
 
                 offers = []
                 seen_urls = set()

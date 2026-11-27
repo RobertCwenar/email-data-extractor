@@ -44,7 +44,7 @@ class EmailParser(BaseParser):
         self._pending_cache_ids.clear()
 
     def _connect(self) -> imaplib.IMAP4_SSL:
-        logger.info("Connecting to mail server %s:%s", self.email_config["host"], self.email_config["port"])
+        logger.debug("Connecting to mail server %s:%s", self.email_config["host"], self.email_config["port"])
         mail = imaplib.IMAP4_SSL(
             self.email_config["host"],
             self.email_config["port"],
@@ -53,7 +53,7 @@ class EmailParser(BaseParser):
             self.email_config["user"],
             self.email_config["password"],
         )
-        logger.info("Authenticated to mail server; folder=%s", self.folder_name)
+        logger.debug("Authenticated to mail server; folder=%s", self.folder_name)
         return mail
 
     def _get_mail_ids(self, mail: imaplib.IMAP4_SSL) -> list[bytes]:
@@ -101,14 +101,14 @@ class EmailParser(BaseParser):
     async def fetch_offers(self) -> list[tuple[JobOffer, str, str]]:
         offers_result: list[tuple[JobOffer, str, str]] = []
 
-        logger.info("Connecting to fetch unseen email offers: source=%s", self.source)
+        logger.debug("Connecting to fetch unseen email offers: source=%s", self.source)
         mail = self._connect()
-        logger.info("Selecting folder and searching unseen messages: source=%s", self.source)
+        logger.debug("Selecting folder and searching unseen messages: source=%s", self.source)
         mail_ids = self._get_mail_ids(mail)
-        logger.info("Found %s unseen messages: source=%s", len(mail_ids), self.source)
+        logger.debug("Found %s unseen messages: source=%s", len(mail_ids), self.source)
 
         for index, mail_id in enumerate(mail_ids, start=1):
-            logger.info(
+            logger.debug(
                 "Fetching message %s/%s: source=%s id=%s",
                 index,
                 len(mail_ids),
@@ -147,7 +147,7 @@ class EmailParser(BaseParser):
                 offers_result.append((offer, offer_text, cache_id))
 
             self._pending_cache_ids.add(cache_id)
-        logger.info("Logging out from mail server: source=%s", self.source)
+        logger.debug("Logging out from mail server: source=%s", self.source)
         mail.logout()
         logger.info("Email fetch finished: source=%s offers=%s", self.source, len(offers_result))
         return offers_result

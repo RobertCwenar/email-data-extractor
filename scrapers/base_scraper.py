@@ -33,8 +33,8 @@ class BaseScraper:
 
     def run_scraper(self) -> list[dict[str, Any]]:
         offers: list[dict[str, Any]] = []
-        logger.info("Scraper URLs: %s", self.urls)
-        logger.info("Scraper URLs count: %s", len(self.urls))
+        logger.debug("Scraper URLs: %s", self.urls)
+        logger.debug("Scraper URLs count: %s", len(self.urls))
 
         for url in self.urls:
             page_offers = self.get_offers_from_page(url)
@@ -117,7 +117,7 @@ class BaseScraper:
             except Exception:
                 logger.exception("Ignoring invalid saved scraper record in %s", output_path)
 
-        logger.info("Loaded %s saved offers from %s without scraping", len(offers), output_path)
+        logger.debug("Loaded %s saved offers from %s without scraping", len(offers), output_path)
         return offers
 
     def _output_path(self) -> Path:

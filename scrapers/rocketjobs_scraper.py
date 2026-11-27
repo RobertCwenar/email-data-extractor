@@ -30,7 +30,7 @@ class RocketJobsScraper(BaseScraper):
                 page = browser.new_page(viewport={"width": 1440, "height": 1200})
 
                 response = page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                logger.info("RocketJobs HTTP status: %s", response.status if response else None)
+                logger.debug("RocketJobs HTTP status: %s", response.status if response else None)
                 if response and response.status >= 400:
                     raise RuntimeError(f"RocketJobs returned HTTP {response.status}: {url}")
 
@@ -49,7 +49,7 @@ class RocketJobsScraper(BaseScraper):
                     previous_count = current_count
 
                 cards = page.locator(ROCKETJOBS_CARD_SELECTOR)
-                logger.info("RocketJobs cards found: %s", cards.count())
+                logger.debug("RocketJobs cards found: %s", cards.count())
                 offers: list[dict[str, Any]] = []
                 seen_urls: set[str] = set()
                 for index, link in enumerate(cards.all(), start=1):
@@ -68,7 +68,7 @@ class RocketJobsScraper(BaseScraper):
                     except Exception:
                         logger.exception("RocketJobs: failed to process card %s", index)
 
-                logger.info("RocketJobs offers retrieved: %s", len(offers))
+                logger.debug("RocketJobs offers retrieved: %s", len(offers))
                 browser.close()
                 return offers
         except Exception:
